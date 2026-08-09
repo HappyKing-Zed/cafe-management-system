@@ -53,6 +53,9 @@ export class PurchaseOrder {
   @Column({ nullable: true })
   approvedById: number;
 
+  @Column({ nullable: true })
+  branchId: number;
+
   @OneToMany(() => PurchaseOrderItem, (item) => item.purchaseOrder, { cascade: true, eager: true })
   items: PurchaseOrderItem[];
 }

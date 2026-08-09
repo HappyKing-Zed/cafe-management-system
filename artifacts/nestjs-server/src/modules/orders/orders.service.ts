@@ -19,11 +19,12 @@ export class OrdersService {
     @InjectRepository(User) private userRepo: Repository<User>,
   ) {}
 
-  findAll(status?: OrderStatus, tableId?: number, waiterId?: number) {
+  findAll(status?: OrderStatus, tableId?: number, waiterId?: number, branchId?: number) {
     const where: any = {};
     if (status) where.status = status;
     if (tableId) where.tableId = tableId;
     if (waiterId) where.waiterId = waiterId;
+    if (branchId) where.branchId = branchId;
     return this.orderRepo.find({
       where,
       relations: ['table', 'waiter', 'items', 'items.menuItem'],
@@ -40,10 +41,13 @@ export class OrdersService {
     return o;
   }
 
-  /** Waiters may only access their own orders; all other roles pass through. */
-  private assertCanAccess(order: Order, user?: { id: number; role: string }) {
+  /** Waiters may only access their own orders; branch staff only their branch's orders. */
+  private assertCanAccess(order: Order, user?: { id: number; role: string; branchId?: number }) {
     if (user?.role === 'waiter' && order.waiterId !== user.id) {
       throw new ForbiddenException('You can only access your own orders');
+    }
+    if (user && !['admin', 'owner'].includes(user.role) && user.branchId && order.branchId && order.branchId !== user.branchId) {
+      throw new ForbiddenException('This order belongs to another branch');
     }
   }
 
@@ -53,16 +57,24 @@ export class OrdersService {
     return order;
   }
 
-  async create(data: { tableId?: number; waiterId?: number; notes?: string; customerName?: string; guestCount?: number; items?: Array<{ menuItemId: number; quantity: number; notes?: string }> }) {
+  async create(data: { tableId?: number; waiterId?: number; notes?: string; customerName?: string; guestCount?: number; items?: Array<{ menuItemId: number; quantity: number; notes?: string }> }, creator?: { id: number; role: string; branchId?: number }) {
     if (data.waiterId) {
       const waiter = await this.userRepo.findOne({ where: { id: data.waiterId } });
       if (!waiter || waiter.role !== ('waiter' as any) || !waiter.isActive) {
         throw new BadRequestException('waiterId must reference an active waiter');
       }
     }
+    // Tag the order with its branch: from the table if set, otherwise from the creator
+    let branchId: number | undefined = creator?.branchId || undefined;
+    if (data.tableId) {
+      const table = await this.tableRepo.findOne({ where: { id: data.tableId } });
+      if (table?.branchId) branchId = table.branchId;
+    }
+
     const order = this.orderRepo.create({
       tableId: data.tableId,
       waiterId: data.waiterId,
+      branchId,
       notes: data.notes,
       customerName: data.customerName,
       guestCount: data.guestCount || 1,
@@ -163,13 +175,14 @@ export class OrdersService {
     return this.orderRepo.remove(o);
   }
 
-  async getAlerts() {
+  async getAlerts(branchId?: number) {
+    const scope = branchId ? { branchId } : {};
     const active = await this.orderRepo.find({
       where: [
-        { status: OrderStatus.PENDING },
-        { status: OrderStatus.CONFIRMED },
-        { status: OrderStatus.PREPARING },
-        { status: OrderStatus.READY },
+        { status: OrderStatus.PENDING, ...scope },
+        { status: OrderStatus.CONFIRMED, ...scope },
+        { status: OrderStatus.PREPARING, ...scope },
+        { status: OrderStatus.READY, ...scope },
       ],
       relations: ['table', 'waiter'],
       order: { createdAt: 'ASC' },
@@ -194,21 +207,23 @@ export class OrdersService {
     return alerts.sort((a, b) => b.minutes - a.minutes);
   }
 
-  async getDashboardStats(restaurantId?: number) {
+  async getDashboardStats(branchId?: number) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const todayOrders = await this.orderRepo.createQueryBuilder('order')
+    const qb = this.orderRepo.createQueryBuilder('order')
       .where('order.createdAt >= :today', { today })
-      .andWhere('order.status != :cancelled', { cancelled: OrderStatus.CANCELLED })
-      .getMany();
+      .andWhere('order.status != :cancelled', { cancelled: OrderStatus.CANCELLED });
+    if (branchId) qb.andWhere('order.branchId = :branchId', { branchId });
+    const todayOrders = await qb.getMany();
 
     const totalRevenue = todayOrders
       .filter(o => o.status === OrderStatus.PAID)
       .reduce((sum, o) => sum + Number(o.totalAmount), 0);
 
-    const pendingOrders = await this.orderRepo.count({ where: { status: OrderStatus.PENDING } });
-    const preparingOrders = await this.orderRepo.count({ where: { status: OrderStatus.PREPARING } });
+    const scope = branchId ? { branchId } : {};
+    const pendingOrders = await this.orderRepo.count({ where: { status: OrderStatus.PENDING, ...scope } });
+    const preparingOrders = await this.orderRepo.count({ where: { status: OrderStatus.PREPARING, ...scope } });
 
     return {
       todayOrders: todayOrders.length,

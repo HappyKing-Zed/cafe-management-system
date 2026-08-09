@@ -39,4 +39,7 @@ export class InventoryItem {
 
   @Column()
   restaurantId: number;
+
+  @Column({ nullable: true })
+  branchId: number;
 }

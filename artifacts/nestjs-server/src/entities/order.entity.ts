@@ -45,6 +45,9 @@ export class Order {
   @Column({ nullable: true })
   waiterId: number;
 
+  @Column({ nullable: true })
+  branchId: number;
+
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true, eager: true })
   items: OrderItem[];
 

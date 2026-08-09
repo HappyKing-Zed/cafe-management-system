@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/roles.enum';
+import { branchScope } from '../../common/utils/branch-scope';
 import { InventoryService } from './inventory.service';
 
 @ApiTags('inventory')
@@ -16,24 +17,36 @@ export class InventoryController {
 
   // Items
   @Get('items')
-  findItems(@Query('restaurantId') rid?: number) { return this.service.findAllItems(rid ? +rid : undefined); }
+  findItems(@Req() req: any, @Query('restaurantId') rid?: number) {
+    return this.service.findAllItems(rid ? +rid : undefined, branchScope(req.user));
+  }
 
   @Get('items/low-stock')
-  lowStock(@Query('restaurantId') rid?: number) { return this.service.getLowStockItems(rid ? +rid : undefined); }
+  lowStock(@Req() req: any, @Query('restaurantId') rid?: number) {
+    return this.service.getLowStockItems(rid ? +rid : undefined, branchScope(req.user));
+  }
 
   @Get('items/:id')
-  findItem(@Param('id', ParseIntPipe) id: number) { return this.service.findOneItem(id); }
+  findItem(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+    return this.service.findOneItem(id, branchScope(req.user));
+  }
 
   @Post('items')
-  createItem(@Body() body: any) { return this.service.createItem(body); }
+  createItem(@Req() req: any, @Body() body: any) {
+    return this.service.createItem(body, branchScope(req.user));
+  }
 
   @Patch('items/:id')
-  updateItem(@Param('id', ParseIntPipe) id: number, @Body() body: any) { return this.service.updateItem(id, body); }
+  updateItem(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+    return this.service.updateItem(id, body, branchScope(req.user));
+  }
 
   @Delete('items/:id')
-  removeItem(@Param('id', ParseIntPipe) id: number) { return this.service.removeItem(id); }
+  removeItem(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+    return this.service.removeItem(id, branchScope(req.user));
+  }
 
-  // Suppliers
+  // Suppliers (shared across branches)
   @Get('suppliers')
   findSuppliers(@Query('restaurantId') rid?: number) { return this.service.findAllSuppliers(rid ? +rid : undefined); }
 
@@ -45,20 +58,28 @@ export class InventoryController {
 
   // Purchase Orders
   @Get('purchase-orders')
-  findPOs(@Query('supplierId') sid?: number) { return this.service.findAllPOs(sid ? +sid : undefined); }
+  findPOs(@Req() req: any, @Query('supplierId') sid?: number) {
+    return this.service.findAllPOs(sid ? +sid : undefined, branchScope(req.user));
+  }
 
   @Post('purchase-orders')
-  createPO(@Body() body: any, @Req() req: any) { return this.service.createPO(body, req.user); }
+  createPO(@Body() body: any, @Req() req: any) {
+    return this.service.createPO(body, req.user, branchScope(req.user));
+  }
 
   @Patch('purchase-orders/:id/status')
   updatePOStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Req() req: any) {
-    return this.service.updatePOStatus(id, status, req.user);
+    return this.service.updatePOStatus(id, status, req.user, branchScope(req.user));
   }
 
   // Adjustments
   @Get('adjustments')
-  findAdjustments(@Query('inventoryItemId') iid?: number) { return this.service.findAllAdjustments(iid ? +iid : undefined); }
+  findAdjustments(@Req() req: any, @Query('inventoryItemId') iid?: number) {
+    return this.service.findAllAdjustments(iid ? +iid : undefined, branchScope(req.user));
+  }
 
   @Post('adjustments')
-  createAdjustment(@Body() body: any) { return this.service.createAdjustment(body); }
+  createAdjustment(@Req() req: any, @Body() body: any) {
+    return this.service.createAdjustment(body, branchScope(req.user));
+  }
 }

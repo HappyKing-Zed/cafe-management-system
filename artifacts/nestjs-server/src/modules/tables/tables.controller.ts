@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
+import { branchScope } from '../../common/utils/branch-scope';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -14,7 +15,11 @@ export class TablesController {
   constructor(private service: TablesService) {}
 
   @Get()
-  findAll(@Query('branchId') bid?: number) { return this.service.findAll(bid ? +bid : undefined); }
+  findAll(@Req() req: any, @Query('branchId') bid?: number) {
+    // Non-admin roles only see their own branch's tables
+    const scope = branchScope(req.user);
+    return this.service.findAll(scope ?? (bid ? +bid : undefined));
+  }
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) { return this.service.findOne(id); }
@@ -22,7 +27,11 @@ export class TablesController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
-  create(@Body() body: any) { return this.service.create(body); }
+  create(@Req() req: any, @Body() body: any) {
+    const scope = branchScope(req.user);
+    if (scope) body.branchId = scope;
+    return this.service.create(body);
+  }
 
   @Patch(':id')
   @UseGuards(RolesGuard)

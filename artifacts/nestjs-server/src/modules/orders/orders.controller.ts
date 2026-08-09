@@ -6,6 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/roles.enum';
 import { OrdersService } from './orders.service';
 import { OrderStatus } from '../../common/enums/order-status.enum';
+import { branchScope } from '../../common/utils/branch-scope';
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -18,16 +19,16 @@ export class OrdersController {
   findAll(@Req() req: any, @Query('status') status?: OrderStatus, @Query('tableId') tid?: number) {
     // Waiters only ever see their own orders
     const waiterId = req.user?.role === Role.WAITER ? req.user.id : undefined;
-    return this.service.findAll(status, tid ? +tid : undefined, waiterId);
+    return this.service.findAll(status, tid ? +tid : undefined, waiterId, branchScope(req.user));
   }
 
   @Get('stats')
-  getStats() { return this.service.getDashboardStats(); }
+  getStats(@Req() req: any) { return this.service.getDashboardStats(branchScope(req.user)); }
 
   @Get('alerts')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF)
-  getAlerts() { return this.service.getAlerts(); }
+  getAlerts(@Req() req: any) { return this.service.getAlerts(branchScope(req.user)); }
 
   @Get(':id')
   findOne(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
@@ -38,7 +39,7 @@ export class OrdersController {
   create(@Req() req: any, @Body() body: any) {
     // Orders created by a waiter are always attributed to that waiter
     if (req.user?.role === Role.WAITER) body.waiterId = req.user.id;
-    return this.service.create(body);
+    return this.service.create(body, req.user);
   }
 
   @Patch(':id/status')

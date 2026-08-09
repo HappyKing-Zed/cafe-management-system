@@ -11,15 +11,16 @@ export class UsersService {
     private repo: Repository<User>,
   ) {}
 
-  findAll(restaurantId?: number) {
+  findAll(restaurantId?: number, branchId?: number) {
     const where: any = {};
     if (restaurantId) where.restaurantId = restaurantId;
+    if (branchId) where.branchId = branchId;
     return this.repo.find({ where, relations: ['branch', 'restaurant'], order: { name: 'ASC' } });
   }
 
-  findWaiters() {
+  findWaiters(branchId?: number) {
     return this.repo.find({
-      where: { role: 'waiter' as any, isActive: true },
+      where: { role: 'waiter' as any, isActive: true, ...(branchId ? { branchId } : {}) },
       select: ['id', 'name'],
       order: { name: 'ASC' },
     });

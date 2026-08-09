@@ -40,4 +40,7 @@ export class StockAdjustment {
 
   @Column({ nullable: true })
   createdById: number;
+
+  @Column({ nullable: true })
+  branchId: number;
 }

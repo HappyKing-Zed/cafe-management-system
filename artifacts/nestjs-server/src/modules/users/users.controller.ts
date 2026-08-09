@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
+import { branchScope } from '../../common/utils/branch-scope';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -15,14 +16,14 @@ export class UsersController {
 
   @Get()
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
-  findAll(@Query('restaurantId') restaurantId?: number) {
-    return this.service.findAll(restaurantId ? +restaurantId : undefined);
+  findAll(@Req() req: any, @Query('restaurantId') restaurantId?: number) {
+    return this.service.findAll(restaurantId ? +restaurantId : undefined, branchScope(req.user));
   }
 
   @Get('waiters')
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR)
-  findWaiters() {
-    return this.service.findWaiters();
+  findWaiters(@Req() req: any) {
+    return this.service.findWaiters(branchScope(req.user));
   }
 
   @Get(':id')
@@ -33,7 +34,10 @@ export class UsersController {
 
   @Post()
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
-  create(@Body() body: any) {
+  create(@Req() req: any, @Body() body: any) {
+    // Branch managers can only create staff in their own branch
+    const scope = branchScope(req.user);
+    if (scope) body.branchId = scope;
     return this.service.create(body);
   }
 

@@ -17,40 +17,52 @@ export class InventoryService {
     private dataSource: DataSource,
   ) {}
 
+  private assertBranch(entityBranchId: number | null | undefined, branchId?: number) {
+    if (branchId && entityBranchId && entityBranchId !== branchId) {
+      throw new ForbiddenException('This record belongs to another branch');
+    }
+  }
+
   // Items
-  findAllItems(restaurantId?: number) {
+  findAllItems(restaurantId?: number, branchId?: number) {
     const where: any = {};
     if (restaurantId) where.restaurantId = restaurantId;
+    if (branchId) where.branchId = branchId;
     return this.itemRepo.find({ where, order: { name: 'ASC' } });
   }
 
-  async findOneItem(id: number) {
+  async findOneItem(id: number, branchId?: number) {
     const i = await this.itemRepo.findOne({ where: { id } });
     if (!i) throw new NotFoundException('Item not found');
+    this.assertBranch(i.branchId, branchId);
     return i;
   }
 
-  createItem(data: Partial<InventoryItem>) { return this.itemRepo.save(this.itemRepo.create(data)); }
+  createItem(data: Partial<InventoryItem>, branchId?: number) {
+    if (branchId) data.branchId = branchId;
+    return this.itemRepo.save(this.itemRepo.create(data));
+  }
 
-  async updateItem(id: number, data: Partial<InventoryItem>) {
-    const i = await this.findOneItem(id);
+  async updateItem(id: number, data: Partial<InventoryItem>, branchId?: number) {
+    const i = await this.findOneItem(id, branchId);
     Object.assign(i, data);
     return this.itemRepo.save(i);
   }
 
-  async removeItem(id: number) {
-    const i = await this.findOneItem(id);
+  async removeItem(id: number, branchId?: number) {
+    const i = await this.findOneItem(id, branchId);
     return this.itemRepo.remove(i);
   }
 
-  getLowStockItems(restaurantId?: number) {
-    return this.itemRepo.createQueryBuilder('item')
-      .where('item.currentStock <= item.minStock')
-      .andWhere(restaurantId ? 'item.restaurantId = :rid' : '1=1', { rid: restaurantId })
-      .getMany();
+  getLowStockItems(restaurantId?: number, branchId?: number) {
+    const qb = this.itemRepo.createQueryBuilder('item')
+      .where('item.currentStock <= item.minStock');
+    if (restaurantId) qb.andWhere('item.restaurantId = :rid', { rid: restaurantId });
+    if (branchId) qb.andWhere('item.branchId = :bid', { bid: branchId });
+    return qb.getMany();
   }
 
-  // Suppliers
+  // Suppliers (shared across branches within the restaurant)
   findAllSuppliers(restaurantId?: number) {
     const where: any = {};
     if (restaurantId) where.restaurantId = restaurantId;
@@ -72,19 +84,21 @@ export class InventoryService {
   }
 
   // Purchase Orders
-  findAllPOs(supplierId?: number) {
+  findAllPOs(supplierId?: number, branchId?: number) {
     const where: any = {};
     if (supplierId) where.supplierId = supplierId;
+    if (branchId) where.branchId = branchId;
     return this.poRepo.find({ where, relations: ['supplier', 'items', 'items.inventoryItem', 'requestedBy', 'approvedBy'], order: { createdAt: 'DESC' } });
   }
 
-  async findOnePO(id: number) {
+  async findOnePO(id: number, branchId?: number) {
     const po = await this.poRepo.findOne({ where: { id }, relations: ['supplier', 'items', 'items.inventoryItem', 'requestedBy'] });
     if (!po) throw new NotFoundException('Purchase order not found');
+    this.assertBranch(po.branchId, branchId);
     return po;
   }
 
-  async createPO(data: any, user: User) {
+  async createPO(data: any, user: User, branchId?: number) {
     await this.findOneSupplier(Number(data.supplierId));
 
     const lines = (Array.isArray(data.items) ? data.items : [])
@@ -99,6 +113,8 @@ export class InventoryService {
     const itemIds = lines.map((l: any) => l.inventoryItemId);
     const found = await this.itemRepo.find({ where: { id: In(itemIds) } });
     if (found.length !== new Set(itemIds).size) throw new BadRequestException('One or more inventory items do not exist');
+    // All ordered items must belong to the requester's branch
+    for (const item of found) this.assertBranch(item.branchId, branchId);
 
     // Total is always computed server-side from the accepted lines
     const totalAmount = lines.reduce((sum: number, l: any) => sum + l.quantity * l.unitPrice, 0);
@@ -109,6 +125,7 @@ export class InventoryService {
       expectedDelivery: data.expectedDelivery,
       status: POStatus.PENDING,
       requestedById: user.id,
+      branchId: branchId || (user as any).branchId || undefined,
       totalAmount,
       items: lines,
     });
@@ -124,8 +141,8 @@ export class InventoryService {
     [POStatus.REJECTED]: [],
   };
 
-  async updatePOStatus(id: number, status: string, user: User) {
-    const po = await this.findOnePO(id);
+  async updatePOStatus(id: number, status: string, user: User, branchId?: number) {
+    const po = await this.findOnePO(id, branchId);
     const allowed = InventoryService.PO_TRANSITIONS[po.status] || [];
     if (!allowed.includes(status)) {
       throw new BadRequestException(`Cannot change purchase order from '${po.status}' to '${status}'`);
@@ -151,8 +168,10 @@ export class InventoryService {
   }
 
   // Stock Adjustments
-  async createAdjustment(data: { inventoryItemId: number; type: AdjustmentType; quantity: number; reason?: string; createdById?: number }) {
-    const item = await this.findOneItem(data.inventoryItemId);
+  async createAdjustment(data: { inventoryItemId: number; type: AdjustmentType; quantity: number; reason?: string; createdById?: number; branchId?: number }, branchId?: number) {
+    const item = await this.findOneItem(data.inventoryItemId, branchId);
+    if (branchId) data.branchId = branchId;
+    else data.branchId = item.branchId || undefined;
     const adj = this.adjRepo.create(data);
     await this.adjRepo.save(adj);
 
@@ -162,9 +181,10 @@ export class InventoryService {
     return adj;
   }
 
-  findAllAdjustments(inventoryItemId?: number) {
+  findAllAdjustments(inventoryItemId?: number, branchId?: number) {
     const where: any = {};
     if (inventoryItemId) where.inventoryItemId = inventoryItemId;
+    if (branchId) where.branchId = branchId;
     return this.adjRepo.find({ where, relations: ['inventoryItem', 'createdBy'], order: { createdAt: 'DESC' } });
   }
 }

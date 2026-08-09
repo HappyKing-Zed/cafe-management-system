@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/roles.enum';
+import { branchScope } from '../../common/utils/branch-scope';
 import { PaymentsService } from './payments.service';
 
 @ApiTags('payments')
@@ -15,22 +16,32 @@ export class PaymentsController {
   constructor(private service: PaymentsService) {}
 
   @Get()
-  findAll(@Query('cashierId') cid?: number) { return this.service.findAll(cid ? +cid : undefined); }
+  findAll(@Req() req: any, @Query('cashierId') cid?: number) {
+    return this.service.findAll(cid ? +cid : undefined, branchScope(req.user));
+  }
 
   @Post()
-  process(@Body() body: any) { return this.service.processPayment(body); }
+  process(@Req() req: any, @Body() body: any) {
+    return this.service.processPayment(body, branchScope(req.user));
+  }
 
   @Get('report')
-  report(@Query('date') date?: string) { return this.service.getDailyReport(date); }
+  report(@Req() req: any, @Query('date') date?: string) {
+    return this.service.getDailyReport(date, branchScope(req.user));
+  }
 
   @Get('shifts')
-  findShifts(@Query('cashierId') cid?: number) { return this.service.findShifts(cid ? +cid : undefined); }
+  findShifts(@Req() req: any, @Query('cashierId') cid?: number) {
+    return this.service.findShifts(cid ? +cid : undefined, branchScope(req.user));
+  }
 
   @Post('shifts')
-  openShift(@Body() body: any) { return this.service.openShift(body); }
+  openShift(@Req() req: any, @Body() body: any) {
+    return this.service.openShift(body, branchScope(req.user));
+  }
 
   @Patch('shifts/:id/close')
-  closeShift(@Param('id', ParseIntPipe) id: number, @Body('closingCash') closingCash: number) {
-    return this.service.closeShift(id, closingCash);
+  closeShift(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body('closingCash') closingCash: number) {
+    return this.service.closeShift(id, closingCash, branchScope(req.user));
   }
 }
