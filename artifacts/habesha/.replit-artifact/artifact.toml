@@ -27,3 +27,24 @@ NODE_ENV = "production"
 [services.env]
 PORT = "25335"
 BASE_PATH = "/"
+
+[[services]]
+name = "backend"
+paths = [ "/nestjs-backend" ]
+localPort = 3001
+
+[services.development]
+run = "pnpm --filter @workspace/nestjs-server run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/nestjs-server", "run", "build" ]
+
+[services.production.run]
+args = [ "pnpm", "--filter", "@workspace/nestjs-server", "run", "start" ]
+
+[services.production.run.env]
+PORT = "3001"
+NODE_ENV = "production"
+
+[services.env]
+PORT = "3001"

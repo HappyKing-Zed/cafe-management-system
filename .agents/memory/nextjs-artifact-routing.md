@@ -12,4 +12,5 @@ The workspace uses the application router (`router = "application"`); only regis
 **How to apply:**
 - Frontend must call the backend via `/backend/api/*` — `/api` is claimed by the (unused) api-server artifact. Next.js rewrites `/backend/api/:path*` → `localhost:3001/api/:path*` (next.config.js).
 - Next dev needs `-H 0.0.0.0` and `allowedDevOrigins` (package.json dev script + next.config.js).
-- Restart the frontend with workflow name `artifacts/habesha: web` (injects PORT=25335).
+- Restart the frontend with workflow name `artifacts/habesha: web` (injects PORT=25335); backend is the second service `artifacts/habesha: backend` (PORT=3001) so it also runs in production deployments — a plain workflow would not, and login would fail with ECONNREFUSED in prod.
+- Never run `next build` while the dev server is up — they share `.next/` and it corrupts the dev bundle (module-not-found/webpack `call` errors) until recompile/restart.
