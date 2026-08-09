@@ -37,7 +37,7 @@ export default function LoginPage() {
           <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
             <span className="text-3xl">🍽</span>
           </div>
-          <h1 className="text-4xl font-bold mb-3">Habesha Kuliner</h1>
+          <h1 className="text-4xl font-bold mb-3">Jima Aba Jifar</h1>
           <p className="text-xl text-white/80 mb-6">Restaurant Management System</p>
           <p className="text-white/60 text-base leading-relaxed">
             Complete management solution for Ethiopian cafes and restaurants. Handle orders, kitchen, inventory, staff and finances — all in one place.

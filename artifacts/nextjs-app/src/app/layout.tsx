@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Habesha Kuliner | Restaurant Management',
+  title: 'Jima Aba Jifar | Restaurant Management',
   description: 'Ethiopian Cafe & Restaurant Management System',
 };
 

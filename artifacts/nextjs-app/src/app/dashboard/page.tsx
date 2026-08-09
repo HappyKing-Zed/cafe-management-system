@@ -64,7 +64,7 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">
             Selam, {user?.name?.split(' ')[0]}! 👋
           </h1>
-          <p className="text-gray-500 mt-1">Here's what's happening at Habesha Kuliner today</p>
+          <p className="text-gray-500 mt-1">Here's what's happening at Jima Aba Jifar today</p>
         </div>
         <div className="flex gap-3">
           <button onClick={fetchData} className="btn-secondary flex items-center gap-2">

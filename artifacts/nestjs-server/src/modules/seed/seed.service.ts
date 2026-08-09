@@ -32,7 +32,7 @@ export class SeedService {
 
     // ─── Restaurant ───────────────────────────────────────────────
     const restaurant = await this.restaurantRepo.save(this.restaurantRepo.create({
-      name: 'Habesha Kuliner Restaurant',
+      name: 'Jima Aba Jifar Restaurant',
       address: 'Bole Road, Addis Abeba, Ethiopia',
       phone: '+251 11 661 2345',
       email: 'info@habeshakuliner.com',

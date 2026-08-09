@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Habesha Kuliner"
+title = "Jima Aba Jifar"
 description = "Ethiopian cafe & restaurant management system frontend (Next.js) with role-based dashboards for admin, owner, manager, waiter, chef, cashier, and storekeeper."
 version = "1.0.0"
 id = "artifacts/habesha"

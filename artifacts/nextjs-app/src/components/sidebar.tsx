@@ -42,7 +42,7 @@ export default function Sidebar() {
             <Coffee size={18} className="text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-sm leading-tight">Habesha Kuliner</h1>
+            <h1 className="font-bold text-sm leading-tight">Jima Aba Jifar</h1>
             <p className="text-xs text-white/50">Restaurant System</p>
           </div>
         </div>

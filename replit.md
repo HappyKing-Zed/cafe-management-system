@@ -1,4 +1,4 @@
-# Habesha Kuliner — Cafe & Restaurant Management System
+# Jima Aba Jifar — Cafe & Restaurant Management System
 
 A full-stack Ethiopian cafe and restaurant management system with role-based access control.
 
@@ -43,7 +43,7 @@ A full-stack Ethiopian cafe and restaurant management system with role-based acc
 ## Seed Data
 
 Click "Seed Data" on the dashboard to populate with Ethiopian sample data:
-- Restaurant: Habesha Kuliner (Addis Abeba)
+- Restaurant: Jima Aba Jifar (Addis Abeba)
 - 2 branches: Bole & Piassa
 - 9 staff with Ethiopian names
 - 7 menu categories, 26 Ethiopian dishes
