@@ -1,11 +1,15 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/roles.enum';
 import { InventoryService } from './inventory.service';
 
 @ApiTags('inventory')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
 @Controller('inventory')
 export class InventoryController {
   constructor(private service: InventoryService) {}
@@ -44,11 +48,11 @@ export class InventoryController {
   findPOs(@Query('supplierId') sid?: number) { return this.service.findAllPOs(sid ? +sid : undefined); }
 
   @Post('purchase-orders')
-  createPO(@Body() body: any) { return this.service.createPO(body); }
+  createPO(@Body() body: any, @Req() req: any) { return this.service.createPO(body, req.user); }
 
   @Patch('purchase-orders/:id/status')
-  updatePOStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Body('approvedById') approvedById?: number) {
-    return this.service.updatePOStatus(id, status, approvedById);
+  updatePOStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Req() req: any) {
+    return this.service.updatePOStatus(id, status, req.user);
   }
 
   // Adjustments

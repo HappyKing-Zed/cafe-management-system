@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getTables, updateTableStatus, getOrders } from '@/lib/api';
+import { getTables, createTable, updateTableStatus, getOrders } from '@/lib/api';
 import { RestaurantTable, Order } from '@/lib/types';
-import { Table2, RefreshCw } from 'lucide-react';
+import { Table2, RefreshCw, Plus } from 'lucide-react';
 import clsx from 'clsx';
+import { useAuthStore } from '@/store/auth';
 
 const STATUS_CONFIG = {
   available: { label: 'Available', color: 'bg-green-100 border-green-300 text-green-800', dot: 'bg-green-500' },
@@ -13,10 +14,32 @@ const STATUS_CONFIG = {
 };
 
 export default function TablesPage() {
+  const { user } = useAuthStore();
+  const canManage = !!user && ['admin', 'owner', 'manager'].includes(user.role);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<RestaurantTable | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [form, setForm] = useState({ number: '', capacity: '4', section: 'Main' });
+
+  const saveTable = async () => {
+    if (!form.number.trim()) { setCreateError('Table number is required'); return; }
+    setSubmitting(true);
+    setCreateError('');
+    try {
+      await createTable({ number: form.number.trim(), capacity: parseInt(form.capacity) || 4, section: form.section.trim() || 'Main', branchId: (user as any)?.branchId || 1 });
+      setShowCreate(false);
+      setForm({ number: '', capacity: '4', section: 'Main' });
+      await fetchData();
+    } catch (e: any) {
+      setCreateError(e?.response?.data?.message || 'Could not create table');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -53,9 +76,16 @@ export default function TablesPage() {
             <p className="text-gray-500 text-sm">{tables.filter(t => t.status === 'available').length} of {tables.length} tables available</p>
           </div>
         </div>
-        <button onClick={fetchData} className="btn-secondary flex items-center gap-2">
-          <RefreshCw size={16} /> Refresh
-        </button>
+        <div className="flex gap-2">
+          <button onClick={fetchData} className="btn-secondary flex items-center gap-2">
+            <RefreshCw size={16} /> Refresh
+          </button>
+          {canManage && (
+            <button onClick={() => { setShowCreate(true); setCreateError(''); }} className="btn-primary flex items-center gap-2">
+              <Plus size={18} /> Add Table
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Legend */}
@@ -102,6 +132,39 @@ export default function TablesPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Create Table Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">New Table</h3>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Table Number / Name</label>
+                <input value={form.number} onChange={e => setForm(p => ({ ...p, number: e.target.value }))} className="input" placeholder="e.g. T12" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacity (seats)</label>
+                  <input type="number" min={1} value={form.capacity} onChange={e => setForm(p => ({ ...p, capacity: e.target.value }))} className="input" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                  <input value={form.section} onChange={e => setForm(p => ({ ...p, section: e.target.value }))} className="input" placeholder="Main / Terrace / VIP" />
+                </div>
+              </div>
+              {createError && <p className="text-sm text-red-500">{createError}</p>}
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setShowCreate(false)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={saveTable} disabled={submitting} className="btn-primary flex-1 disabled:opacity-50">{submitting ? 'Saving...' : 'Create Table'}</button>
+            </div>
+          </div>
         </div>
       )}
 

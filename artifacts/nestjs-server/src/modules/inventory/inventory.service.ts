@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { InventoryItem } from '../../entities/inventory-item.entity';
 import { Supplier } from '../../entities/supplier.entity';
-import { PurchaseOrder } from '../../entities/purchase-order.entity';
+import { PurchaseOrder, POStatus } from '../../entities/purchase-order.entity';
 import { StockAdjustment, AdjustmentType } from '../../entities/stock-adjustment.entity';
+import { User } from '../../entities/user.entity';
 
 @Injectable()
 export class InventoryService {
@@ -13,6 +14,7 @@ export class InventoryService {
     @InjectRepository(Supplier) private supplierRepo: Repository<Supplier>,
     @InjectRepository(PurchaseOrder) private poRepo: Repository<PurchaseOrder>,
     @InjectRepository(StockAdjustment) private adjRepo: Repository<StockAdjustment>,
+    private dataSource: DataSource,
   ) {}
 
   // Items
@@ -82,21 +84,69 @@ export class InventoryService {
     return po;
   }
 
-  createPO(data: Partial<PurchaseOrder>) {
-    const po = this.poRepo.create(data);
+  async createPO(data: any, user: User) {
+    await this.findOneSupplier(Number(data.supplierId));
+
+    const lines = (Array.isArray(data.items) ? data.items : [])
+      .map((l: any) => ({
+        inventoryItemId: Number(l.inventoryItemId),
+        quantity: Number(l.quantity),
+        unitPrice: Number(l.unitPrice) || 0,
+      }))
+      .filter((l: any) => l.inventoryItemId && l.quantity > 0 && l.unitPrice >= 0);
+    if (lines.length === 0) throw new BadRequestException('Purchase order needs at least one item with a positive quantity');
+
+    const itemIds = lines.map((l: any) => l.inventoryItemId);
+    const found = await this.itemRepo.find({ where: { id: In(itemIds) } });
+    if (found.length !== new Set(itemIds).size) throw new BadRequestException('One or more inventory items do not exist');
+
+    // Total is always computed server-side from the accepted lines
+    const totalAmount = lines.reduce((sum: number, l: any) => sum + l.quantity * l.unitPrice, 0);
+
+    const po = this.poRepo.create({
+      supplierId: Number(data.supplierId),
+      notes: data.notes,
+      expectedDelivery: data.expectedDelivery,
+      status: POStatus.PENDING,
+      requestedById: user.id,
+      totalAmount,
+      items: lines,
+    });
     return this.poRepo.save(po);
   }
 
-  async updatePOStatus(id: number, status: string, approvedById?: number) {
+  private static readonly PO_TRANSITIONS: Record<string, string[]> = {
+    [POStatus.DRAFT]: [POStatus.PENDING],
+    [POStatus.PENDING]: [POStatus.APPROVED, POStatus.REJECTED],
+    [POStatus.APPROVED]: [POStatus.ORDERED, POStatus.RECEIVED],
+    [POStatus.ORDERED]: [POStatus.RECEIVED],
+    [POStatus.RECEIVED]: [],
+    [POStatus.REJECTED]: [],
+  };
+
+  async updatePOStatus(id: number, status: string, user: User) {
     const po = await this.findOnePO(id);
-    po.status = status as any;
-    if (approvedById) po.approvedById = approvedById;
-    // If received, update inventory stock
-    if (status === 'received') {
-      for (const item of po.items) {
-        await this.itemRepo.increment({ id: item.inventoryItemId }, 'currentStock', item.quantity);
-      }
+    const allowed = InventoryService.PO_TRANSITIONS[po.status] || [];
+    if (!allowed.includes(status)) {
+      throw new BadRequestException(`Cannot change purchase order from '${po.status}' to '${status}'`);
     }
+    if ((status === POStatus.APPROVED || status === POStatus.REJECTED) && !['admin', 'owner', 'manager'].includes(user.role as any)) {
+      throw new ForbiddenException('Only managers and above can approve or reject purchase orders');
+    }
+
+    if (status === POStatus.RECEIVED) {
+      // Goods receipt: increment stock and persist status atomically (transition guard prevents double receipt)
+      return this.dataSource.transaction(async (em) => {
+        for (const item of po.items) {
+          await em.increment(InventoryItem, { id: item.inventoryItemId }, 'currentStock', Number(item.quantity));
+        }
+        po.status = POStatus.RECEIVED;
+        return em.save(po);
+      });
+    }
+
+    po.status = status as POStatus;
+    if (status === POStatus.APPROVED || status === POStatus.REJECTED) po.approvedById = user.id;
     return this.poRepo.save(po);
   }
 

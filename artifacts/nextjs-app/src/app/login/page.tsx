@@ -119,6 +119,7 @@ export default function LoginPage() {
                 { label: '🔵 Waiter', email: 'waiter1@habesha.com', pass: 'waiter123' },
                 { label: '🟣 Chef', email: 'chef@habesha.com', pass: 'chef123' },
                 { label: '⚪ Cashier', email: 'cashier@habesha.com', pass: 'cashier123' },
+                { label: '🟤 Storekeeper', email: 'storekeeper@habesha.com', pass: 'store123' },
               ].map((u) => (
                 <button
                   key={u.email}
