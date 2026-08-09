@@ -4,9 +4,10 @@ A full-stack Ethiopian cafe and restaurant management system with role-based acc
 
 ## Run & Operate
 
-- **NestJS Backend**: `pnpm --filter @workspace/nestjs-server run dev` (port 3001)
-- **Next.js Frontend**: `pnpm --filter @workspace/nextjs-app run dev` (port 3000)
-- Frontend proxies `/api/*` to backend at `localhost:3001`
+- **NestJS Backend**: workflow "NestJS Backend" (port 3001)
+- **Next.js Frontend**: managed workflow "artifacts/habesha: web" — runs `pnpm --filter @workspace/nextjs-app run dev` (PORT injected by artifact routing; previewPath `/`)
+- Frontend calls the backend via `/backend/api/*` (NOT `/api`, which is claimed by the unused api-server artifact); Next.js rewrites `/backend/api/:path*` → `localhost:3001/api/:path*`
+- The `artifacts/habesha/` directory is a registration shim; the real frontend code is in `artifacts/nextjs-app/`
 
 ## Stack
 

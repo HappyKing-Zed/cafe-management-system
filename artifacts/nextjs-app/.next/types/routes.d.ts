@@ -5,13 +5,13 @@ type AppRoutes = "/" | "/dashboard" | "/dashboard/branches" | "/dashboard/invent
 type PageRoutes = never
 type LayoutRoutes = "/" | "/dashboard"
 type RedirectRoutes = never
-type RewriteRoutes = "/api/[[...path]]"
+type RewriteRoutes = "/backend/api/[[...path]]"
 type Routes = AppRoutes | PageRoutes | LayoutRoutes | RedirectRoutes | RewriteRoutes
 
 
 interface ParamMap {
   "/": {}
-  "/api/[[...path]]": { "path"?: string[]; }
+  "/backend/api/[[...path]]": { "path"?: string[]; }
   "/dashboard": {}
   "/dashboard/branches": {}
   "/dashboard/inventory": {}

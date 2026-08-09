@@ -1,0 +1,29 @@
+kind = "web"
+previewPath = "/"
+title = "Habesha Kuliner"
+description = "Ethiopian cafe & restaurant management system frontend (Next.js) with role-based dashboards for admin, owner, manager, waiter, chef, cashier, and storekeeper."
+version = "1.0.0"
+id = "artifacts/habesha"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25335
+
+[services.development]
+run = "pnpm --filter @workspace/nextjs-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/nextjs-app", "run", "build" ]
+
+[services.production.run]
+args = [ "pnpm", "--filter", "@workspace/nextjs-app", "run", "start" ]
+
+[services.production.run.env]
+PORT = "25335"
+NODE_ENV = "production"
+
+[services.env]
+PORT = "25335"
+BASE_PATH = "/"

@@ -8,22 +8,6 @@ deploymentTarget = "autoscale"
 args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
-[[ports]]
-localPort = 3000
-externalPort = 80
-
-[[ports]]
-localPort = 3001
-externalPort = 3001
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
-
-[[ports]]
-localPort = 8081
-externalPort = 8081
-
 [workflows]
 runButton = "Project"
 
@@ -36,10 +20,6 @@ author = "agent"
 task = "workflow.run"
 args = "NestJS Backend"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Next.js Frontend"
-
 [[workflows.workflow]]
 name = "NestJS Backend"
 author = "agent"
@@ -51,18 +31,6 @@ waitForPort = 3001
 
 [workflows.workflow.metadata]
 outputType = "console"
-
-[[workflows.workflow]]
-name = "Next.js Frontend"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/nextjs-app run dev"
-waitForPort = 3000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [agent]
 stack = "PNPM_WORKSPACE"

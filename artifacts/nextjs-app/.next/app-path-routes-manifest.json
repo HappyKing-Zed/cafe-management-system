@@ -1,0 +1,14 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/login/page": "/login",
+  "/page": "/",
+  "/dashboard/inventory/page": "/dashboard/inventory",
+  "/dashboard/branches/page": "/dashboard/branches",
+  "/dashboard/menu/page": "/dashboard/menu",
+  "/dashboard/kitchen/page": "/dashboard/kitchen",
+  "/dashboard/reports/page": "/dashboard/reports",
+  "/dashboard/staff/page": "/dashboard/staff",
+  "/dashboard/page": "/dashboard",
+  "/dashboard/tables/page": "/dashboard/tables",
+  "/dashboard/orders/page": "/dashboard/orders"
+}
