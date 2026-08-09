@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ['*'],
   async rewrites() {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
     return [
