@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from '../../entities/order.entity';
@@ -19,10 +19,11 @@ export class OrdersService {
     @InjectRepository(User) private userRepo: Repository<User>,
   ) {}
 
-  findAll(status?: OrderStatus, tableId?: number) {
+  findAll(status?: OrderStatus, tableId?: number, waiterId?: number) {
     const where: any = {};
     if (status) where.status = status;
     if (tableId) where.tableId = tableId;
+    if (waiterId) where.waiterId = waiterId;
     return this.orderRepo.find({
       where,
       relations: ['table', 'waiter', 'items', 'items.menuItem'],
@@ -37,6 +38,19 @@ export class OrdersService {
     });
     if (!o) throw new NotFoundException('Order not found');
     return o;
+  }
+
+  /** Waiters may only access their own orders; all other roles pass through. */
+  private assertCanAccess(order: Order, user?: { id: number; role: string }) {
+    if (user?.role === 'waiter' && order.waiterId !== user.id) {
+      throw new ForbiddenException('You can only access your own orders');
+    }
+  }
+
+  async findOneAuthorized(id: number, user?: { id: number; role: string }) {
+    const order = await this.findOne(id);
+    this.assertCanAccess(order, user);
+    return order;
   }
 
   async create(data: { tableId?: number; waiterId?: number; notes?: string; customerName?: string; guestCount?: number; items?: Array<{ menuItemId: number; quantity: number; notes?: string }> }) {
@@ -84,8 +98,9 @@ export class OrdersService {
     return this.findOne(saved.id);
   }
 
-  async addItems(orderId: number, items: Array<{ menuItemId: number; quantity: number; notes?: string }>) {
+  async addItems(orderId: number, items: Array<{ menuItemId: number; quantity: number; notes?: string }>, user?: { id: number; role: string }) {
     const order = await this.findOne(orderId);
+    this.assertCanAccess(order, user);
     if (order.status === OrderStatus.PAID || order.status === OrderStatus.CANCELLED) {
       throw new BadRequestException('Cannot modify a paid or cancelled order');
     }
@@ -117,7 +132,22 @@ export class OrdersService {
     return this.findOne(orderId);
   }
 
-  async updateStatus(id: number, status: OrderStatus) {
+  // Which statuses each role may set. Managers/admin/owner/coordinator: any.
+  private static readonly ROLE_STATUS: Record<string, OrderStatus[]> = {
+    waiter: [OrderStatus.SERVED, OrderStatus.CANCELLED],
+    chef: [OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY],
+    cashier: [OrderStatus.PAID, OrderStatus.CANCELLED],
+  };
+
+  async updateStatus(id: number, status: OrderStatus, user?: { id: number; role: string }) {
+    if (user) {
+      const existing = await this.findOne(id);
+      this.assertCanAccess(existing, user);
+      const allowed = OrdersService.ROLE_STATUS[user.role];
+      if (allowed && !allowed.includes(status)) {
+        throw new ForbiddenException(`Your role cannot set an order to "${status}"`);
+      }
+    }
     await this.orderRepo.update(id, { status });
     const order = await this.findOne(id);
 

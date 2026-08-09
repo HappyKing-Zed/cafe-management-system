@@ -30,6 +30,8 @@ export class TablesController {
   update(@Param('id', ParseIntPipe) id: number, @Body() body: any) { return this.service.update(id, body); }
 
   @Patch(':id/status')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER)
   updateStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: any) {
     return this.service.updateStatus(id, status);
   }
