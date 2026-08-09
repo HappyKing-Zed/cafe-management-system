@@ -1,45 +1,64 @@
-# [Project name]
+# Habesha Kuliner — Cafe & Restaurant Management System
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A full-stack Ethiopian cafe and restaurant management system with role-based access control.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- **NestJS Backend**: `pnpm --filter @workspace/nestjs-server run dev` (port 3001)
+- **Next.js Frontend**: `pnpm --filter @workspace/nextjs-app run dev` (port 3000)
+- Frontend proxies `/api/*` to backend at `localhost:3001`
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- **Frontend**: Next.js 15, React 19, Tailwind CSS, Zustand
+- **Backend**: NestJS 10, TypeORM, Passport JWT
+- **Database**: PostgreSQL (TypeORM with synchronize: true in dev)
+- **Auth**: JWT bearer tokens, role-based guards
+- pnpm workspaces, Node.js, TypeScript
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/nestjs-server/` — NestJS API backend
+- `artifacts/nextjs-app/` — Next.js frontend
+- `artifacts/nestjs-server/src/entities/` — TypeORM entities
+- `artifacts/nestjs-server/src/modules/` — Feature modules
+- `artifacts/nextjs-app/src/app/` — Next.js pages (App Router)
+- `artifacts/nextjs-app/src/lib/api.ts` — API client
+- `artifacts/nextjs-app/src/store/auth.ts` — Zustand auth store
 
-## Architecture decisions
+## Roles & Demo Accounts
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@habesha.com | admin123 |
+| Owner | owner@habesha.com | owner123 |
+| Manager | manager@habesha.com | manager123 |
+| Coordinator | coordinator@habesha.com | coord123 |
+| Waiter | waiter1@habesha.com | waiter123 |
+| Chef | chef@habesha.com | chef123 |
+| Cashier | cashier@habesha.com | cashier123 |
+| Storekeeper | storekeeper@habesha.com | store123 |
 
-## Product
+## Seed Data
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Click "Seed Data" on the dashboard to populate with Ethiopian sample data:
+- Restaurant: Habesha Kuliner (Addis Abeba)
+- 2 branches: Bole & Piassa
+- 9 staff with Ethiopian names
+- 7 menu categories, 26 Ethiopian dishes
+- 23 tables across sections
+- 15 inventory items, 5 Ethiopian suppliers
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Ethiopian theme and cultural context throughout
+- ETB (Ethiopian Birr) as currency
+- Amharic-inspired names for staff and dishes
 
-## Gotchas
+## Architecture decisions
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- TypeORM synchronize:true for dev (auto-creates tables)
+- Next.js rewrites `/api/*` to NestJS backend (no CORS needed from browser)
+- JWT stored in localStorage, injected by axios interceptor
+- Role-based sidebar rendering (different nav items per role)
+- Zustand for auth state with localStorage persistence

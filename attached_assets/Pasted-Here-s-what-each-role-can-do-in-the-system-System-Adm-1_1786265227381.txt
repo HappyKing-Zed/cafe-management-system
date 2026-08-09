@@ -1,0 +1,60 @@
+Here's what each role can do in the system:
+________________________________________
+🔴 System Administrator (admin@)
+Full access to everything — the only role that can change system configuration, manage API keys, and access all modules without restriction.
+________________________________________
+🟠 Restaurant Owner (owner@)
+Same as Admin except cannot modify low-level system configuration. Oversees the entire business: users, staff, menus, finances, inventory, and all reports.
+________________________________________
+🟡 Manager (manager@)
+Day-to-day operations head. Can:
+•	Create employees, branches, and restaurants
+•	View & manage employees, branches, Restaurants
+•	Run and export all business reports
+•	Full control of orders, kitchen, tables, and POS
+•	Approve/reject refunds and purchase orders
+•	View billing, payments, and shift summaries
+•	View inventory and approve stock adjustments
+________________________________________
+🟢 Order Coordinator (coordinator@)
+Routes orders between front-of-house and the kitchen. Can:
+•	Create and assign orders on behalf of waiters
+•	Update order status and table status
+•	View the kitchen board
+•	Access the POS terminal to place orders
+________________________________________
+🔵 Waiter (waiter1@, waiter2@)
+Takes customer orders at the table. Can:
+•	Use the POS terminal to create and submit orders
+•	Update and cancel their own orders
+•	Mark orders as served when food arrives
+•	View and update table status (seat/clear a table)
+________________________________________
+🟣 Chef (chef@)
+Manages the kitchen workflow. Can:
+•	View the kitchen board with incoming tickets
+•	Accept orders → mark as Preparing → mark as Ready
+•	Update kitchen station assignments
+•	View order details (items, notes, modifiers)
+________________________________________
+⚪ Cashier (cashier@)
+Handles all payments and closing orders. Can:
+•	Open and close a cash drawer shift
+•	Generate bills from completed orders
+•	Process payments (cash, card, mobile)
+•	Request and view refunds
+•	Access the POS for walk-up/counter orders
+•	View daily financial reports
+________________________________________
+🟤 Inventory Manager / Store Keeper (storekeeper@)
+Full control of the stockroom. Can:
+•	Manage ingredients, units of measure, and batches
+•	Create and manage warehouses and stock levels
+•	Add, edit, and evaluate suppliers
+•	Create purchase requisitions and purchase orders
+•	Receive goods (goods receipt) and post to stock
+•	Record stock adjustments, transfers between warehouses, and waste
+•	View inventory reports and export data
+•	Read recipes (to understand ingredient linkages)
+
+
