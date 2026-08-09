@@ -22,6 +22,7 @@ const PO_STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
   pending: 'bg-yellow-100 text-yellow-800',
   approved: 'bg-green-100 text-green-800',
+  paid: 'bg-purple-100 text-purple-800',
   ordered: 'bg-blue-100 text-blue-800',
   received: 'bg-emerald-100 text-emerald-800',
   rejected: 'bg-red-100 text-red-800',
@@ -40,7 +41,12 @@ interface POLine { inventoryItemId: string; quantity: string; unitPrice: string;
 export default function InventoryPage() {
   const { user } = useAuthStore();
   const canApprovePO = !!user && ['admin', 'owner', 'manager'].includes(user.role);
+  const canPayPO = !!user && ['admin', 'owner', 'cashier'].includes(user.role);
+  const canReceivePO = !!user && ['admin', 'owner', 'storekeeper'].includes(user.role);
+  const isCashier = user?.role === 'cashier';
+  const visibleTabs = isCashier ? ['Purchase Orders'] : TABS;
   const [tab, setTab] = useState('Items');
+  useEffect(() => { if (isCashier) setTab('Purchase Orders'); }, [isCashier]);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [pos, setPOs] = useState<PurchaseOrder[]>([]);
@@ -51,7 +57,7 @@ export default function InventoryPage() {
   const [showAdjModal, setShowAdjModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
-  const [itemForm, setItemForm] = useState({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', restaurantId: 1 });
+  const [itemForm, setItemForm] = useState({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 });
   const [supplierForm, setSupplierForm] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '', restaurantId: 1 });
   const [adjForm, setAdjForm] = useState({ inventoryItemId: '', type: 'addition', quantity: '', reason: '' });
   const [poForm, setPOForm] = useState<{ supplierId: string; notes: string; lines: POLine[] }>({ supplierId: '', notes: '', lines: [{ inventoryItemId: '', quantity: '', unitPrice: '' }] });
@@ -59,6 +65,13 @@ export default function InventoryPage() {
   const [formError, setFormError] = useState('');
 
   const fetchData = async () => {
+    if (isCashier) {
+      // Cashier only confirms PO payments — other inventory endpoints are restricted
+      const posRes = await getPurchaseOrders();
+      setPOs(posRes.data || []);
+      setLoading(false);
+      return;
+    }
     const [itemsRes, suppRes, posRes, movRes] = await Promise.all([
       getInventoryItems(), getSuppliers(), getPurchaseOrders(), getStockAdjustments(),
     ]);
@@ -68,11 +81,11 @@ export default function InventoryPage() {
     setMovements(movRes.data || []);
     setLoading(false);
   };
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [isCashier]);
 
   const saveItem = async () => {
     setSubmitting(true);
-    const data = { ...itemForm, currentStock: parseFloat(itemForm.currentStock), minStock: parseFloat(itemForm.minStock), unitCost: parseFloat(itemForm.unitCost) };
+    const data = { ...itemForm, currentStock: parseFloat(itemForm.currentStock), minStock: parseFloat(itemForm.minStock), unitCost: parseFloat(itemForm.unitCost), expiryDate: itemForm.expiryDate || null };
     if (editItem) await updateInventoryItem(editItem.id, data);
     else await createInventoryItem(data);
     setShowItemModal(false);
@@ -156,17 +169,19 @@ export default function InventoryPage() {
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={fetchData} className="btn-secondary flex items-center gap-2"><RefreshCw size={16} /></button>
-          <button onClick={() => openAdj('addition')} className="btn-secondary flex items-center gap-2 !text-green-700"><ArrowDownToLine size={16} /> Stock In</button>
-          <button onClick={() => openAdj('deduction')} className="btn-secondary flex items-center gap-2 !text-orange-700"><ArrowUpFromLine size={16} /> Stock Out</button>
-          <button onClick={() => { setShowPOModal(true); setFormError(''); }} className="btn-primary flex items-center gap-2"><FileText size={16} /> New Purchase Order</button>
-          {tab === 'Items' && <button onClick={() => { setShowItemModal(true); setEditItem(null); setItemForm({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', restaurantId: 1 }); }} className="btn-primary flex items-center gap-2"><Plus size={18} /> Add Item</button>}
+          {!isCashier && <>
+            <button onClick={() => openAdj('addition')} className="btn-secondary flex items-center gap-2 !text-green-700"><ArrowDownToLine size={16} /> Stock In</button>
+            <button onClick={() => openAdj('deduction')} className="btn-secondary flex items-center gap-2 !text-orange-700"><ArrowUpFromLine size={16} /> Stock Out</button>
+            <button onClick={() => { setShowPOModal(true); setFormError(''); }} className="btn-primary flex items-center gap-2"><FileText size={16} /> New Purchase Order</button>
+          </>}
+          {tab === 'Items' && <button onClick={() => { setShowItemModal(true); setEditItem(null); setItemForm({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 }); }} className="btn-primary flex items-center gap-2"><Plus size={18} /> Add Item</button>}
           {tab === 'Suppliers' && <button onClick={() => setShowSupplierModal(true)} className="btn-primary flex items-center gap-2"><Plus size={18} /> Add Supplier</button>}
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={clsx('px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5', tab === t ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
           >
@@ -187,7 +202,7 @@ export default function InventoryPage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">Item</th><th className="table-header">Category</th><th className="table-header">Unit</th>
-                  <th className="table-header">Stock</th><th className="table-header">Min Stock</th><th className="table-header">Unit Cost</th><th className="table-header">Actions</th>
+                  <th className="table-header">Stock</th><th className="table-header">Min Stock</th><th className="table-header">Unit Cost</th><th className="table-header">Total Price</th><th className="table-header">Expiry</th><th className="table-header">Actions</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-50">
                   {items.map((item) => (
@@ -205,8 +220,19 @@ export default function InventoryPage() {
                       </td>
                       <td className="table-cell text-gray-500">{Number(item.minStock).toFixed(2)}</td>
                       <td className="table-cell">{item.unitCost ? `ETB ${Number(item.unitCost).toLocaleString()}` : '—'}</td>
+                      <td className="table-cell font-semibold">{item.unitCost ? `ETB ${(Number(item.currentStock) * Number(item.unitCost)).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}</td>
+                      <td className="table-cell text-xs">
+                        {(item as any).expiryDate ? (() => {
+                          const exp = new Date((item as any).expiryDate); const today = new Date(); today.setHours(0,0,0,0);
+                          const soon = new Date(today); soon.setDate(soon.getDate() + 7);
+                          const expired = exp < today; const expSoon = !expired && exp <= soon;
+                          return <span className={clsx('status-badge', expired ? 'bg-red-100 text-red-700' : expSoon ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600')}>
+                            {exp.toLocaleDateString()}{expired ? ' — expired' : expSoon ? ' — soon' : ''}
+                          </span>;
+                        })() : <span className="text-gray-400">—</span>}
+                      </td>
                       <td className="table-cell">
-                        <button onClick={() => { setEditItem(item); setItemForm({ name: item.name, unit: item.unit, currentStock: String(item.currentStock), minStock: String(item.minStock), unitCost: String(item.unitCost || ''), category: item.category || '', restaurantId: item.restaurantId }); setShowItemModal(true); }}
+                        <button onClick={() => { setEditItem(item); setItemForm({ name: item.name, unit: item.unit, currentStock: String(item.currentStock), minStock: String(item.minStock), unitCost: String(item.unitCost || ''), category: item.category || '', expiryDate: (item as any).expiryDate ? String((item as any).expiryDate).slice(0, 10) : '', restaurantId: item.restaurantId }); setShowItemModal(true); }}
                           className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded"><Pencil size={14} /></button>
                       </td>
                     </tr>
@@ -262,7 +288,12 @@ export default function InventoryPage() {
                             <button onClick={() => updatePOStatus(po.id, 'rejected').then(fetchData)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">Reject</button>
                           </>}
                           {po.status === 'pending' && !canApprovePO && <span className="text-xs text-gray-400">Awaiting approval</span>}
-                          {po.status === 'approved' && <button onClick={() => updatePOStatus(po.id, 'received').then(fetchData)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Receive Goods</button>}
+                          {po.status === 'approved' && (canPayPO
+                            ? <button onClick={() => updatePOStatus(po.id, 'paid').then(fetchData)} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">Confirm Payment</button>
+                            : <span className="text-xs text-gray-400">Awaiting cashier payment</span>)}
+                          {po.status === 'paid' && (canReceivePO
+                            ? <button onClick={() => updatePOStatus(po.id, 'received').then(fetchData)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Fill Stock In</button>
+                            : <span className="text-xs text-gray-400">Awaiting store keeper</span>)}
                         </div>
                       </td>
                     </tr>
@@ -357,6 +388,12 @@ export default function InventoryPage() {
                   <div key={k}><label className="block text-xs font-medium text-gray-700 mb-1">{l}</label>
                     <input type="number" value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input text-sm" /></div>
                 ))}
+              </div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date (optional)</label>
+                <input type="date" value={itemForm.expiryDate} onChange={e => setItemForm(p => ({ ...p, expiryDate: e.target.value }))} className="input" /></div>
+              <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2.5">
+                <span className="text-sm font-medium text-gray-600">Total Price (stock × unit cost)</span>
+                <span className="font-bold text-gray-900">ETB {((parseFloat(itemForm.currentStock) || 0) * (parseFloat(itemForm.unitCost) || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
               </div>
             </div>
             <div className="flex gap-3 mt-5">

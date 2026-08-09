@@ -5,7 +5,9 @@ import { InventoryItem } from '../../entities/inventory-item.entity';
 import { Supplier } from '../../entities/supplier.entity';
 import { PurchaseOrder, POStatus } from '../../entities/purchase-order.entity';
 import { StockAdjustment, AdjustmentType } from '../../entities/stock-adjustment.entity';
+import { ItemRequest, ItemRequestStatus } from '../../entities/item-request.entity';
 import { User } from '../../entities/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class InventoryService {
@@ -14,7 +16,9 @@ export class InventoryService {
     @InjectRepository(Supplier) private supplierRepo: Repository<Supplier>,
     @InjectRepository(PurchaseOrder) private poRepo: Repository<PurchaseOrder>,
     @InjectRepository(StockAdjustment) private adjRepo: Repository<StockAdjustment>,
+    @InjectRepository(ItemRequest) private reqRepo: Repository<ItemRequest>,
     private dataSource: DataSource,
+    private notifications: NotificationsService,
   ) {}
 
   private assertBranch(entityBranchId: number | null | undefined, branchId?: number) {
@@ -69,9 +73,12 @@ export class InventoryService {
     return this.supplierRepo.find({ where, order: { name: 'ASC' } });
   }
 
-  async findOneSupplier(id: number) {
+  async findOneSupplier(id: number, restaurantId?: number) {
     const s = await this.supplierRepo.findOne({ where: { id } });
     if (!s) throw new NotFoundException('Supplier not found');
+    if (restaurantId && (s as any).restaurantId && (s as any).restaurantId !== restaurantId) {
+      throw new ForbiddenException('This supplier belongs to another restaurant');
+    }
     return s;
   }
 
@@ -99,7 +106,7 @@ export class InventoryService {
   }
 
   async createPO(data: any, user: User, branchId?: number) {
-    await this.findOneSupplier(Number(data.supplierId));
+    await this.findOneSupplier(Number(data.supplierId), (user as any).restaurantId || undefined);
 
     const lines = (Array.isArray(data.items) ? data.items : [])
       .map((l: any) => ({
@@ -129,14 +136,22 @@ export class InventoryService {
       totalAmount,
       items: lines,
     });
-    return this.poRepo.save(po);
+    const saved = await this.poRepo.save(po);
+    await this.notifications.notify({
+      roles: ['manager', 'owner'],
+      message: `Purchase order #${saved.id} (ETB ${Number(saved.totalAmount).toLocaleString()}) awaits your approval`,
+      branchId: saved.branchId,
+    });
+    return saved;
   }
 
+  // Procurement flow: pending → approved (manager/owner) → paid (cashier) → received (storekeeper)
   private static readonly PO_TRANSITIONS: Record<string, string[]> = {
     [POStatus.DRAFT]: [POStatus.PENDING],
     [POStatus.PENDING]: [POStatus.APPROVED, POStatus.REJECTED],
-    [POStatus.APPROVED]: [POStatus.ORDERED, POStatus.RECEIVED],
-    [POStatus.ORDERED]: [POStatus.RECEIVED],
+    [POStatus.APPROVED]: [POStatus.PAID],
+    [POStatus.PAID]: [POStatus.RECEIVED],
+    [POStatus.ORDERED]: [POStatus.RECEIVED], // legacy rows
     [POStatus.RECEIVED]: [],
     [POStatus.REJECTED]: [],
   };
@@ -150,35 +165,83 @@ export class InventoryService {
     if ((status === POStatus.APPROVED || status === POStatus.REJECTED) && !['admin', 'owner', 'manager'].includes(user.role as any)) {
       throw new ForbiddenException('Only managers and above can approve or reject purchase orders');
     }
+    if (status === POStatus.PAID && !['admin', 'owner', 'cashier'].includes(user.role as any)) {
+      throw new ForbiddenException('Only the cashier can confirm payment of a purchase order');
+    }
+    if (status === POStatus.RECEIVED && !['admin', 'owner', 'storekeeper'].includes(user.role as any)) {
+      throw new ForbiddenException('Only the store keeper can receive goods into stock');
+    }
 
     if (status === POStatus.RECEIVED) {
-      // Goods receipt: increment stock and persist status atomically (transition guard prevents double receipt)
-      return this.dataSource.transaction(async (em) => {
+      // Goods receipt: conditional status flip guards against concurrent double-receipt,
+      // then increment stock and record movements in the same transaction.
+      const saved = await this.dataSource.transaction(async (em) => {
+        const res = await em.createQueryBuilder()
+          .update(PurchaseOrder)
+          .set({ status: POStatus.RECEIVED })
+          .where('id = :id AND status IN (:...from)', { id: po.id, from: [POStatus.PAID, POStatus.ORDERED] })
+          .execute();
+        if (!res.affected) throw new BadRequestException('Purchase order was already received');
         for (const item of po.items) {
           await em.increment(InventoryItem, { id: item.inventoryItemId }, 'currentStock', Number(item.quantity));
+          await em.save(em.create(StockAdjustment, {
+            inventoryItemId: item.inventoryItemId,
+            type: AdjustmentType.ADDITION,
+            quantity: Number(item.quantity),
+            reason: `PO #${po.id} received (stock in)`,
+            createdById: user.id,
+            branchId: po.branchId || undefined,
+          }));
         }
         po.status = POStatus.RECEIVED;
-        return em.save(po);
+        return po;
       });
+      await this.notifications.notify({ roles: ['manager', 'owner'], message: `Purchase order #${po.id} received — stock updated by ${user.name || 'store keeper'}`, branchId: po.branchId });
+      return saved;
     }
 
     po.status = status as POStatus;
     if (status === POStatus.APPROVED || status === POStatus.REJECTED) po.approvedById = user.id;
-    return this.poRepo.save(po);
+    if (status === POStatus.PAID) po.paidById = user.id;
+    const saved = await this.poRepo.save(po);
+
+    if (status === POStatus.APPROVED) {
+      await this.notifications.notify({ roles: ['cashier'], userId: po.requestedById || undefined, message: `Purchase order #${po.id} approved (ETB ${Number(po.totalAmount).toLocaleString()}) — cashier to confirm payment`, branchId: po.branchId });
+    } else if (status === POStatus.REJECTED) {
+      await this.notifications.notify({ userId: po.requestedById || undefined, message: `Purchase order #${po.id} was rejected`, branchId: po.branchId });
+    } else if (status === POStatus.PAID) {
+      await this.notifications.notify({ roles: ['storekeeper'], message: `Purchase order #${po.id} paid — fill the stock in when goods arrive`, branchId: po.branchId });
+    }
+    return saved;
   }
 
   // Stock Adjustments
-  async createAdjustment(data: { inventoryItemId: number; type: AdjustmentType; quantity: number; reason?: string; createdById?: number; branchId?: number }, branchId?: number) {
+  async createAdjustment(data: { inventoryItemId: number; type: AdjustmentType; quantity: number; reason?: string; branchId?: number }, user: User, branchId?: number) {
     const item = await this.findOneItem(data.inventoryItemId, branchId);
-    if (branchId) data.branchId = branchId;
-    else data.branchId = item.branchId || undefined;
-    const adj = this.adjRepo.create(data);
-    await this.adjRepo.save(adj);
+    const qty = Math.abs(Number(data.quantity));
+    if (!(qty > 0)) throw new BadRequestException('Quantity must be greater than zero');
+    const isAddition = data.type === AdjustmentType.ADDITION;
 
-    const delta = data.type === AdjustmentType.ADDITION ? data.quantity : -Math.abs(data.quantity);
-    await this.itemRepo.increment({ id: data.inventoryItemId }, 'currentStock', delta);
-
-    return adj;
+    return this.dataSource.transaction(async (em) => {
+      if (isAddition) {
+        await em.increment(InventoryItem, { id: item.id }, 'currentStock', qty);
+      } else {
+        const dec = await em.createQueryBuilder()
+          .update(InventoryItem)
+          .set({ currentStock: () => `"currentStock" - ${qty}` })
+          .where('id = :id AND "currentStock" >= :qty', { id: item.id, qty })
+          .execute();
+        if (!dec.affected) throw new BadRequestException(`Not enough stock: only ${Number(item.currentStock)} ${item.unit} available`);
+      }
+      return em.save(em.create(StockAdjustment, {
+        inventoryItemId: item.id,
+        type: data.type,
+        quantity: qty,
+        reason: data.reason,
+        createdById: user.id, // always the authenticated user — never caller-supplied
+        branchId: branchId || item.branchId || undefined,
+      }));
+    });
   }
 
   findAllAdjustments(inventoryItemId?: number, branchId?: number) {
@@ -186,5 +249,112 @@ export class InventoryService {
     if (inventoryItemId) where.inventoryItemId = inventoryItemId;
     if (branchId) where.branchId = branchId;
     return this.adjRepo.find({ where, relations: ['inventoryItem', 'createdBy'], order: { createdAt: 'DESC' } });
+  }
+
+  // ── Item Requests ─────────────────────────────────────────────────────────
+  // Flow: any staff requests → manager/owner approve → storekeeper issues (stock out) → requester confirms receipt
+
+  private static readonly REQUEST_TRANSITIONS: Record<string, string[]> = {
+    [ItemRequestStatus.PENDING]: [ItemRequestStatus.APPROVED, ItemRequestStatus.REJECTED],
+    [ItemRequestStatus.APPROVED]: [ItemRequestStatus.ISSUED],
+    [ItemRequestStatus.ISSUED]: [ItemRequestStatus.RECEIVED],
+    [ItemRequestStatus.REJECTED]: [],
+    [ItemRequestStatus.RECEIVED]: [],
+  };
+
+  findAllRequests(user: User, branchId?: number) {
+    const where: any = {};
+    if (branchId) where.branchId = branchId;
+    // Regular staff only see their own requests; managers/storekeepers see all in their branch
+    if (!['admin', 'owner', 'manager', 'storekeeper'].includes(user.role as any)) {
+      where.requestedById = user.id;
+    }
+    return this.reqRepo.find({ where, order: { createdAt: 'DESC' } });
+  }
+
+  async createRequest(data: { inventoryItemId: number; quantity: number; notes?: string }, user: User, branchId?: number) {
+    const qty = Number(data.quantity);
+    if (!(qty > 0)) throw new BadRequestException('Quantity must be greater than zero');
+    const item = await this.findOneItem(Number(data.inventoryItemId), branchId);
+    const req = this.reqRepo.create({
+      inventoryItemId: item.id,
+      quantity: qty,
+      notes: data.notes,
+      requestedById: user.id,
+      branchId: branchId || (user as any).branchId || item.branchId || undefined,
+      status: ItemRequestStatus.PENDING,
+    });
+    const saved = await this.reqRepo.save(req);
+    await this.notifications.notify({
+      roles: ['manager', 'owner'],
+      message: `${user.name || 'Staff'} requested ${qty} ${item.unit} of ${item.name} — awaiting approval`,
+      branchId: saved.branchId,
+    });
+    return saved;
+  }
+
+  async updateRequestStatus(id: number, status: string, user: User, branchId?: number) {
+    const req = await this.reqRepo.findOne({ where: { id } });
+    if (!req) throw new NotFoundException('Item request not found');
+    this.assertBranch(req.branchId, branchId);
+
+    const allowed = InventoryService.REQUEST_TRANSITIONS[req.status] || [];
+    if (!allowed.includes(status)) {
+      throw new BadRequestException(`Cannot change request from '${req.status}' to '${status}'`);
+    }
+    if ((status === ItemRequestStatus.APPROVED || status === ItemRequestStatus.REJECTED) && !['admin', 'owner', 'manager'].includes(user.role as any)) {
+      throw new ForbiddenException('Only managers and above can approve or reject item requests');
+    }
+    if (status === ItemRequestStatus.ISSUED && !['admin', 'owner', 'storekeeper'].includes(user.role as any)) {
+      throw new ForbiddenException('Only the store keeper can issue the stock out');
+    }
+    if (status === ItemRequestStatus.RECEIVED && req.requestedById !== user.id && !['admin', 'owner'].includes(user.role as any)) {
+      throw new ForbiddenException('Only the requester can confirm the items were received');
+    }
+
+    const item = req.inventoryItem || (await this.findOneItem(req.inventoryItemId));
+
+    if (status === ItemRequestStatus.ISSUED) {
+      // Stock out: conditional updates guard against concurrent double-issue and negative stock
+      await this.dataSource.transaction(async (em) => {
+        const flip = await em.createQueryBuilder()
+          .update(ItemRequest)
+          .set({ status: ItemRequestStatus.ISSUED, issuedById: user.id })
+          .where('id = :id AND status = :from', { id: req.id, from: ItemRequestStatus.APPROVED })
+          .execute();
+        if (!flip.affected) throw new BadRequestException('Request was already issued');
+        const dec = await em.createQueryBuilder()
+          .update(InventoryItem)
+          .set({ currentStock: () => `"currentStock" - ${Number(req.quantity)}` })
+          .where('id = :id AND "currentStock" >= :qty', { id: req.inventoryItemId, qty: Number(req.quantity) })
+          .execute();
+        if (!dec.affected) {
+          throw new BadRequestException(`Not enough stock: only ${Number(item.currentStock)} ${item.unit} of ${item.name} available`);
+        }
+        await em.save(em.create(StockAdjustment, {
+          inventoryItemId: req.inventoryItemId,
+          type: AdjustmentType.DEDUCTION,
+          quantity: Number(req.quantity),
+          reason: `Item request #${req.id} issued to ${req.requestedBy?.name || 'staff'} (stock out)`,
+          createdById: user.id,
+          branchId: req.branchId || undefined,
+        }));
+      });
+      await this.notifications.notify({ userId: req.requestedById, message: `Your request for ${Number(req.quantity)} ${item.unit} of ${item.name} was issued — please confirm receipt`, branchId: req.branchId });
+      return this.reqRepo.findOne({ where: { id } });
+    }
+
+    req.status = status as ItemRequestStatus;
+    if (status === ItemRequestStatus.APPROVED || status === ItemRequestStatus.REJECTED) req.approvedById = user.id;
+    const saved = await this.reqRepo.save(req);
+
+    if (status === ItemRequestStatus.APPROVED) {
+      await this.notifications.notify({ roles: ['storekeeper'], userId: req.requestedById, message: `Item request #${req.id} (${Number(req.quantity)} ${item.unit} of ${item.name}) approved — storekeeper to issue stock`, branchId: req.branchId });
+    } else if (status === ItemRequestStatus.REJECTED) {
+      await this.notifications.notify({ userId: req.requestedById, message: `Your request for ${item.name} was rejected`, branchId: req.branchId });
+    } else if (status === ItemRequestStatus.RECEIVED) {
+      await this.notifications.notify({ roles: ['storekeeper', 'manager'], message: `Item request #${req.id} (${item.name}) confirmed received by ${user.name || 'requester'}`, branchId: req.branchId });
+    }
+    return saved;
   }
 }

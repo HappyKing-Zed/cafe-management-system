@@ -27,6 +27,10 @@ export class InventoryItem {
   @Column({ nullable: true })
   category: string;
 
+  /** Expiry date of the current batch (nullable for non-perishables) */
+  @Column({ type: 'date', nullable: true })
+  expiryDate: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

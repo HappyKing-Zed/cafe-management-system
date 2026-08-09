@@ -17,6 +17,7 @@ import { Supplier } from './entities/supplier.entity';
 import { PurchaseOrder } from './entities/purchase-order.entity';
 import { PurchaseOrderItem } from './entities/purchase-order-item.entity';
 import { StockAdjustment } from './entities/stock-adjustment.entity';
+import { ItemRequest } from './entities/item-request.entity';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RestaurantsModule } from './modules/restaurants/restaurants.module';
@@ -40,7 +41,7 @@ import { Notification } from './entities/notification.entity';
       entities: [
         User, Restaurant, Branch, MenuCategory, MenuItem,
         RestaurantTable, Order, OrderItem, Payment, Shift,
-        InventoryItem, Supplier, PurchaseOrder, PurchaseOrderItem, StockAdjustment, Notification,
+        InventoryItem, Supplier, PurchaseOrder, PurchaseOrderItem, StockAdjustment, ItemRequest, Notification,
       ],
       synchronize: true,
       ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : false,

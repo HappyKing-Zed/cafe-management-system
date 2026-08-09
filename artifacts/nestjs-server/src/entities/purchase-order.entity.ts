@@ -7,6 +7,7 @@ export enum POStatus {
   DRAFT = 'draft',
   PENDING = 'pending',
   APPROVED = 'approved',
+  PAID = 'paid',
   ORDERED = 'ordered',
   RECEIVED = 'received',
   REJECTED = 'rejected',
@@ -52,6 +53,10 @@ export class PurchaseOrder {
 
   @Column({ nullable: true })
   approvedById: number;
+
+  /** Cashier who confirmed payment for this purchase order */
+  @Column({ nullable: true })
+  paidById: number;
 
   @Column({ nullable: true })
   branchId: number;

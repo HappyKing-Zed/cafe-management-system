@@ -4,10 +4,14 @@ import { Repository, In, IsNull } from 'typeorm';
 import { Notification } from '../../entities/notification.entity';
 import { Order } from '../../entities/order.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
+import { InventoryItem } from '../../entities/inventory-item.entity';
 
 @Injectable()
 export class NotificationsService {
-  constructor(@InjectRepository(Notification) private repo: Repository<Notification>) {}
+  constructor(
+    @InjectRepository(Notification) private repo: Repository<Notification>,
+    @InjectRepository(InventoryItem) private itemRepo: Repository<InventoryItem>,
+  ) {}
 
   /** Notifications relevant to the current user: targeted directly, or by role within their branch. */
   findForUser(user: { id: number; role: string; branchId?: number }) {
@@ -29,6 +33,51 @@ export class NotificationsService {
 
   private async push(rows: Array<Partial<Notification>>) {
     if (rows.length) await this.repo.save(rows.map((r) => this.repo.create(r)));
+  }
+
+  /** Notify one or more roles (and/or a specific user) about an inventory event. */
+  async notify(opts: { roles?: string[]; userId?: number; message: string; branchId?: number | null }) {
+    const base = { branchId: opts.branchId ?? null } as any;
+    const rows: Array<Partial<Notification>> = [];
+    for (const r of opts.roles || []) rows.push({ ...base, targetRole: r, message: opts.message });
+    if (opts.userId) rows.push({ ...base, targetUserId: opts.userId, message: opts.message });
+    await this.push(rows);
+  }
+
+  /**
+   * Scan inventory for low-stock and expiring/expired items and create alerts
+   * for storekeeper + manager. Deduplicates: skips when an identical unread
+   * notification already exists.
+   */
+  async scanInventoryAlerts(branchId?: number) {
+    const qb = this.itemRepo.createQueryBuilder('item')
+      .where(`(item.currentStock <= item.minStock OR (item.expiryDate IS NOT NULL AND item.expiryDate <= (CURRENT_DATE + INTERVAL '7 days')))`);
+    if (branchId) qb.andWhere('item.branchId = :bid', { bid: branchId });
+    const items = await qb.getMany();
+    if (!items.length) return;
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const msgs: Array<{ message: string; branchId: number | null }> = [];
+    for (const item of items) {
+      if (Number(item.currentStock) <= Number(item.minStock)) {
+        const out = Number(item.currentStock) <= 0;
+        msgs.push({ message: `LOW STOCK: ${item.name} — ${out ? 'out of stock' : `${Number(item.currentStock)} ${item.unit} left (min ${Number(item.minStock)})`}`, branchId: item.branchId ?? null });
+      }
+      if (item.expiryDate) {
+        const exp = new Date(item.expiryDate);
+        if (exp < today) msgs.push({ message: `EXPIRED: ${item.name} expired on ${item.expiryDate} — remove from stock`, branchId: item.branchId ?? null });
+        else msgs.push({ message: `EXPIRY WARNING: ${item.name} expires on ${item.expiryDate}`, branchId: item.branchId ?? null });
+      }
+    }
+
+    const rows: Array<Partial<Notification>> = [];
+    for (const m of msgs) {
+      for (const role of ['storekeeper', 'manager']) {
+        const exists = await this.repo.findOne({ where: { message: m.message, targetRole: role, isRead: false, branchId: (m.branchId ?? IsNull()) as any } });
+        if (!exists) rows.push({ message: m.message, targetRole: role, branchId: m.branchId as any });
+      }
+    }
+    await this.push(rows);
   }
 
   /** Create notifications for an order lifecycle event. */

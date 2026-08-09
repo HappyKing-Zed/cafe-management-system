@@ -124,5 +124,13 @@ export const updatePOStatus = (id: number, status: string) =>
 export const createStockAdjustment = (data: any) => api.post('/inventory/adjustments', data);
 export const getStockAdjustments = () => api.get('/inventory/adjustments');
 
+// Item Requests (any role can request; manager approves; storekeeper issues)
+export const getItemRequests = () => api.get('/inventory/requests');
+export const createItemRequest = (data: { inventoryItemId: number; quantity: number; notes?: string }) =>
+  api.post('/inventory/requests', data);
+export const updateItemRequestStatus = (id: number, status: string) =>
+  api.patch(`/inventory/requests/${id}/status`, { status });
+export const getRequestableItems = () => api.get('/inventory/requestable-items');
+
 // Seed
 export const seedDatabase = () => api.post('/seed');

@@ -56,8 +56,9 @@ export class InventoryController {
   @Patch('suppliers/:id')
   updateSupplier(@Param('id', ParseIntPipe) id: number, @Body() body: any) { return this.service.updateSupplier(id, body); }
 
-  // Purchase Orders
+  // Purchase Orders (cashier included: they confirm payment after approval)
   @Get('purchase-orders')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER, Role.CASHIER)
   findPOs(@Req() req: any, @Query('supplierId') sid?: number) {
     return this.service.findAllPOs(sid ? +sid : undefined, branchScope(req.user));
   }
@@ -68,8 +69,35 @@ export class InventoryController {
   }
 
   @Patch('purchase-orders/:id/status')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER, Role.CASHIER)
   updatePOStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Req() req: any) {
     return this.service.updatePOStatus(id, status, req.user, branchScope(req.user));
+  }
+
+  // Item Requests — every role can request items; approvals/issuing enforced in the service
+  @Get('requests')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
+  findRequests(@Req() req: any) {
+    return this.service.findAllRequests(req.user, branchScope(req.user));
+  }
+
+  @Post('requests')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
+  createRequest(@Req() req: any, @Body() body: any) {
+    return this.service.createRequest(body, req.user, branchScope(req.user));
+  }
+
+  @Patch('requests/:id/status')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
+  updateRequestStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Req() req: any) {
+    return this.service.updateRequestStatus(id, status, req.user, branchScope(req.user));
+  }
+
+  // Items also readable by all roles so the request form can list them
+  @Get('requestable-items')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
+  requestableItems(@Req() req: any) {
+    return this.service.findAllItems(undefined, branchScope(req.user));
   }
 
   // Adjustments
@@ -80,6 +108,6 @@ export class InventoryController {
 
   @Post('adjustments')
   createAdjustment(@Req() req: any, @Body() body: any) {
-    return this.service.createAdjustment(body, branchScope(req.user));
+    return this.service.createAdjustment(body, req.user, branchScope(req.user));
   }
 }
