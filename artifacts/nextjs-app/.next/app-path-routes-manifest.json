@@ -1,0 +1,8 @@
+{
+  "/login/page": "/login",
+  "/page": "/",
+  "/dashboard/page": "/dashboard",
+  "/dashboard/reports/page": "/dashboard/reports",
+  "/dashboard/tables/page": "/dashboard/tables",
+  "/dashboard/kitchen/page": "/dashboard/kitchen"
+}

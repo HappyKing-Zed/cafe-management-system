@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getOrders, createOrder, updateOrderStatus, processPayment, getMenuCategories, getTables } from '@/lib/api';
-import { Order, MenuItem, MenuCategory, RestaurantTable } from '@/lib/types';
+import { getOrders, createOrder, updateOrderStatus, processPayment, getMenuCategories, getTables, getWaiters } from '@/lib/api';
+import { Order, MenuItem, MenuCategory, RestaurantTable, User } from '@/lib/types';
+import { useAuthStore } from '@/store/auth';
 import { ShoppingCart, Plus, X, CreditCard } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -17,7 +18,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 interface CartItem { menuItem: MenuItem; quantity: number; notes?: string; }
 
+const CAN_ASSIGN_WAITER = ['admin', 'owner', 'manager', 'coordinator'];
+
 export default function OrdersPage() {
+  const { user } = useAuthStore();
+  const canAssignWaiter = !!user && CAN_ASSIGN_WAITER.includes(user.role);
+  const [waiters, setWaiters] = useState<User[]>([]);
+  const [selectedWaiter, setSelectedWaiter] = useState<number | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
@@ -52,6 +59,13 @@ export default function OrdersPage() {
 
   useEffect(() => { fetchData(); }, []);
 
+  useEffect(() => {
+    if (!canAssignWaiter) return;
+    getWaiters()
+      .then(res => setWaiters(res.data || []))
+      .catch(() => setWaiters([]));
+  }, [canAssignWaiter]);
+
   const addToCart = (item: MenuItem) => {
     setCart(prev => {
       const existing = prev.find(c => c.menuItem.id === item.id);
@@ -74,12 +88,14 @@ export default function OrdersPage() {
     try {
       await createOrder({
         tableId: selectedTable,
+        waiterId: canAssignWaiter ? selectedWaiter : user?.role === 'waiter' ? user.id : undefined,
         customerName,
         notes,
         items: cart.map(c => ({ menuItemId: c.menuItem.id, quantity: c.quantity, notes: c.notes })),
       });
       setCart([]);
       setSelectedTable(null);
+      setSelectedWaiter(null);
       setCustomerName('');
       setNotes('');
       setShowPOS(false);
@@ -162,6 +178,7 @@ export default function OrdersPage() {
                   <td className="table-cell font-semibold text-brand-600">#{order.id}</td>
                   <td className="table-cell">
                     {order.table?.number ? <span className="font-medium">Table {order.table.number}</span> : <span className="text-gray-500">{order.customerName || 'Walk-in'}</span>}
+                    {order.waiter?.name && <p className="text-xs text-gray-400">Waiter: {order.waiter.name}</p>}
                   </td>
                   <td className="table-cell text-gray-500">{order.items?.length || 0} items</td>
                   <td className="table-cell font-semibold">ETB {Number(order.totalAmount).toLocaleString()}</td>
@@ -238,6 +255,13 @@ export default function OrdersPage() {
                   </select>
                   <input placeholder="Customer name" value={customerName} onChange={e => setCustomerName(e.target.value)} className="input text-xs py-1.5" />
                 </div>
+                {canAssignWaiter && (
+                  <select value={selectedWaiter || ''} onChange={(e) => setSelectedWaiter(e.target.value ? +e.target.value : null)}
+                    className="input text-xs py-1.5 mt-2 w-full">
+                    <option value="">Assign waiter (optional)</option>
+                    {waiters.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                )}
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 {cart.length === 0 ? (

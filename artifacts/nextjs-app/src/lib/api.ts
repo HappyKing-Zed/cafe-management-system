@@ -52,6 +52,7 @@ export const updateBranch = (id: number, data: any) => api.patch(`/branches/${id
 // Users
 export const getUsers = (restaurantId?: number) =>
   api.get('/users', { params: { restaurantId } });
+export const getWaiters = () => api.get('/users/waiters');
 export const createUser = (data: any) => api.post('/users', data);
 export const updateUser = (id: number, data: any) => api.patch(`/users/${id}`, data);
 export const deleteUser = (id: number) => api.delete(`/users/${id}`);
@@ -86,6 +87,8 @@ export const updateOrderStatus = (id: number, status: string) =>
   api.patch(`/orders/${id}/status`, { status });
 export const addOrderItems = (id: number, items: any[]) =>
   api.patch(`/orders/${id}/items`, { items });
+
+export const getOrderAlerts = () => api.get('/orders/alerts');
 
 // Kitchen
 export const getKitchenBoard = () => api.get('/kitchen/board');

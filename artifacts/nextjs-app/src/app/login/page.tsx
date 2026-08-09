@@ -115,6 +115,7 @@ export default function LoginPage() {
                 { label: '🔴 Admin', email: 'admin@habesha.com', pass: 'admin123' },
                 { label: '🟠 Owner', email: 'owner@habesha.com', pass: 'owner123' },
                 { label: '🟡 Manager', email: 'manager@habesha.com', pass: 'manager123' },
+                { label: '🟢 Coordinator', email: 'coordinator@habesha.com', pass: 'coord123' },
                 { label: '🔵 Waiter', email: 'waiter1@habesha.com', pass: 'waiter123' },
                 { label: '🟣 Chef', email: 'chef@habesha.com', pass: 'chef123' },
                 { label: '⚪ Cashier', email: 'cashier@habesha.com', pass: 'cashier123' },

@@ -5,6 +5,7 @@ import { Order } from '../../entities/order.entity';
 import { OrderItem } from '../../entities/order-item.entity';
 import { MenuItem } from '../../entities/menu-item.entity';
 import { RestaurantTable } from '../../entities/table.entity';
+import { User } from '../../entities/user.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 import { TableStatus } from '../../common/enums/table-status.enum';
 
@@ -15,6 +16,7 @@ export class OrdersService {
     @InjectRepository(OrderItem) private itemRepo: Repository<OrderItem>,
     @InjectRepository(MenuItem) private menuRepo: Repository<MenuItem>,
     @InjectRepository(RestaurantTable) private tableRepo: Repository<RestaurantTable>,
+    @InjectRepository(User) private userRepo: Repository<User>,
   ) {}
 
   findAll(status?: OrderStatus, tableId?: number) {
@@ -38,6 +40,12 @@ export class OrdersService {
   }
 
   async create(data: { tableId?: number; waiterId?: number; notes?: string; customerName?: string; guestCount?: number; items?: Array<{ menuItemId: number; quantity: number; notes?: string }> }) {
+    if (data.waiterId) {
+      const waiter = await this.userRepo.findOne({ where: { id: data.waiterId } });
+      if (!waiter || waiter.role !== ('waiter' as any) || !waiter.isActive) {
+        throw new BadRequestException('waiterId must reference an active waiter');
+      }
+    }
     const order = this.orderRepo.create({
       tableId: data.tableId,
       waiterId: data.waiterId,
@@ -123,6 +131,37 @@ export class OrdersService {
   async remove(id: number) {
     const o = await this.findOne(id);
     return this.orderRepo.remove(o);
+  }
+
+  async getAlerts() {
+    const active = await this.orderRepo.find({
+      where: [
+        { status: OrderStatus.PENDING },
+        { status: OrderStatus.CONFIRMED },
+        { status: OrderStatus.PREPARING },
+        { status: OrderStatus.READY },
+      ],
+      relations: ['table', 'waiter'],
+      order: { createdAt: 'ASC' },
+    });
+
+    const now = Date.now();
+    const alerts: any[] = [];
+    for (const o of active) {
+      const refTime = new Date(o.updatedAt || o.createdAt).getTime();
+      const minutes = Math.floor((now - refTime) / 60000);
+      const tableLabel = o.table?.number ? `Table ${o.table.number}` : (o.customerName || 'Walk-in');
+      const waiterName = o.waiter?.name;
+
+      if (o.status === OrderStatus.PENDING && minutes >= 5) {
+        alerts.push({ orderId: o.id, side: 'kitchen', severity: minutes >= 15 ? 'critical' : 'warning', status: o.status, minutes, message: `Order #${o.id} (${tableLabel}) waiting for kitchen confirmation for ${minutes} min` });
+      } else if ((o.status === OrderStatus.CONFIRMED || o.status === OrderStatus.PREPARING) && minutes >= 20) {
+        alerts.push({ orderId: o.id, side: 'kitchen', severity: minutes >= 35 ? 'critical' : 'warning', status: o.status, minutes, message: `Order #${o.id} (${tableLabel}) delayed in kitchen — ${o.status} for ${minutes} min` });
+      } else if (o.status === OrderStatus.READY && minutes >= 5) {
+        alerts.push({ orderId: o.id, side: 'waiter', severity: minutes >= 15 ? 'critical' : 'warning', status: o.status, minutes, message: `Order #${o.id} (${tableLabel}) ready but not served for ${minutes} min${waiterName ? ` — waiter ${waiterName}` : ''}` });
+      }
+    }
+    return alerts.sort((a, b) => b.minutes - a.minutes);
   }
 
   async getDashboardStats(restaurantId?: number) {

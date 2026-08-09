@@ -1,6 +1,9 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/roles.enum';
 import { OrdersService } from './orders.service';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 
@@ -18,6 +21,11 @@ export class OrdersController {
 
   @Get('stats')
   getStats() { return this.service.getDashboardStats(); }
+
+  @Get('alerts')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF)
+  getAlerts() { return this.service.getAlerts(); }
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) { return this.service.findOne(id); }

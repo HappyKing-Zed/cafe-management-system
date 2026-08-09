@@ -19,6 +19,12 @@ export class UsersController {
     return this.service.findAll(restaurantId ? +restaurantId : undefined);
   }
 
+  @Get('waiters')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR)
+  findWaiters() {
+    return this.service.findWaiters();
+  }
+
   @Get(':id')
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
   findOne(@Param('id', ParseIntPipe) id: number) {
