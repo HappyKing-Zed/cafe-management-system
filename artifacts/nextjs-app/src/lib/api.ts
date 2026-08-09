@@ -90,6 +90,10 @@ export const addOrderItems = (id: number, items: any[]) =>
 
 export const getOrderAlerts = () => api.get('/orders/alerts');
 
+// Notifications
+export const getNotifications = () => api.get('/notifications');
+export const markNotificationsRead = () => api.patch('/notifications/read');
+
 // Kitchen
 export const getKitchenBoard = () => api.get('/kitchen/board');
 export const acceptOrder = (id: number) => api.patch(`/kitchen/orders/${id}/accept`);

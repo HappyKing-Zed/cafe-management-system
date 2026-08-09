@@ -1,8 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { getOrderAlerts } from '@/lib/api';
+import { getOrderAlerts, getNotifications, markNotificationsRead } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
-import { Bell, AlertTriangle, Clock } from 'lucide-react';
+import { Bell, AlertTriangle, Clock, CheckCheck } from 'lucide-react';
 import clsx from 'clsx';
 
 interface OrderAlert {
@@ -14,34 +14,57 @@ interface OrderAlert {
   message: string;
 }
 
+interface AppNotification {
+  id: number;
+  message: string;
+  orderId?: number;
+  isRead: boolean;
+  createdAt: string;
+}
+
 const ALERT_ROLES = ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef'];
+
+function timeAgo(dateStr: string) {
+  const m = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+}
 
 export default function NotificationBell() {
   const { user } = useAuthStore();
   const [alerts, setAlerts] = useState<OrderAlert[]>([]);
+  const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const canSee = user && ALERT_ROLES.includes(user.role);
+  const seesAlerts = !!user && ALERT_ROLES.includes(user.role);
   // Waiters see waiter-side alerts; chefs see kitchen-side; coordinators/managers see both
-  const visible = alerts.filter(a =>
+  const visibleAlerts = alerts.filter(a =>
     user?.role === 'waiter' ? a.side === 'waiter' :
     user?.role === 'chef' ? a.side === 'kitchen' : true
   );
 
   useEffect(() => {
-    if (!canSee) return;
+    if (!user) return;
     let mounted = true;
     const load = async () => {
       try {
-        const res = await getOrderAlerts();
-        if (mounted) setAlerts(res.data || []);
+        const [alertsRes, notifsRes] = await Promise.all([
+          seesAlerts ? getOrderAlerts() : Promise.resolve({ data: [] }),
+          getNotifications(),
+        ]);
+        if (mounted) {
+          setAlerts(alertsRes.data || []);
+          setNotifs(notifsRes.data || []);
+        }
       } catch { /* ignore polling errors */ }
     };
     load();
-    const t = setInterval(load, 30000);
+    const t = setInterval(load, 15000);
     return () => { mounted = false; clearInterval(t); };
-  }, [canSee]);
+  }, [user, seesAlerts]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -51,9 +74,18 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  if (!canSee) return null;
+  if (!user) return null;
 
-  const criticalCount = visible.filter(a => a.severity === 'critical').length;
+  const unread = notifs.filter(n => !n.isRead);
+  const criticalCount = visibleAlerts.filter(a => a.severity === 'critical').length;
+  const badgeCount = unread.length + visibleAlerts.length;
+
+  const handleMarkRead = async () => {
+    try {
+      await markNotificationsRead();
+      setNotifs(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch { /* ignore */ }
+  };
 
   return (
     <div ref={ref} className="fixed top-4 right-6 z-40">
@@ -66,12 +98,12 @@ export default function NotificationBell() {
         aria-label="Notifications"
       >
         <Bell size={20} className={criticalCount > 0 ? 'text-red-600' : 'text-gray-600'} />
-        {visible.length > 0 && (
+        {badgeCount > 0 && (
           <span className={clsx(
             'absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full text-[11px] font-bold text-white flex items-center justify-center',
             criticalCount > 0 ? 'bg-red-500' : 'bg-amber-500'
           )}>
-            {visible.length}
+            {badgeCount}
           </span>
         )}
       </button>
@@ -80,17 +112,18 @@ export default function NotificationBell() {
         <div className="absolute right-0 mt-2 w-96 max-h-[70vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-gray-100">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
-            <span className="text-xs text-gray-400">auto-refreshes every 30s</span>
+            {unread.length > 0 && (
+              <button onClick={handleMarkRead} className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1">
+                <CheckCheck size={14} /> Mark all read
+              </button>
+            )}
           </div>
-          {visible.length === 0 ? (
-            <div className="p-8 text-center text-gray-400 text-sm">
-              <Bell size={28} className="mx-auto mb-2 opacity-30" />
-              No delayed orders — all on track
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-50">
-              {visible.map((a) => (
-                <li key={`${a.orderId}-${a.status}`} className="px-4 py-3 flex gap-3 items-start hover:bg-gray-50">
+
+          {/* Delayed-order alerts */}
+          {visibleAlerts.length > 0 && (
+            <ul className="divide-y divide-gray-50 border-b border-gray-100">
+              {visibleAlerts.map((a) => (
+                <li key={`alert-${a.orderId}-${a.status}`} className="px-4 py-3 flex gap-3 items-start hover:bg-gray-50">
                   <div className={clsx(
                     'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
                     a.severity === 'critical' ? 'bg-red-100' : 'bg-amber-100'
@@ -101,9 +134,27 @@ export default function NotificationBell() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm text-gray-800">{a.message}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {a.side === 'kitchen' ? 'Kitchen side' : 'Waiter side'} · {a.status}
-                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">Delayed · {a.status}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Step-by-step notifications */}
+          {notifs.length === 0 && visibleAlerts.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-sm">
+              <Bell size={28} className="mx-auto mb-2 opacity-30" />
+              No notifications yet
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {notifs.map((n) => (
+                <li key={n.id} className={clsx('px-4 py-3 flex gap-3 items-start hover:bg-gray-50', !n.isRead && 'bg-brand-50/40')}>
+                  <div className={clsx('w-2 h-2 rounded-full shrink-0 mt-2', n.isRead ? 'bg-gray-200' : 'bg-brand-500')} />
+                  <div className="min-w-0">
+                    <p className={clsx('text-sm', n.isRead ? 'text-gray-500' : 'text-gray-800 font-medium')}>{n.message}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{timeAgo(n.createdAt)}</p>
                   </div>
                 </li>
               ))}

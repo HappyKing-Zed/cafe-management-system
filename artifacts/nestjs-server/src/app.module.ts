@@ -28,6 +28,8 @@ import { KitchenModule } from './modules/kitchen/kitchen.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { SeedModule } from './modules/seed/seed.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { Notification } from './entities/notification.entity';
 
 @Module({
   imports: [
@@ -38,7 +40,7 @@ import { SeedModule } from './modules/seed/seed.module';
       entities: [
         User, Restaurant, Branch, MenuCategory, MenuItem,
         RestaurantTable, Order, OrderItem, Payment, Shift,
-        InventoryItem, Supplier, PurchaseOrder, PurchaseOrderItem, StockAdjustment,
+        InventoryItem, Supplier, PurchaseOrder, PurchaseOrderItem, StockAdjustment, Notification,
       ],
       synchronize: true,
       ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : false,
@@ -54,6 +56,7 @@ import { SeedModule } from './modules/seed/seed.module';
     PaymentsModule,
     InventoryModule,
     SeedModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

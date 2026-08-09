@@ -7,9 +7,10 @@ import { RestaurantTable } from '../../entities/table.entity';
 import { User } from '../../entities/user.entity';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order, OrderItem, MenuItem, RestaurantTable, User])],
+  imports: [TypeOrmModule.forFeature([Order, OrderItem, MenuItem, RestaurantTable, User]), NotificationsModule],
   providers: [OrdersService],
   controllers: [OrdersController],
   exports: [OrdersService],

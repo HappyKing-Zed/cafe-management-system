@@ -8,6 +8,7 @@ const COLUMNS = [
   { key: 'pending', label: '🔴 New Orders', color: 'border-red-400 bg-red-50', badge: 'bg-red-500' },
   { key: 'confirmed', label: '🟡 Accepted', color: 'border-yellow-400 bg-yellow-50', badge: 'bg-yellow-500' },
   { key: 'preparing', label: '🟠 Preparing', color: 'border-orange-400 bg-orange-50', badge: 'bg-orange-500' },
+  { key: 'completed', label: '🟢 Completed', color: 'border-green-400 bg-green-50', badge: 'bg-green-500' },
 ];
 
 function elapsed(dateStr: string) {
@@ -49,7 +50,9 @@ export default function KitchenPage() {
   };
 
   const grouped = COLUMNS.reduce((acc, col) => {
-    acc[col.key] = orders.filter(o => o.status === col.key);
+    acc[col.key] = col.key === 'completed'
+      ? orders.filter(o => o.status === 'ready' || o.status === 'served')
+      : orders.filter(o => o.status === col.key);
     return acc;
   }, {} as Record<string, Order[]>);
 
@@ -91,7 +94,7 @@ export default function KitchenPage() {
           <div className="text-center"><div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" /><p className="text-gray-500">Loading kitchen board...</p></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           {COLUMNS.map((col) => (
             <div key={col.key} className={`rounded-xl border-2 ${col.color} p-4`}>
               <div className="flex items-center justify-between mb-4">
@@ -115,6 +118,9 @@ export default function KitchenPage() {
                           <Clock size={12} /> {elapsed(order.createdAt)}
                         </span>
                       </div>
+                      {order.waiter?.name && (
+                        <p className="text-xs text-gray-500 mb-2">👤 Waiter: {order.waiter.name}</p>
+                      )}
                       <div className="space-y-1 mb-3">
                         {order.items?.map((item) => (
                           <div key={item.id} className="flex justify-between text-sm">
@@ -153,6 +159,11 @@ export default function KitchenPage() {
                           >
                             {actionLoading === order.id ? '...' : 'Mark Ready ✓'}
                           </button>
+                        )}
+                        {col.key === 'completed' && (
+                          <span className={`flex-1 text-center py-1.5 px-3 rounded-lg text-sm font-medium ${order.status === 'served' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
+                            {order.status === 'served' ? 'Served ✓' : 'Ready — waiting for waiter'}
+                          </span>
                         )}
                       </div>
                     </div>

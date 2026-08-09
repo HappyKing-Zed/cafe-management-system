@@ -5,10 +5,12 @@ import { Payment } from '../../entities/payment.entity';
 import { Shift } from '../../entities/shift.entity';
 import { Order } from '../../entities/order.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PaymentsService {
   constructor(
+    private notifications: NotificationsService,
     @InjectRepository(Payment) private payRepo: Repository<Payment>,
     @InjectRepository(Shift) private shiftRepo: Repository<Shift>,
     @InjectRepository(Order) private orderRepo: Repository<Order>,
@@ -24,13 +26,26 @@ export class PaymentsService {
     return qb.getMany();
   }
 
-  async processPayment(data: { orderId: number; method: any; amount: number; cashierId?: number; reference?: string }, branchId?: number) {
+  async processPayment(data: { orderId: number; method: any; amount: number; cashierId?: number; reference?: string }, branchId?: number, cashierUserId?: number) {
     const order = await this.orderRepo.findOne({ where: { id: data.orderId } });
     if (!order) throw new NotFoundException('Order not found');
     if (branchId && order.branchId && order.branchId !== branchId) {
       throw new ForbiddenException('This order belongs to another branch');
     }
     if (order.status === OrderStatus.PAID) throw new BadRequestException('Order already paid');
+    if (order.status === OrderStatus.CANCELLED) throw new BadRequestException('Order is cancelled');
+    if (Number(data.amount) < Number(order.totalAmount)) {
+      throw new BadRequestException('Amount received is less than the order total');
+    }
+
+    // Atomically flip the order to PAID; if another request beat us, refuse (prevents double payment)
+    const flip = await this.orderRepo
+      .createQueryBuilder()
+      .update()
+      .set({ status: OrderStatus.PAID })
+      .where('id = :id AND status != :paid', { id: data.orderId, paid: OrderStatus.PAID })
+      .execute();
+    if (!flip.affected) throw new BadRequestException('Order already paid');
 
     const change = Number(data.amount) - Number(order.totalAmount);
     const payment = this.payRepo.create({
@@ -38,11 +53,12 @@ export class PaymentsService {
       method: data.method,
       amount: data.amount,
       changeGiven: change > 0 ? change : 0,
-      cashierId: data.cashierId,
+      cashierId: cashierUserId ?? data.cashierId,
       reference: data.reference,
     });
     await this.payRepo.save(payment);
-    await this.orderRepo.update(data.orderId, { status: OrderStatus.PAID });
+    const full = await this.orderRepo.findOne({ where: { id: data.orderId }, relations: ['table', 'waiter'] });
+    if (full) await this.notifications.orderEvent(full, OrderStatus.PAID);
     return payment;
   }
 

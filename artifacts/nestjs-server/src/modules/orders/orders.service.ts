@@ -8,10 +8,12 @@ import { RestaurantTable } from '../../entities/table.entity';
 import { User } from '../../entities/user.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 import { TableStatus } from '../../common/enums/table-status.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class OrdersService {
   constructor(
+    private notifications: NotificationsService,
     @InjectRepository(Order) private orderRepo: Repository<Order>,
     @InjectRepository(OrderItem) private itemRepo: Repository<OrderItem>,
     @InjectRepository(MenuItem) private menuRepo: Repository<MenuItem>,
@@ -107,7 +109,9 @@ export class OrdersService {
       await this.tableRepo.update(data.tableId, { status: TableStatus.OCCUPIED });
     }
 
-    return this.findOne(saved.id);
+    const full = await this.findOne(saved.id);
+    await this.notifications.orderEvent(full, 'created');
+    return full;
   }
 
   async addItems(orderId: number, items: Array<{ menuItemId: number; quantity: number; notes?: string }>, user?: { id: number; role: string }) {
@@ -149,6 +153,18 @@ export class OrdersService {
     waiter: [OrderStatus.SERVED, OrderStatus.CANCELLED],
     chef: [OrderStatus.CONFIRMED, OrderStatus.PREPARING, OrderStatus.READY],
     cashier: [OrderStatus.PAID, OrderStatus.CANCELLED],
+    storekeeper: [],
+  };
+
+  // Valid lifecycle transitions (applies to everyone, kitchen included)
+  static readonly TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+    [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+    [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
+    [OrderStatus.PREPARING]: [OrderStatus.READY, OrderStatus.CANCELLED],
+    [OrderStatus.READY]: [OrderStatus.SERVED],
+    [OrderStatus.SERVED]: [OrderStatus.PAID, OrderStatus.CANCELLED],
+    [OrderStatus.PAID]: [],
+    [OrderStatus.CANCELLED]: [],
   };
 
   async updateStatus(id: number, status: OrderStatus, user?: { id: number; role: string }) {
@@ -159,9 +175,18 @@ export class OrdersService {
       if (allowed && !allowed.includes(status)) {
         throw new ForbiddenException(`Your role cannot set an order to "${status}"`);
       }
+      // Only the cashier (or admin/owner) may confirm payment
+      if (status === OrderStatus.PAID && !['cashier', 'admin', 'owner'].includes(user.role)) {
+        throw new ForbiddenException('Only the cashier can confirm payment');
+      }
+    }
+    const before = await this.findOne(id);
+    if (before.status !== status && !OrdersService.TRANSITIONS[before.status]?.includes(status)) {
+      throw new BadRequestException(`Cannot move an order from "${before.status}" to "${status}"`);
     }
     await this.orderRepo.update(id, { status });
     const order = await this.findOne(id);
+    if (before.status !== status) await this.notifications.orderEvent(order, status);
 
     // Free table when order is paid/cancelled
     if ((status === OrderStatus.PAID || status === OrderStatus.CANCELLED) && order.tableId) {

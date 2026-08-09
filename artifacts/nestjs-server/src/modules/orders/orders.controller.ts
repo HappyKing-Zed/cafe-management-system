@@ -23,7 +23,14 @@ export class OrdersController {
   }
 
   @Get('stats')
-  getStats(@Req() req: any) { return this.service.getDashboardStats(branchScope(req.user)); }
+  async getStats(@Req() req: any) {
+    const stats = await this.service.getDashboardStats(branchScope(req.user));
+    // Revenue figures are only for finance-facing roles
+    if (!['admin', 'owner', 'manager', 'cashier'].includes(req.user?.role)) {
+      delete (stats as any).todayRevenue;
+    }
+    return stats;
+  }
 
   @Get('alerts')
   @UseGuards(RolesGuard)

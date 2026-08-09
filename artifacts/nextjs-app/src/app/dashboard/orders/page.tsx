@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getOrders, createOrder, updateOrderStatus, processPayment, getMenuCategories, getTables, getWaiters } from '@/lib/api';
+import { getOrders, getOrder, createOrder, updateOrderStatus, processPayment, getMenuCategories, getTables, getWaiters } from '@/lib/api';
 import { Order, MenuItem, MenuCategory, RestaurantTable, User } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
-import { ShoppingCart, Plus, X, CreditCard } from 'lucide-react';
+import { ShoppingCart, Plus, X, CreditCard, CheckCircle } from 'lucide-react';
 import clsx from 'clsx';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -19,10 +19,13 @@ const STATUS_COLORS: Record<string, string> = {
 interface CartItem { menuItem: MenuItem; quantity: number; notes?: string; }
 
 const CAN_ASSIGN_WAITER = ['admin', 'owner', 'manager', 'coordinator'];
+const CAN_PAY = ['cashier', 'admin', 'owner'];
 
 export default function OrdersPage() {
   const { user } = useAuthStore();
   const canAssignWaiter = !!user && CAN_ASSIGN_WAITER.includes(user.role);
+  const canPay = !!user && CAN_PAY.includes(user.role);
+  const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [waiters, setWaiters] = useState<User[]>([]);
   const [selectedWaiter, setSelectedWaiter] = useState<number | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -174,7 +177,18 @@ export default function OrdersPage() {
               {filteredOrders.length === 0 ? (
                 <tr><td colSpan={7} className="text-center py-12 text-gray-400">No orders found</td></tr>
               ) : filteredOrders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={order.id}
+                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={async () => {
+                    try {
+                      const res = await getOrder(order.id);
+                      setDetailOrder(res.data);
+                    } catch {
+                      setDetailOrder(order);
+                    }
+                  }}
+                >
                   <td className="table-cell font-semibold text-brand-600">#{order.id}</td>
                   <td className="table-cell">
                     {order.table?.number ? <span className="font-medium">Table {order.table.number}</span> : <span className="text-gray-500">{order.customerName || 'Walk-in'}</span>}
@@ -186,7 +200,7 @@ export default function OrdersPage() {
                     <span className={`status-badge ${STATUS_COLORS[order.status]}`}>{order.status}</span>
                   </td>
                   <td className="table-cell text-gray-400 text-xs">{new Date(order.createdAt).toLocaleTimeString()}</td>
-                  <td className="table-cell">
+                  <td className="table-cell" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1">
                       {order.status === 'pending' && (
                         <button onClick={() => handleStatusChange(order.id, 'confirmed')} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Confirm</button>
@@ -194,10 +208,17 @@ export default function OrdersPage() {
                       {order.status === 'ready' && (
                         <button onClick={() => handleStatusChange(order.id, 'served')} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">Served</button>
                       )}
-                      {order.status === 'served' && (
+                      {order.status === 'served' && (canPay ? (
                         <button onClick={() => { setPayingOrder(order); setPayAmount(String(order.totalAmount)); }} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 flex items-center gap-1">
                           <CreditCard size={12} /> Pay
                         </button>
+                      ) : (
+                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-500 rounded">Awaiting cashier</span>
+                      ))}
+                      {order.status === 'paid' && (
+                        <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded font-semibold flex items-center gap-1">
+                          <CheckCircle size={12} /> Completed
+                        </span>
                       )}
                       {['pending', 'confirmed'].includes(order.status) && (
                         <button onClick={() => handleStatusChange(order.id, 'cancelled')} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">Cancel</button>
@@ -294,6 +315,62 @@ export default function OrdersPage() {
                   {submitting ? 'Placing Order...' : 'Place Order'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Detail Modal */}
+      {detailOrder && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setDetailOrder(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-xl font-bold">Order #{detailOrder.id}</h3>
+              <button onClick={() => setDetailOrder(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <div className="flex items-center gap-2 mb-4">
+              <span className={`status-badge ${STATUS_COLORS[detailOrder.status]}`}>{detailOrder.status === 'paid' ? 'completed (paid)' : detailOrder.status}</span>
+              <span className="text-xs text-gray-400">{new Date(detailOrder.createdAt).toLocaleString()}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-400 mb-0.5">Table / Customer</p>
+                <p className="font-medium text-gray-900">{detailOrder.table?.number ? `Table ${detailOrder.table.number}` : detailOrder.customerName || 'Walk-in'}</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs text-gray-400 mb-0.5">Waiter</p>
+                <p className="font-medium text-gray-900">{detailOrder.waiter?.name || '—'}</p>
+              </div>
+            </div>
+            <p className="text-sm font-semibold text-gray-700 mb-2">Items</p>
+            <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg mb-4">
+              {detailOrder.items?.map((item: any) => (
+                <div key={item.id} className="flex justify-between items-center px-3 py-2 text-sm">
+                  <div>
+                    <p className="text-gray-800">{item.menuItem?.name || `Item ${item.menuItemId}`}</p>
+                    {item.notes && <p className="text-xs text-amber-700">📝 {item.notes}</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">×{item.quantity}</p>
+                    <p className="text-xs text-gray-400">ETB {(Number(item.unitPrice) * item.quantity).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {detailOrder.notes && <p className="text-xs text-amber-700 bg-amber-50 rounded p-2 mb-4">📝 {detailOrder.notes}</p>}
+            {(detailOrder as any).payments?.length > 0 && (
+              <div className="bg-green-50 rounded-lg p-3 mb-4 text-sm">
+                <p className="text-xs text-green-700 font-semibold mb-1">Payment</p>
+                {(detailOrder as any).payments.map((p: any) => (
+                  <p key={p.id} className="text-green-800">
+                    {p.method} · ETB {Number(p.amount).toLocaleString()}{Number(p.changeGiven) > 0 ? ` (change ETB ${Number(p.changeGiven).toLocaleString()})` : ''}
+                  </p>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-between border-t pt-3">
+              <span className="font-semibold text-gray-700">Total</span>
+              <span className="font-bold text-lg text-brand-600">ETB {Number(detailOrder.totalAmount).toLocaleString()}</span>
             </div>
           </div>
         </div>

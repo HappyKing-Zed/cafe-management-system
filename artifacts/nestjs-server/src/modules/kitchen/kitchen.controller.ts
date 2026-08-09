@@ -19,14 +19,14 @@ export class KitchenController {
   getBoard(@Req() req: any) { return this.service.getBoard(branchScope(req.user)); }
 
   @Patch('orders/:id/accept')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.CHEF)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.CHEF)
   accept(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.acceptOrder(id, branchScope(req.user)); }
 
   @Patch('orders/:id/preparing')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.CHEF)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.CHEF)
   preparing(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.startPreparing(id, branchScope(req.user)); }
 
   @Patch('orders/:id/ready')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.CHEF)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.CHEF)
   ready(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.markReady(id, branchScope(req.user)); }
 }
