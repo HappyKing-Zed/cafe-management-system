@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, approvePOItems, getStockAdjustments } from '@/lib/api';
+import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, approvePOItems, getStockAdjustments, getItemRequests, updateItemRequestStatus } from '@/lib/api';
 import { InventoryItem, Supplier, PurchaseOrder } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
-import { Package, Plus, AlertTriangle, Pencil, RefreshCw, ArrowDownToLine, FileText, Trash2 } from 'lucide-react';
+import { Package, Plus, AlertTriangle, Pencil, RefreshCw, ArrowDownToLine, ArrowUpFromLine, FileText, Trash2, Warehouse } from 'lucide-react';
 import clsx from 'clsx';
 
 interface StockMovement {
@@ -43,6 +43,7 @@ export default function InventoryPage() {
   const canApprovePO = !!user && ['admin', 'owner', 'manager'].includes(user.role);
   const canReceivePO = !!user && ['admin', 'owner', 'manager', 'storekeeper'].includes(user.role);
   const isCashier = user?.role === 'cashier';
+  const isStorekeeper = user?.role === 'storekeeper';
   const visibleTabs = isCashier ? ['Purchase Orders'] : TABS;
   const [tab, setTab] = useState('Items');
   useEffect(() => { if (isCashier) setTab('Purchase Orders'); }, [isCashier]);
@@ -62,6 +63,10 @@ export default function InventoryPage() {
   const [poForm, setPOForm] = useState<{ supplierId: string; notes: string; lines: POLine[] }>({ supplierId: '', notes: '', lines: [{ category: '', inventoryItemId: '', quantity: '', unitPrice: '' }] });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  // Storekeeper Store Operations view
+  const [requests, setRequests] = useState<any[]>([]);
+  const [opTab, setOpTab] = useState<'out' | 'in'>('out');
+  const [opBusy, setOpBusy] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (isCashier) {
@@ -71,20 +76,22 @@ export default function InventoryPage() {
       setLoading(false);
       return;
     }
-    const [itemsRes, suppRes, posRes, movRes] = await Promise.all([
+    const [itemsRes, suppRes, posRes, movRes, reqRes] = await Promise.all([
       getInventoryItems(), getSuppliers(), getPurchaseOrders(), getStockAdjustments(),
+      isStorekeeper ? getItemRequests().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
     ]);
     setItems(itemsRes.data || []);
     setSuppliers(suppRes.data || []);
     setPOs(posRes.data || []);
     setMovements(movRes.data || []);
+    setRequests(reqRes.data || []);
     setLoading(false);
   };
   useEffect(() => {
     fetchData();
     const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 15000);
     return () => clearInterval(t);
-  }, [isCashier]);
+  }, [user?.role]);
 
   const saveItem = async () => {
     setSubmitting(true);
@@ -234,6 +241,202 @@ export default function InventoryPage() {
 
   const lowStockItems = items.filter(i => Number(i.currentStock) <= Number(i.minStock));
   const outOfStock = lowStockItems.filter(i => Number(i.currentStock) <= 0);
+
+  // ── Storekeeper: Store Operations view ────────────────────────────────────
+  const doStockOut = async (id: number) => {
+    setOpBusy(`req-${id}`);
+    try { await updateItemRequestStatus(id, 'issued'); await fetchData(); }
+    catch (e: any) { alert(e?.response?.data?.message || 'Stock out failed'); }
+    finally { setOpBusy(null); }
+  };
+  const doStockIn = async (id: number) => {
+    setOpBusy(`po-${id}`);
+    try { await updatePOStatus(id, 'received'); await fetchData(); }
+    catch (e: any) { alert(e?.response?.data?.message || 'Stock in failed'); }
+    finally { setOpBusy(null); }
+  };
+
+  if (isStorekeeper) {
+    const fulfillReqs = requests.filter((r: any) => r.status === 'approved');
+    const inboundPOs = pos.filter(p => ['approved', 'paid', 'ordered'].includes(p.status));
+    return (
+      <div className="p-8">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center"><Warehouse className="text-blue-600" size={22} /></div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Store Operations</h1>
+            <p className="text-sm text-gray-500">Manage inbound shipments and fulfill approved item requests. Stock updates automatically.</p>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-6 border-b mt-6 mb-6">
+          <button onClick={() => setOpTab('out')} className={clsx('pb-2.5 text-sm font-semibold border-b-2 -mb-px flex items-center gap-2', opTab === 'out' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700')}>
+            <ArrowUpFromLine size={15} /> Stock Out (Fulfill Requests)
+            {fulfillReqs.length > 0 && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full px-1.5 py-0.5">{fulfillReqs.length}</span>}
+          </button>
+          <button onClick={() => setOpTab('in')} className={clsx('pb-2.5 text-sm font-semibold border-b-2 -mb-px flex items-center gap-2', opTab === 'in' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700')}>
+            <ArrowDownToLine size={15} /> Stock In (Inbound Shipments)
+            {inboundPOs.length > 0 && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full px-1.5 py-0.5">{inboundPOs.length}</span>}
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
+        ) : (
+          <>
+            {opTab === 'out' ? (
+              <div className="card p-0 overflow-hidden mb-6">
+                <div className="px-5 py-4 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <ArrowUpFromLine className="text-blue-600" size={18} />
+                    <h2 className="font-bold text-gray-900">Fulfill Requests (Stock Out)</h2>
+                  </div>
+                  <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-full">{fulfillReqs.length} Pending</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b"><tr>
+                      <th className="table-header">Req ID</th><th className="table-header">Item</th>
+                      <th className="table-header">Requestor</th><th className="table-header">Qty</th>
+                      <th className="table-header">In Stock</th><th className="table-header">Approved</th>
+                      <th className="table-header text-right">Action</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {fulfillReqs.length === 0 ? (
+                        <tr><td colSpan={7} className="text-center py-10 text-gray-400">No approved requests waiting for stock out</td></tr>
+                      ) : fulfillReqs.map((r: any) => {
+                        const name = r.requesterName || r.requestedBy?.name || '—';
+                        const initials = name.split(' ').map((w: string) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+                        const stockItem = items.find(i => i.id === r.inventoryItem?.id);
+                        const enough = !!stockItem && Number(stockItem.currentStock) >= Number(r.quantity);
+                        return (
+                          <tr key={r.id} className="hover:bg-gray-50">
+                            <td className="table-cell font-medium text-blue-600">REQ-{String(r.id).padStart(3, '0')}</td>
+                            <td className="table-cell">
+                              <p className="font-medium text-gray-900">{r.inventoryItem?.name || '—'}</p>
+                              {r.reason && <p className="text-xs text-gray-400">{r.reason}</p>}
+                            </td>
+                            <td className="table-cell">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold flex items-center justify-center shrink-0">{initials || '?'}</div>
+                                <div>
+                                  <p className="text-sm text-gray-900">{name}</p>
+                                  {r.department && <p className="text-[10px] text-gray-400">{r.department}</p>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="table-cell font-semibold">{Number(r.quantity)} {r.inventoryItem?.unit}</td>
+                            <td className={clsx('table-cell', enough ? 'text-gray-500' : 'text-red-500 font-semibold')}>
+                              {stockItem ? `${Number(stockItem.currentStock)} ${stockItem.unit}` : '—'}
+                              {!enough && <p className="text-[10px]">Insufficient stock</p>}
+                            </td>
+                            <td className="table-cell text-xs text-gray-500 whitespace-nowrap">{new Date(r.createdAt).toLocaleDateString()}</td>
+                            <td className="table-cell">
+                              <div className="flex justify-end">
+                                <button onClick={() => doStockOut(r.id)} disabled={opBusy === `req-${r.id}` || !enough}
+                                  className="btn-primary !py-1.5 text-xs flex items-center gap-1.5 disabled:opacity-50">
+                                  <ArrowUpFromLine size={13} /> {opBusy === `req-${r.id}` ? 'Processing…' : 'Stock Out'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="card p-0 overflow-hidden mb-6">
+                <div className="px-5 py-4 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <ArrowDownToLine className="text-blue-600" size={18} />
+                    <h2 className="font-bold text-gray-900">Inbound Shipments (Stock In)</h2>
+                  </div>
+                  <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-full">{inboundPOs.length} Pending</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b"><tr>
+                      <th className="table-header">PO #</th><th className="table-header">Supplier</th>
+                      <th className="table-header">Items</th><th className="table-header">Total</th>
+                      <th className="table-header">Status</th><th className="table-header text-right">Action</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {inboundPOs.length === 0 ? (
+                        <tr><td colSpan={6} className="text-center py-10 text-gray-400">No approved purchase orders waiting to be received</td></tr>
+                      ) : inboundPOs.map(po => (
+                        <tr key={po.id} className="hover:bg-gray-50">
+                          <td className="table-cell font-medium text-blue-600">PO-{String(po.id).padStart(3, '0')}</td>
+                          <td className="table-cell">{po.supplier?.name || '—'}</td>
+                          <td className="table-cell text-sm text-gray-600">
+                            {(po.items || []).map((li: any) => `${li.inventoryItem?.name || '?'} × ${Number(li.quantity)}`).join(', ') || '—'}
+                          </td>
+                          <td className="table-cell font-semibold">ETB {Number(po.totalAmount || 0).toLocaleString()}</td>
+                          <td className="table-cell"><span className={clsx('px-2 py-0.5 rounded-full text-xs font-medium', PO_STATUS_COLORS[po.status])}>{po.status}</span></td>
+                          <td className="table-cell">
+                            <div className="flex justify-end">
+                              <button onClick={() => doStockIn(po.id)} disabled={opBusy === `po-${po.id}`}
+                                className="btn-primary !py-1.5 text-xs flex items-center gap-1.5 disabled:opacity-50">
+                                <ArrowDownToLine size={13} /> {opBusy === `po-${po.id}` ? 'Processing…' : 'Stock In'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Inventory Ledger */}
+            <div className="card p-0 overflow-hidden">
+              <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <FileText className="text-gray-500" size={18} />
+                  <h2 className="font-bold text-gray-900">Inventory Ledger</h2>
+                </div>
+                <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+                  {([['all', 'All'], ['addition', 'Stock In'], ['deduction', 'Stock Out']] as const).map(([v, l]) => (
+                    <button key={v} onClick={() => setMoveFilter(v)}
+                      className={clsx('px-3 py-1 rounded-md text-xs font-medium', moveFilter === v ? 'bg-white shadow text-gray-900' : 'text-gray-500')}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b"><tr>
+                    <th className="table-header">Item</th><th className="table-header">Type</th>
+                    <th className="table-header">Qty</th><th className="table-header">Date</th>
+                    <th className="table-header">Reason</th><th className="table-header">Updated By</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filteredMovements.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-10 text-gray-400">No stock movements yet</td></tr>
+                    ) : filteredMovements.slice(0, 30).map(m => {
+                      const mv = MOVEMENT_LABELS[m.type] || { label: m.type, cls: 'bg-gray-100 text-gray-700' };
+                      return (
+                        <tr key={m.id} className="hover:bg-gray-50">
+                          <td className="table-cell font-medium">{m.inventoryItem?.name || '—'}</td>
+                          <td className="table-cell"><span className={clsx('px-2 py-0.5 rounded-full text-xs font-medium', mv.cls)}>{mv.label}</span></td>
+                          <td className="table-cell">{Number(m.quantity)} {m.inventoryItem?.unit}</td>
+                          <td className="table-cell text-xs text-gray-500 whitespace-nowrap">{new Date(m.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                          <td className="table-cell text-xs text-gray-500">{m.reason || '—'}</td>
+                          <td className="table-cell text-sm">{m.createdBy?.name || '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
