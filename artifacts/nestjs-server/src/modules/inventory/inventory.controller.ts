@@ -81,28 +81,29 @@ export class InventoryController {
     return this.service.updatePOStatus(id, status, req.user, branchScope(req.user));
   }
 
-  // Item Requests — every role can request items; approvals/issuing enforced in the service
+  // Item Requests — restricted to management/coordination roles (mirrors the page guard).
+  // Storekeeper keeps access to list + status so they can perform the stock-out step.
   @Get('requests')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.STOREKEEPER)
   findRequests(@Req() req: any) {
     return this.service.findAllRequests(req.user, branchScope(req.user));
   }
 
   @Post('requests')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR)
   createRequest(@Req() req: any, @Body() body: any) {
     return this.service.createRequest(body, req.user, branchScope(req.user));
   }
 
   @Patch('requests/:id/status')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.STOREKEEPER)
   updateRequestStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Body('quantity') quantity: number, @Req() req: any) {
     return this.service.updateRequestStatus(id, status, req.user, branchScope(req.user), quantity);
   }
 
-  // Items also readable by all roles so the request form can list them
+  // Items readable by roles that can open the request form
   @Get('requestable-items')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.STOREKEEPER)
   requestableItems(@Req() req: any) {
     return this.service.findAllItems(undefined, branchScope(req.user));
   }
