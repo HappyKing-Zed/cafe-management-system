@@ -18,6 +18,7 @@ import { PurchaseOrder } from './entities/purchase-order.entity';
 import { PurchaseOrderItem } from './entities/purchase-order-item.entity';
 import { StockAdjustment } from './entities/stock-adjustment.entity';
 import { ItemRequest } from './entities/item-request.entity';
+import { HealthController } from './health.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RestaurantsModule } from './modules/restaurants/restaurants.module';
@@ -59,5 +60,6 @@ import { Notification } from './entities/notification.entity';
     SeedModule,
     NotificationsModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}
