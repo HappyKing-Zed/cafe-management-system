@@ -154,11 +154,11 @@ export default function ItemRequestsPage() {
                   <thead className="bg-gray-50 border-b"><tr>
                     <th className="table-header">Requester</th><th className="table-header">Item Details</th>
                     <th className="table-header">Qty</th><th className="table-header">In Stock</th>
-                    <th className="table-header">Total Est.</th><th className="table-header text-right">Actions</th>
+                    <th className="table-header">Total Est.</th><th className="table-header">Date &amp; Time</th><th className="table-header text-right">Actions</th>
                   </tr></thead>
                   <tbody className="divide-y divide-gray-50">
                     {requests.filter(r => r.status === 'pending').length === 0 ? (
-                      <tr><td colSpan={6} className="text-center py-10 text-gray-400">No pending requests — all caught up</td></tr>
+                      <tr><td colSpan={7} className="text-center py-10 text-gray-400">No pending requests — all caught up</td></tr>
                     ) : requests.filter(r => r.status === 'pending').map(r => {
                       const name = r.requesterName || r.requestedBy?.name || '—';
                       const initials = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
@@ -181,6 +181,10 @@ export default function ItemRequestsPage() {
                           <td className="table-cell">{Number(r.quantity)} {r.inventoryItem?.unit}</td>
                           <td className="table-cell text-gray-500">{stockItem ? `${Number(stockItem.currentStock)} ${stockItem.unit}` : '—'}</td>
                           <td className="table-cell font-semibold">ETB {totalPrice(r).toLocaleString()}</td>
+                          <td className="table-cell text-xs text-gray-500 whitespace-nowrap">
+                            {new Date(r.createdAt).toLocaleDateString()}
+                            <p className="text-[10px] text-gray-400">{new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                          </td>
                           <td className="table-cell">
                             <div className="flex items-center justify-end gap-1.5">
                               {adjusting?.id === r.id ? <>
@@ -346,10 +350,11 @@ export default function ItemRequestsPage() {
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">Req ID</th><th className="table-header">Item Details</th><th className="table-header">Qty</th>
                   <th className="table-header">Value</th>
+                  <th className="table-header">Date &amp; Time</th>
                   <th className="table-header">Status</th><th className="table-header">Actions</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-50">
-                  {requests.length === 0 ? <tr><td colSpan={6} className="text-center py-10 text-gray-400">No item requests yet — use the form to submit one</td></tr> : requests.map((r) => {
+                  {requests.length === 0 ? <tr><td colSpan={7} className="text-center py-10 text-gray-400">No item requests yet — use the form to submit one</td></tr> : requests.map((r) => {
                     const st = STATUS_STYLES[r.status] || STATUS_STYLES.pending;
                     const mine = r.requestedBy?.id === user?.id;
                     return (
@@ -362,10 +367,13 @@ export default function ItemRequestsPage() {
                             {r.department ? ` (${r.department})` : ''}
                             {r.reason ? ` · ${r.reason}` : ''}
                           </p>
-                          <p className="text-[10px] text-gray-300">{new Date(r.createdAt).toLocaleString()}</p>
                         </td>
                         <td className="table-cell">{Number(r.quantity)} {r.inventoryItem?.unit}</td>
                         <td className="table-cell font-semibold">ETB {totalPrice(r).toLocaleString()}</td>
+                        <td className="table-cell text-xs text-gray-500 whitespace-nowrap">
+                          {new Date(r.createdAt).toLocaleDateString()}
+                          <p className="text-[10px] text-gray-400">{new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        </td>
                         <td className="table-cell">
                           <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium', st.cls)}>
                             <span className={clsx('w-1.5 h-1.5 rounded-full', st.dot)} />{st.label}
