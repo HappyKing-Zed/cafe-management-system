@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { getItemRequests, createItemRequest, updateItemRequestStatus, getRequestableItems, getStaffList, getLowStockItems } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { AlertTriangle, Check, ClipboardCheck, FilePlus2, PackageOpen, Pencil, Plus, RefreshCw, ShoppingCart, X } from 'lucide-react';
@@ -41,9 +42,12 @@ const STATUS_STYLES: Record<string, { label: string; cls: string; dot: string }>
 };
 
 const NONE_CAT = '__none__';
+const ALLOWED_ROLES = ['admin', 'owner', 'manager', 'coordinator'];
 
 export default function ItemRequestsPage() {
+  const router = useRouter();
   const { user } = useAuthStore();
+  const allowed = !!user && ALLOWED_ROLES.includes(user.role);
   const canApprove = !!user && ['admin', 'owner', 'manager'].includes(user.role);
   const canIssue = !!user && ['admin', 'owner', 'storekeeper'].includes(user.role);
   const [requests, setRequests] = useState<ItemRequest[]>([]);
@@ -71,10 +75,17 @@ export default function ItemRequestsPage() {
     setLoading(false);
   };
   useEffect(() => {
+    if (user && !allowed) {
+      router.replace('/dashboard');
+    }
+  }, [user, allowed, router]);
+
+  useEffect(() => {
+    if (!allowed) return;
     fetchData();
     const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 15000);
     return () => clearInterval(t);
-  }, []);
+  }, [allowed]);
 
   const categories = useMemo(() => Array.from(new Set(items.map(i => i.category).filter((c): c is string => !!c && c !== NONE_CAT))).sort(), [items]);
   const hasUncategorized = items.some(i => !i.category);
@@ -119,6 +130,25 @@ export default function ItemRequestsPage() {
 
   const unitPrice = (r: ItemRequest) => Number(r.unitCost ?? r.inventoryItem?.unitCost ?? 0);
   const totalPrice = (r: ItemRequest) => unitPrice(r) * Number(r.quantity);
+
+  if (!user) {
+    return <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>;
+  }
+
+  if (!allowed) {
+    return (
+      <div className="p-8">
+        <div className="max-w-md mx-auto mt-16 card p-8 text-center">
+          <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="text-red-500" size={24} />
+          </div>
+          <h1 className="text-lg font-bold text-gray-900 mb-1">No access to Item Requests</h1>
+          <p className="text-sm text-gray-500 mb-4">This page is only available to managers, owners, admins and coordinators. Taking you back to your dashboard...</p>
+          <Link href="/dashboard" className="btn-primary inline-flex">Go to Dashboard</Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
