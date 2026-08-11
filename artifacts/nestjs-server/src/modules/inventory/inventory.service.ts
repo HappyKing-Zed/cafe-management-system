@@ -51,7 +51,10 @@ export class InventoryService {
 
   async updateItem(id: number, data: Partial<InventoryItem>, branchId?: number) {
     const i = await this.findOneItem(id, branchId);
-    Object.assign(i, data);
+    // Stock level is server-controlled: it only changes via PO receipt (stock in)
+    // or item-request issuing (stock out), so movements always have an audit record.
+    const { currentStock, ...rest } = data as any;
+    Object.assign(i, rest);
     return this.itemRepo.save(i);
   }
 

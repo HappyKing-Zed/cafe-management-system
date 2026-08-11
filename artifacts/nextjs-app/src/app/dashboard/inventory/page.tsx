@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, approvePOItems, createStockAdjustment, getStockAdjustments } from '@/lib/api';
+import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, approvePOItems, getStockAdjustments } from '@/lib/api';
 import { InventoryItem, Supplier, PurchaseOrder } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
-import { Package, Plus, AlertTriangle, Pencil, RefreshCw, ArrowDownToLine, ArrowUpFromLine, FileText, Trash2 } from 'lucide-react';
+import { Package, Plus, AlertTriangle, Pencil, RefreshCw, ArrowDownToLine, FileText, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 
 interface StockMovement {
@@ -53,12 +53,12 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [showItemModal, setShowItemModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
-  const [showAdjModal, setShowAdjModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [itemForm, setItemForm] = useState({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 });
   const [supplierForm, setSupplierForm] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '', restaurantId: 1 });
-  const [adjForm, setAdjForm] = useState({ inventoryItemId: '', type: 'addition', quantity: '', reason: '' });
+  const [customCat, setCustomCat] = useState(false);
+  const [itemCatFilter, setItemCatFilter] = useState('');
   const [poForm, setPOForm] = useState<{ supplierId: string; notes: string; lines: POLine[] }>({ supplierId: '', notes: '', lines: [{ category: '', inventoryItemId: '', quantity: '', unitPrice: '' }] });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -88,9 +88,11 @@ export default function InventoryPage() {
 
   const saveItem = async () => {
     setSubmitting(true);
-    const data = { ...itemForm, currentStock: parseFloat(itemForm.currentStock), minStock: parseFloat(itemForm.minStock), unitCost: parseFloat(itemForm.unitCost), expiryDate: itemForm.expiryDate || null };
-    if (editItem) await updateInventoryItem(editItem.id, data);
-    else await createInventoryItem(data);
+    const data: any = { ...itemForm, currentStock: parseFloat(itemForm.currentStock), minStock: parseFloat(itemForm.minStock), unitCost: parseFloat(itemForm.unitCost), expiryDate: itemForm.expiryDate || null };
+    if (editItem) {
+      delete data.currentStock; // stock only changes via stock in / stock out records
+      await updateInventoryItem(editItem.id, data);
+    } else await createInventoryItem(data);
     setShowItemModal(false);
     setEditItem(null);
     setSubmitting(false);
@@ -103,20 +105,6 @@ export default function InventoryPage() {
     setShowSupplierModal(false);
     setSubmitting(false);
     await fetchData();
-  };
-
-  const saveAdj = async () => {
-    setSubmitting(true);
-    await createStockAdjustment({ ...adjForm, inventoryItemId: parseInt(adjForm.inventoryItemId), quantity: parseFloat(adjForm.quantity) });
-    setShowAdjModal(false);
-    setAdjForm({ inventoryItemId: '', type: 'addition', quantity: '', reason: '' });
-    setSubmitting(false);
-    await fetchData();
-  };
-
-  const openAdj = (type: 'addition' | 'deduction') => {
-    setAdjForm({ inventoryItemId: '', type, quantity: '', reason: '' });
-    setShowAdjModal(true);
   };
 
   const poTotal = poForm.lines.reduce((sum, l) => sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
@@ -265,12 +253,10 @@ export default function InventoryPage() {
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={fetchData} className="btn-secondary flex items-center gap-2"><RefreshCw size={16} /></button>
-          {!isCashier && <>
-            <button onClick={() => openAdj('addition')} className="btn-secondary flex items-center gap-2 !text-green-700"><ArrowDownToLine size={16} /> Stock In</button>
-            <button onClick={() => openAdj('deduction')} className="btn-secondary flex items-center gap-2 !text-orange-700"><ArrowUpFromLine size={16} /> Stock Out</button>
+          {canApprovePO && (
             <button onClick={() => { setShowPOModal(true); setFormError(''); }} className="btn-primary flex items-center gap-2"><FileText size={16} /> New Purchase Order</button>
-          </>}
-          {tab === 'Items' && <button onClick={() => { setShowItemModal(true); setEditItem(null); setItemForm({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 }); }} className="btn-primary flex items-center gap-2"><Plus size={18} /> Add Item</button>}
+          )}
+          {tab === 'Items' && <button onClick={() => { setShowItemModal(true); setEditItem(null); setCustomCat(false); setItemForm({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 }); }} className="btn-primary flex items-center gap-2"><Plus size={18} /> Add Item</button>}
           {tab === 'Suppliers' && <button onClick={() => setShowSupplierModal(true)} className="btn-primary flex items-center gap-2"><Plus size={18} /> Add Supplier</button>}
         </div>
       </div>
@@ -295,13 +281,21 @@ export default function InventoryPage() {
         <>
           {tab === 'Items' && (
             <div className="card p-0 overflow-hidden">
+              <div className="flex items-center gap-2 p-3 border-b bg-gray-50">
+                <label className="text-xs font-medium text-gray-600">Category:</label>
+                <select value={itemCatFilter} onChange={e => setItemCatFilter(e.target.value)} className="input text-sm !w-48 !py-1.5">
+                  <option value="">All categories</option>
+                  {itemCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                  {items.some(i => !i.category) && <option value="__none__">Uncategorized</option>}
+                </select>
+              </div>
               <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">Item</th><th className="table-header">Category</th><th className="table-header">Unit</th>
                   <th className="table-header">Stock</th><th className="table-header">Min Stock</th><th className="table-header">Unit Cost</th><th className="table-header">Total Price</th><th className="table-header">Expiry</th><th className="table-header">Actions</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-50">
-                  {items.map((item) => (
+                  {itemsForCategory(itemCatFilter).map((item) => (
                     <tr key={item.id} className={clsx('hover:bg-gray-50', Number(item.currentStock) <= Number(item.minStock) && 'bg-red-50')}>
                       <td className="table-cell font-medium">
                         <div className="flex items-center gap-2">
@@ -328,7 +322,7 @@ export default function InventoryPage() {
                         })() : <span className="text-gray-400">—</span>}
                       </td>
                       <td className="table-cell">
-                        <button onClick={() => { setEditItem(item); setItemForm({ name: item.name, unit: item.unit, currentStock: String(item.currentStock), minStock: String(item.minStock), unitCost: String(item.unitCost || ''), category: item.category || '', expiryDate: (item as any).expiryDate ? String((item as any).expiryDate).slice(0, 10) : '', restaurantId: item.restaurantId }); setShowItemModal(true); }}
+                        <button onClick={() => { setEditItem(item); setCustomCat(false); setItemForm({ name: item.name, unit: item.unit, currentStock: String(item.currentStock), minStock: String(item.minStock), unitCost: String(item.unitCost || ''), category: item.category || '', expiryDate: (item as any).expiryDate ? String((item as any).expiryDate).slice(0, 10) : '', restaurantId: item.restaurantId }); setShowItemModal(true); }}
                           className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded"><Pencil size={14} /></button>
                       </td>
                     </tr>
@@ -406,7 +400,7 @@ export default function InventoryPage() {
                   <th className="table-header">Date</th><th className="table-header">Item</th><th className="table-header">Type</th><th className="table-header">Quantity</th><th className="table-header">Reason</th><th className="table-header">By</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filteredMovements.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-gray-400">No stock movements yet — use "Stock In" or "Stock Out" to record one</td></tr> : filteredMovements.map((m) => {
+                  {filteredMovements.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-gray-400">No stock movements yet — stock in happens when a purchase order is received, stock out when an approved item request is issued</td></tr> : filteredMovements.map((m) => {
                     const cfg = MOVEMENT_LABELS[m.type] || MOVEMENT_LABELS.adjustment;
                     const isIn = m.type === 'addition';
                     return (
@@ -476,10 +470,8 @@ export default function InventoryPage() {
                         </div>
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button onClick={() => { setAdjForm({ inventoryItemId: String(item.id), type: 'addition', quantity: '', reason: 'Restock' }); setShowAdjModal(true); }}
-                          className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium">Stock In</button>
-                        <button onClick={() => { setPOForm({ supplierId: '', notes: `Restock ${item.name}`, lines: [{ category: item.category || '__none__', inventoryItemId: String(item.id), quantity: '', unitPrice: item.unitCost ? String(item.unitCost) : '' }] }); setShowPOModal(true); setFormError(''); }}
-                          className="text-xs px-3 py-1.5 bg-brand-100 text-brand-700 rounded-lg hover:bg-brand-200 font-medium">Order from Supplier</button>
+                        {canApprovePO && <button onClick={() => { setPOForm({ supplierId: '', notes: `Restock ${item.name}`, lines: [{ category: item.category || '__none__', inventoryItemId: String(item.id), quantity: '', unitPrice: item.unitCost ? String(item.unitCost) : '' }] }); setShowPOModal(true); setFormError(''); }}
+                          className="text-xs px-3 py-1.5 bg-brand-100 text-brand-700 rounded-lg hover:bg-brand-200 font-medium">Order from Supplier</button>}
                       </div>
                     </div>
                   );
@@ -499,14 +491,29 @@ export default function InventoryPage() {
               <button onClick={() => setShowItemModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
             <div className="space-y-3">
-              {[{ l: 'Name', k: 'name' }, { l: 'Category', k: 'category' }, { l: 'Unit (kg, pcs, liters)', k: 'unit' }].map(({ l, k }) => (
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                {!customCat ? (
+                  <select value={itemForm.category} className="input"
+                    onChange={e => { if (e.target.value === '__new__') { setCustomCat(true); setItemForm(p => ({ ...p, category: '' })); } else setItemForm(p => ({ ...p, category: e.target.value })); }}>
+                    <option value="">Select category...</option>
+                    {itemCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                    <option value="__new__">+ Add new category…</option>
+                  </select>
+                ) : (
+                  <div className="flex gap-2">
+                    <input autoFocus value={itemForm.category} onChange={e => setItemForm(p => ({ ...p, category: e.target.value }))} className="input flex-1" placeholder="New category name" />
+                    <button onClick={() => { setCustomCat(false); setItemForm(p => ({ ...p, category: '' })); }} className="btn-secondary px-3">✕</button>
+                  </div>
+                )}
+              </div>
+              {[{ l: 'Name', k: 'name' }, { l: 'Unit (kg, pcs, liters)', k: 'unit' }].map(({ l, k }) => (
                 <div key={k}><label className="block text-sm font-medium text-gray-700 mb-1">{l}</label>
                   <input value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input" /></div>
               ))}
               <div className="grid grid-cols-3 gap-2">
                 {[{ l: 'Stock', k: 'currentStock' }, { l: 'Min Stock', k: 'minStock' }, { l: 'Unit Cost', k: 'unitCost' }].map(({ l, k }) => (
                   <div key={k}><label className="block text-xs font-medium text-gray-700 mb-1">{l}</label>
-                    <input type="number" value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input text-sm" /></div>
+                    <input type="number" value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input text-sm disabled:bg-gray-100 disabled:text-gray-400" disabled={k === 'currentStock' && !!editItem} title={k === 'currentStock' && editItem ? 'Stock changes only through Stock In / Stock Out records' : undefined} /></div>
                 ))}
               </div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date (optional)</label>
@@ -606,41 +613,6 @@ export default function InventoryPage() {
       )}
 
       {/* Stock In / Stock Out Modal */}
-      {showAdjModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900">{adjForm.type === 'addition' ? 'Stock In' : adjForm.type === 'deduction' ? 'Stock Out' : 'Stock Movement'}</h3>
-              <button onClick={() => setShowAdjModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
-            </div>
-            <div className="space-y-3">
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
-                <select value={adjForm.inventoryItemId} onChange={e => setAdjForm(p => ({ ...p, inventoryItemId: e.target.value }))} className="input">
-                  <option value="">Select item...</option>
-                  {items.map(i => <option key={i.id} value={i.id}>{i.name} ({Number(i.currentStock)} {i.unit})</option>)}
-                </select>
-              </div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                <select value={adjForm.type} onChange={e => setAdjForm(p => ({ ...p, type: e.target.value }))} className="input">
-                  <option value="addition">Stock In (+)</option>
-                  <option value="deduction">Stock Out (−)</option>
-                  <option value="waste">Waste (−)</option>
-                  <option value="adjustment">Adjustment (−)</option>
-                </select>
-              </div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                <input type="number" min={0} value={adjForm.quantity} onChange={e => setAdjForm(p => ({ ...p, quantity: e.target.value }))} className="input" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-                <input value={adjForm.reason} onChange={e => setAdjForm(p => ({ ...p, reason: e.target.value }))} className="input" placeholder="e.g. delivery, spoilage, kitchen use" /></div>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowAdjModal(false)} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={saveAdj} disabled={submitting || !adjForm.inventoryItemId || !(parseFloat(adjForm.quantity) > 0)} className="btn-primary flex-1 disabled:opacity-50">Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Purchase Order Modal */}
       {showPOModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

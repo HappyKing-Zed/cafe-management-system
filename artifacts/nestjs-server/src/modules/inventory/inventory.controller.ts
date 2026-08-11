@@ -64,6 +64,7 @@ export class InventoryController {
   }
 
   @Post('purchase-orders')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
   createPO(@Body() body: any, @Req() req: any) {
     return this.service.createPO(body, req.user, branchScope(req.user));
   }
@@ -119,6 +120,7 @@ export class InventoryController {
   }
 
   @Post('adjustments')
+  @Roles(Role.ADMIN)
   createAdjustment(@Req() req: any, @Body() body: any) {
     return this.service.createAdjustment(body, req.user, branchScope(req.user));
   }
