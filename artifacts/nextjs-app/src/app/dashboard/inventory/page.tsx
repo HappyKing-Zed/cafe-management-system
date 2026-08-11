@@ -36,7 +36,7 @@ const MOVEMENT_LABELS: Record<string, { label: string; cls: string }> = {
   adjustment: { label: 'Adjustment', cls: 'bg-gray-100 text-gray-700' },
 };
 
-interface POLine { inventoryItemId: string; quantity: string; unitPrice: string; }
+interface POLine { category: string; inventoryItemId: string; quantity: string; unitPrice: string; }
 
 export default function InventoryPage() {
   const { user } = useAuthStore();
@@ -59,7 +59,7 @@ export default function InventoryPage() {
   const [itemForm, setItemForm] = useState({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 });
   const [supplierForm, setSupplierForm] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '', restaurantId: 1 });
   const [adjForm, setAdjForm] = useState({ inventoryItemId: '', type: 'addition', quantity: '', reason: '' });
-  const [poForm, setPOForm] = useState<{ supplierId: string; notes: string; lines: POLine[] }>({ supplierId: '', notes: '', lines: [{ inventoryItemId: '', quantity: '', unitPrice: '' }] });
+  const [poForm, setPOForm] = useState<{ supplierId: string; notes: string; lines: POLine[] }>({ supplierId: '', notes: '', lines: [{ category: '', inventoryItemId: '', quantity: '', unitPrice: '' }] });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -224,7 +224,7 @@ export default function InventoryPage() {
         items: validLines.map(l => ({ inventoryItemId: parseInt(l.inventoryItemId), quantity: parseFloat(l.quantity), unitPrice: parseFloat(l.unitPrice) || 0 })),
       });
       setShowPOModal(false);
-      setPOForm({ supplierId: '', notes: '', lines: [{ inventoryItemId: '', quantity: '', unitPrice: '' }] });
+      setPOForm({ supplierId: '', notes: '', lines: [{ category: '', inventoryItemId: '', quantity: '', unitPrice: '' }] });
       await fetchData();
     } catch (e: any) {
       setFormError(e?.response?.data?.message || 'Could not create purchase order');
@@ -240,6 +240,9 @@ export default function InventoryPage() {
     const item = items.find(i => String(i.id) === id);
     setLine(idx, { inventoryItemId: id, unitPrice: item?.unitCost ? String(item.unitCost) : '' });
   };
+
+  const itemCategories = Array.from(new Set(items.map(i => i.category).filter(c => c && c !== '__none__'))).sort() as string[];
+  const itemsForCategory = (cat: string) => cat ? items.filter(i => (cat === '__none__' ? !i.category : i.category === cat)) : items;
 
   const lowStockItems = items.filter(i => Number(i.currentStock) <= Number(i.minStock));
   const outOfStock = lowStockItems.filter(i => Number(i.currentStock) <= 0);
@@ -475,7 +478,7 @@ export default function InventoryPage() {
                       <div className="flex gap-2 shrink-0">
                         <button onClick={() => { setAdjForm({ inventoryItemId: String(item.id), type: 'addition', quantity: '', reason: 'Restock' }); setShowAdjModal(true); }}
                           className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium">Stock In</button>
-                        <button onClick={() => { setPOForm({ supplierId: '', notes: `Restock ${item.name}`, lines: [{ inventoryItemId: String(item.id), quantity: '', unitPrice: item.unitCost ? String(item.unitCost) : '' }] }); setShowPOModal(true); setFormError(''); }}
+                        <button onClick={() => { setPOForm({ supplierId: '', notes: `Restock ${item.name}`, lines: [{ category: item.category || '__none__', inventoryItemId: String(item.id), quantity: '', unitPrice: item.unitCost ? String(item.unitCost) : '' }] }); setShowPOModal(true); setFormError(''); }}
                           className="text-xs px-3 py-1.5 bg-brand-100 text-brand-700 rounded-lg hover:bg-brand-200 font-medium">Order from Supplier</button>
                       </div>
                     </div>
@@ -658,9 +661,14 @@ export default function InventoryPage() {
                 <div className="space-y-2">
                   {poForm.lines.map((line, idx) => (
                     <div key={idx} className="flex gap-2 items-center">
+                      <select value={line.category} onChange={e => setLine(idx, { category: e.target.value, inventoryItemId: '', unitPrice: '' })} className="input text-sm w-36">
+                        <option value="">All categories</option>
+                        {itemCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                        {items.some(i => !i.category) && <option value="__none__">Uncategorized</option>}
+                      </select>
                       <select value={line.inventoryItemId} onChange={e => onLineItemChange(idx, e.target.value)} className="input text-sm flex-1">
                         <option value="">Select item...</option>
-                        {items.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+                        {itemsForCategory(line.category).map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
                       </select>
                       <input type="number" min={0} placeholder="Qty" value={line.quantity} onChange={e => setLine(idx, { quantity: e.target.value })} className="input text-sm w-20" />
                       <input type="number" min={0} placeholder="Price" value={line.unitPrice} onChange={e => setLine(idx, { unitPrice: e.target.value })} className="input text-sm w-24" />
@@ -670,7 +678,7 @@ export default function InventoryPage() {
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setPOForm(p => ({ ...p, lines: [...p.lines, { inventoryItemId: '', quantity: '', unitPrice: '' }] }))}
+                <button onClick={() => setPOForm(p => ({ ...p, lines: [...p.lines, { category: '', inventoryItemId: '', quantity: '', unitPrice: '' }] }))}
                   className="text-xs text-brand-600 hover:text-brand-700 font-medium mt-2 flex items-center gap-1"><Plus size={14} /> Add another item</button>
               </div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
