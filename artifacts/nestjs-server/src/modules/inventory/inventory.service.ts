@@ -10,6 +10,13 @@ import { ItemRequest, ItemRequestStatus } from '../../entities/item-request.enti
 import { User } from '../../entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 
+// Department is derived from the staff member's role (server-owned mapping)
+const ROLE_DEPARTMENT: Record<string, string> = {
+  admin: 'Management', owner: 'Management', manager: 'Management',
+  coordinator: 'Coordination', waiter: 'Service', chef: 'Kitchen',
+  cashier: 'Finance', storekeeper: 'Store',
+};
+
 @Injectable()
 export class InventoryService {
   constructor(
@@ -365,16 +372,32 @@ export class InventoryService {
     return this.reqRepo.find({ where, order: { createdAt: 'DESC' } });
   }
 
-  async createRequest(data: { inventoryItemId: number; quantity: number; notes?: string; requesterName?: string; reason?: string }, user: User, branchId?: number) {
+  async createRequest(data: { inventoryItemId: number; quantity: number; notes?: string; requesterId?: number; reason?: string }, user: User, branchId?: number) {
     const qty = Number(data.quantity);
     if (!(qty > 0)) throw new BadRequestException('Quantity must be greater than zero');
     const item = await this.findOneItem(Number(data.inventoryItemId), branchId);
+    // Requester is either the caller or a staff member chosen by id — name and
+    // department are derived server-side so they can't be forged by the client.
+    let requester: { name?: string; role?: string } = { name: user.name, role: (user as any).role };
+    if (data.requesterId) {
+      const staffMember = await this.reqRepo.manager.findOne(User, {
+        where: {
+          id: Number(data.requesterId),
+          isActive: true,
+          ...(branchId ? { branchId } : {}),
+          ...((user as any).restaurantId ? { restaurantId: (user as any).restaurantId } : {}),
+        } as any,
+      });
+      if (!staffMember) throw new BadRequestException('Selected staff member not found in your branch');
+      requester = { name: staffMember.name, role: staffMember.role as any };
+    }
     const req = this.reqRepo.create({
       inventoryItemId: item.id,
       quantity: qty,
       notes: data.notes,
-      requesterName: data.requesterName?.trim() || user.name || undefined,
+      requesterName: requester.name || user.name || undefined,
       reason: data.reason?.trim() || undefined,
+      department: ROLE_DEPARTMENT[requester.role || ''] || undefined,
       unitCost: Number(item.unitCost) || 0,
       requestedById: user.id,
       branchId: branchId || (user as any).branchId || item.branchId || undefined,

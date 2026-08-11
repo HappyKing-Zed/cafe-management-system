@@ -20,6 +20,14 @@ export class UsersController {
     return this.service.findAll(restaurantId ? +restaurantId : undefined, branchScope(req.user));
   }
 
+  // Lightweight list for the item-request form (name + role only) — available to all staff
+  @Get('staff-list')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
+  staffList(@Req() req: any) {
+    // Always constrain to the caller's restaurant (and branch when scoped)
+    return this.service.findStaffList(branchScope(req.user), req.user?.restaurantId);
+  }
+
   @Get('waiters')
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR)
   findWaiters(@Req() req: any) {

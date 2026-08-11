@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { getItemRequests, createItemRequest, updateItemRequestStatus, getRequestableItems } from '@/lib/api';
+import { getItemRequests, createItemRequest, updateItemRequestStatus, getRequestableItems, getStaffList } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { FilePlus2, PackageOpen, Plus, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
@@ -12,6 +12,7 @@ interface ItemRequest {
   notes?: string;
   requesterName?: string;
   reason?: string;
+  department?: string;
   unitCost?: number;
   createdAt: string;
   inventoryItem?: { id: number; name: string; unit: string; currentStock?: number; unitCost?: number; category?: string };
@@ -21,6 +22,14 @@ interface ItemRequest {
 }
 
 interface Item { id: number; name: string; unit: string; currentStock: number; unitCost?: number; category?: string; }
+interface Staff { id: number; name: string; role: string; }
+
+const ROLE_DEPARTMENT: Record<string, string> = {
+  admin: 'Management', owner: 'Management', manager: 'Management',
+  coordinator: 'Coordination', waiter: 'Service', chef: 'Kitchen',
+  cashier: 'Finance', storekeeper: 'Store',
+};
+const departmentForRole = (role?: string) => (role && ROLE_DEPARTMENT[role]) || '';
 
 const STATUS_STYLES: Record<string, { label: string; cls: string; dot: string }> = {
   pending: { label: 'Pending', cls: 'bg-gray-100 text-gray-700', dot: 'bg-gray-400' },
@@ -38,17 +47,19 @@ export default function ItemRequestsPage() {
   const canIssue = !!user && ['admin', 'owner', 'storekeeper'].includes(user.role);
   const [requests, setRequests] = useState<ItemRequest[]>([]);
   const [items, setItems] = useState<Item[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ requesterName: '', category: '', inventoryItemId: '', quantity: '', reason: '' });
+  const [form, setForm] = useState({ requesterId: '', category: '', inventoryItemId: '', quantity: '', reason: '' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [adjusting, setAdjusting] = useState<{ id: number; quantity: string } | null>(null);
 
   const fetchData = async () => {
-    const [reqRes, itemRes] = await Promise.all([getItemRequests(), getRequestableItems()]);
+    const [reqRes, itemRes, staffRes] = await Promise.all([getItemRequests(), getRequestableItems(), getStaffList().catch(() => ({ data: [] }))]);
     setRequests(reqRes.data || []);
     setItems(itemRes.data || []);
+    setStaff(staffRes.data || []);
     setLoading(false);
   };
   useEffect(() => {
@@ -75,10 +86,10 @@ export default function ItemRequestsPage() {
       await createItemRequest({
         inventoryItemId: parseInt(form.inventoryItemId),
         quantity: parseFloat(form.quantity),
-        requesterName: form.requesterName || undefined,
+        requesterId: form.requesterId ? parseInt(form.requesterId) : undefined,
         reason: form.reason || undefined,
       });
-      setForm({ requesterName: '', category: '', inventoryItemId: '', quantity: '', reason: '' });
+      setForm({ requesterId: '', category: '', inventoryItemId: '', quantity: '', reason: '' });
       setSuccess('Request sent — the manager has been notified.');
       await fetchData();
     } catch (e: any) {
@@ -129,7 +140,13 @@ export default function ItemRequestsPage() {
             </div>
             <div className="space-y-3">
               <div><label className="block text-xs font-semibold text-gray-700 mb-1">Requester Name</label>
-                <input value={form.requesterName} onChange={e => setForm(p => ({ ...p, requesterName: e.target.value }))} className="input text-sm" placeholder={user?.name || 'Who needs the items'} /></div>
+                <select value={form.requesterId} onChange={e => setForm(p => ({ ...p, requesterId: e.target.value }))} className="input text-sm">
+                  <option value="">{user?.name ? `${user.name} (me)` : 'Select staff...'}</option>
+                  {staff.filter(s => s.id !== user?.id).map(s => <option key={s.id} value={s.id}>{s.name} — {s.role}</option>)}
+                </select>
+              </div>
+              <div><label className="block text-xs font-semibold text-gray-700 mb-1">Department</label>
+                <input value={departmentForRole(form.requesterId ? staff.find(s => s.id === parseInt(form.requesterId))?.role : user?.role)} readOnly disabled className="input text-sm bg-gray-100 text-gray-500" placeholder="Set automatically from staff role" /></div>
               <div><label className="block text-xs font-semibold text-gray-700 mb-1">Item Category</label>
                 <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value, inventoryItemId: '' }))} className="input text-sm">
                   <option value="">All categories</option>
@@ -186,6 +203,7 @@ export default function ItemRequestsPage() {
                           <p className="font-medium text-gray-900">{r.inventoryItem?.name || '—'}</p>
                           <p className="text-xs text-gray-400">
                             {r.requesterName || r.requestedBy?.name || '—'}
+                            {r.department ? ` (${r.department})` : ''}
                             {r.reason ? ` · ${r.reason}` : ''}
                           </p>
                           <p className="text-[10px] text-gray-300">{new Date(r.createdAt).toLocaleString()}</p>

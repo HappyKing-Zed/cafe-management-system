@@ -53,6 +53,7 @@ export const updateBranch = (id: number, data: any) => api.patch(`/branches/${id
 export const getUsers = (restaurantId?: number) =>
   api.get('/users', { params: { restaurantId } });
 export const getWaiters = () => api.get('/users/waiters');
+export const getStaffList = () => api.get('/users/staff-list');
 export const createUser = (data: any) => api.post('/users', data);
 export const updateUser = (id: number, data: any) => api.patch(`/users/${id}`, data);
 export const deleteUser = (id: number) => api.delete(`/users/${id}`);
@@ -129,7 +130,7 @@ export const getStockAdjustments = (params?: { type?: string; from?: string; to?
 
 // Item Requests (any role can request; manager approves; storekeeper issues)
 export const getItemRequests = () => api.get('/inventory/requests');
-export const createItemRequest = (data: { inventoryItemId: number; quantity: number; notes?: string; requesterName?: string; reason?: string }) =>
+export const createItemRequest = (data: { inventoryItemId: number; quantity: number; notes?: string; requesterId?: number; reason?: string }) =>
   api.post('/inventory/requests', data);
 export const updateItemRequestStatus = (id: number, status: string, quantity?: number) =>
   api.patch(`/inventory/requests/${id}/status`, quantity !== undefined ? { status, quantity } : { status });

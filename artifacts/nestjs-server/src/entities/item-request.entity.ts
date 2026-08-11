@@ -31,6 +31,10 @@ export class ItemRequest {
   @Column({ nullable: true })
   reason: string;
 
+  // Department of the person the items are for (derived from their staff role)
+  @Column({ nullable: true })
+  department: string;
+
   // Snapshot of the item's unit price at request time (total = quantity × unitCost)
   @Column('decimal', { precision: 10, scale: 2, nullable: true })
   unitCost: number;

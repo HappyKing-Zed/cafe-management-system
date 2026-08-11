@@ -18,6 +18,18 @@ export class UsersService {
     return this.repo.find({ where, relations: ['branch', 'restaurant'], order: { name: 'ASC' } });
   }
 
+  findStaffList(branchId?: number, restaurantId?: number) {
+    return this.repo.find({
+      where: {
+        isActive: true,
+        ...(branchId ? { branchId } : {}),
+        ...(restaurantId ? { restaurantId } : {}),
+      },
+      select: ['id', 'name', 'role'],
+      order: { name: 'ASC' as any },
+    });
+  }
+
   findWaiters(branchId?: number) {
     return this.repo.find({
       where: { role: 'waiter' as any, isActive: true, ...(branchId ? { branchId } : {}) },
