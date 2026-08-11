@@ -65,7 +65,7 @@ export default function InventoryPage() {
   const [formError, setFormError] = useState('');
   // Storekeeper Store Operations view
   const [requests, setRequests] = useState<any[]>([]);
-  const [opTab, setOpTab] = useState<'out' | 'in'>('out');
+  const [opTab, setOpTab] = useState<'out' | 'in' | 'items'>('out');
   const [opBusy, setOpBusy] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -242,6 +242,55 @@ export default function InventoryPage() {
   const lowStockItems = items.filter(i => Number(i.currentStock) <= Number(i.minStock));
   const outOfStock = lowStockItems.filter(i => Number(i.currentStock) <= 0);
 
+  // Add/Edit Item modal — shared between the main view and the storekeeper view
+  const itemModal = showItemModal && (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-gray-900">{editItem ? 'Edit Item' : 'New Inventory Item'}</h3>
+          <button onClick={() => setShowItemModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+        <div className="space-y-3">
+          <div><label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            {!customCat ? (
+              <select value={itemForm.category} className="input"
+                onChange={e => { if (e.target.value === '__new__') { setCustomCat(true); setItemForm(p => ({ ...p, category: '' })); } else setItemForm(p => ({ ...p, category: e.target.value })); }}>
+                <option value="">Select category...</option>
+                {itemCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="__new__">+ Add new category…</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <input autoFocus value={itemForm.category} onChange={e => setItemForm(p => ({ ...p, category: e.target.value }))} className="input flex-1" placeholder="New category name" />
+                <button onClick={() => { setCustomCat(false); setItemForm(p => ({ ...p, category: '' })); }} className="btn-secondary px-3">✕</button>
+              </div>
+            )}
+          </div>
+          {[{ l: 'Name', k: 'name' }, { l: 'Unit (kg, pcs, liters)', k: 'unit' }].map(({ l, k }) => (
+            <div key={k}><label className="block text-sm font-medium text-gray-700 mb-1">{l}</label>
+              <input value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input" /></div>
+          ))}
+          <div className="grid grid-cols-3 gap-2">
+            {[{ l: 'Stock', k: 'currentStock' }, { l: 'Min Stock', k: 'minStock' }, { l: 'Unit Cost', k: 'unitCost' }].map(({ l, k }) => (
+              <div key={k}><label className="block text-xs font-medium text-gray-700 mb-1">{l}</label>
+                <input type="number" value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input text-sm disabled:bg-gray-100 disabled:text-gray-400" disabled={k === 'currentStock' && !!editItem} title={k === 'currentStock' && editItem ? 'Stock changes only through Stock In / Stock Out records' : undefined} /></div>
+            ))}
+          </div>
+          <div><label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date (optional)</label>
+            <input type="date" value={itemForm.expiryDate} onChange={e => setItemForm(p => ({ ...p, expiryDate: e.target.value }))} className="input" /></div>
+          <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2.5">
+            <span className="text-sm font-medium text-gray-600">Total Price (stock × unit cost)</span>
+            <span className="font-bold text-gray-900">ETB {((parseFloat(itemForm.currentStock) || 0) * (parseFloat(itemForm.unitCost) || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-5">
+          <button onClick={() => setShowItemModal(false)} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={saveItem} disabled={submitting} className="btn-primary flex-1 disabled:opacity-50">Save</button>
+        </div>
+      </div>
+    </div>
+  );
+
   // ── Storekeeper: Store Operations view ────────────────────────────────────
   const doStockOut = async (id: number) => {
     setOpBusy(`req-${id}`);
@@ -261,12 +310,16 @@ export default function InventoryPage() {
     const inboundPOs = pos.filter(p => ['approved', 'paid', 'ordered'].includes(p.status));
     return (
       <div className="p-8">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center"><Warehouse className="text-blue-600" size={22} /></div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Store Operations</h1>
-            <p className="text-sm text-gray-500">Manage inbound shipments and fulfill approved item requests. Stock updates automatically.</p>
+        <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center"><Warehouse className="text-blue-600" size={22} /></div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Store Operations</h1>
+              <p className="text-sm text-gray-500">Manage inbound shipments and fulfill approved item requests. Stock updates automatically.</p>
+            </div>
           </div>
+          <button onClick={() => { setShowItemModal(true); setEditItem(null); setCustomCat(false); setItemForm({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 }); }}
+            className="btn-primary flex items-center gap-2 shrink-0"><Plus size={16} /> Manual Entry</button>
         </div>
 
         {/* Tabs */}
@@ -278,6 +331,10 @@ export default function InventoryPage() {
           <button onClick={() => setOpTab('in')} className={clsx('pb-2.5 text-sm font-semibold border-b-2 -mb-px flex items-center gap-2', opTab === 'in' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700')}>
             <ArrowDownToLine size={15} /> Stock In (Inbound Shipments)
             {inboundPOs.length > 0 && <span className="bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full px-1.5 py-0.5">{inboundPOs.length}</span>}
+          </button>
+          <button onClick={() => setOpTab('items')} className={clsx('pb-2.5 text-sm font-semibold border-b-2 -mb-px flex items-center gap-2', opTab === 'items' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700')}>
+            <Package size={15} /> Available Items
+            {items.length > 0 && <span className="bg-gray-100 text-gray-600 text-[10px] font-bold rounded-full px-1.5 py-0.5">{items.length}</span>}
           </button>
         </div>
 
@@ -347,7 +404,7 @@ export default function InventoryPage() {
                   </table>
                 </div>
               </div>
-            ) : (
+            ) : opTab === 'in' ? (
               <div className="card p-0 overflow-hidden mb-6">
                 <div className="px-5 py-4 border-b flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -385,6 +442,54 @@ export default function InventoryPage() {
                           </td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="card p-0 overflow-hidden mb-6">
+                <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <Package className="text-blue-600" size={18} />
+                    <h2 className="font-bold text-gray-900">Available Items in Store</h2>
+                  </div>
+                  <select value={itemCatFilter} onChange={e => setItemCatFilter(e.target.value)} className="input text-sm !w-44 !py-1.5">
+                    <option value="">All categories</option>
+                    {itemCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                    {items.some(i => !i.category) && <option value="__none__">Uncategorized</option>}
+                  </select>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b"><tr>
+                      <th className="table-header">Item</th><th className="table-header">Category</th>
+                      <th className="table-header">Available</th><th className="table-header">Min Stock</th>
+                      <th className="table-header">Unit Cost</th><th className="table-header">Total Value</th>
+                      <th className="table-header">Expiry</th><th className="table-header">Status</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {itemsForCategory(itemCatFilter).length === 0 ? (
+                        <tr><td colSpan={8} className="text-center py-10 text-gray-400">No items in the store yet</td></tr>
+                      ) : itemsForCategory(itemCatFilter).map(item => {
+                        const low = Number(item.currentStock) <= Number(item.minStock);
+                        const out = Number(item.currentStock) <= 0;
+                        return (
+                          <tr key={item.id} className={clsx('hover:bg-gray-50', low && 'bg-red-50/50')}>
+                            <td className="table-cell font-medium">{item.name}</td>
+                            <td className="table-cell text-sm text-gray-500">{item.category || '—'}</td>
+                            <td className={clsx('table-cell font-semibold', out ? 'text-red-600' : low ? 'text-amber-600' : 'text-gray-900')}>{Number(item.currentStock)} {item.unit}</td>
+                            <td className="table-cell text-gray-500">{Number(item.minStock)} {item.unit}</td>
+                            <td className="table-cell">ETB {Number(item.unitCost).toLocaleString()}</td>
+                            <td className="table-cell font-semibold">ETB {(Number(item.currentStock) * Number(item.unitCost)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                            <td className="table-cell text-xs text-gray-500">{(item as any).expiryDate ? new Date((item as any).expiryDate).toLocaleDateString() : '—'}</td>
+                            <td className="table-cell">
+                              <span className={clsx('px-2 py-0.5 rounded-full text-xs font-medium', out ? 'bg-red-100 text-red-700' : low ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700')}>
+                                {out ? 'Out of stock' : low ? 'Low stock' : 'In stock'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -434,6 +539,7 @@ export default function InventoryPage() {
             </div>
           </>
         )}
+        {itemModal}
       </div>
     );
   }
@@ -686,53 +792,7 @@ export default function InventoryPage() {
       )}
 
       {/* Item Modal */}
-      {showItemModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-900">{editItem ? 'Edit Item' : 'New Inventory Item'}</h3>
-              <button onClick={() => setShowItemModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
-            </div>
-            <div className="space-y-3">
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                {!customCat ? (
-                  <select value={itemForm.category} className="input"
-                    onChange={e => { if (e.target.value === '__new__') { setCustomCat(true); setItemForm(p => ({ ...p, category: '' })); } else setItemForm(p => ({ ...p, category: e.target.value })); }}>
-                    <option value="">Select category...</option>
-                    {itemCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                    <option value="__new__">+ Add new category…</option>
-                  </select>
-                ) : (
-                  <div className="flex gap-2">
-                    <input autoFocus value={itemForm.category} onChange={e => setItemForm(p => ({ ...p, category: e.target.value }))} className="input flex-1" placeholder="New category name" />
-                    <button onClick={() => { setCustomCat(false); setItemForm(p => ({ ...p, category: '' })); }} className="btn-secondary px-3">✕</button>
-                  </div>
-                )}
-              </div>
-              {[{ l: 'Name', k: 'name' }, { l: 'Unit (kg, pcs, liters)', k: 'unit' }].map(({ l, k }) => (
-                <div key={k}><label className="block text-sm font-medium text-gray-700 mb-1">{l}</label>
-                  <input value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input" /></div>
-              ))}
-              <div className="grid grid-cols-3 gap-2">
-                {[{ l: 'Stock', k: 'currentStock' }, { l: 'Min Stock', k: 'minStock' }, { l: 'Unit Cost', k: 'unitCost' }].map(({ l, k }) => (
-                  <div key={k}><label className="block text-xs font-medium text-gray-700 mb-1">{l}</label>
-                    <input type="number" value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input text-sm disabled:bg-gray-100 disabled:text-gray-400" disabled={k === 'currentStock' && !!editItem} title={k === 'currentStock' && editItem ? 'Stock changes only through Stock In / Stock Out records' : undefined} /></div>
-                ))}
-              </div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date (optional)</label>
-                <input type="date" value={itemForm.expiryDate} onChange={e => setItemForm(p => ({ ...p, expiryDate: e.target.value }))} className="input" /></div>
-              <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2.5">
-                <span className="text-sm font-medium text-gray-600">Total Price (stock × unit cost)</span>
-                <span className="font-bold text-gray-900">ETB {((parseFloat(itemForm.currentStock) || 0) * (parseFloat(itemForm.unitCost) || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-              </div>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowItemModal(false)} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={saveItem} disabled={submitting} className="btn-primary flex-1 disabled:opacity-50">Save</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {itemModal}
 
       {/* Supplier Modal */}
       {showSupplierModal && (

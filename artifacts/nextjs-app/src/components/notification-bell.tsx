@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getOrderAlerts, getNotifications, markNotificationsRead } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Bell, AlertTriangle, Clock, CheckCheck } from 'lucide-react';
@@ -34,6 +35,7 @@ function timeAgo(dateStr: string) {
 
 export default function NotificationBell() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const [alerts, setAlerts] = useState<OrderAlert[]>([]);
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
   const [open, setOpen] = useState(false);
@@ -80,6 +82,34 @@ export default function NotificationBell() {
   const criticalCount = visibleAlerts.filter(a => a.severity === 'critical').length;
   const badgeCount = unread.length + visibleAlerts.length;
 
+  // Routes each role may open (mirrors the sidebar) — never navigate to a page the user can't access
+  const ROUTE_ROLES: Record<string, string[]> = {
+    '/dashboard/orders': ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'cashier'],
+    '/dashboard/order-board': ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'cashier', 'storekeeper'],
+    '/dashboard/kitchen': ['admin', 'owner', 'manager', 'coordinator', 'chef'],
+    '/dashboard/inventory': ['admin', 'owner', 'manager', 'storekeeper', 'cashier'],
+    '/dashboard/item-requests': ['admin', 'owner', 'manager', 'coordinator'],
+  };
+  const allowed = (path: string) => ROUTE_ROLES[path]?.includes(user.role) ?? false;
+  // Best order page for this role
+  const orderPage = user.role === 'chef' ? '/dashboard/kitchen'
+    : allowed('/dashboard/orders') ? '/dashboard/orders' : '/dashboard/order-board';
+  // Where a notification should take the user, inferred from its content (null = not clickable)
+  const notifTarget = (n: AppNotification): string | null => {
+    const m = n.message.toLowerCase();
+    let target: string | null = null;
+    if (n.orderId) target = orderPage;
+    else if (m.includes('requisition') || m.includes('item request') || m.includes('request')) target = '/dashboard/item-requests';
+    else if (m.includes('purchase order') || m.includes('po #') || m.includes('stock') || m.includes('expir') || m.includes('supplier') || m.includes('inventory')) target = '/dashboard/inventory';
+    else if (m.includes('order') || m.includes('payment') || m.includes('paid')) target = orderPage;
+    return target && allowed(target) ? target : null;
+  };
+  const goTo = (path: string | null) => {
+    if (!path) return;
+    setOpen(false);
+    router.push(path);
+  };
+
   const handleMarkRead = async () => {
     try {
       await markNotificationsRead();
@@ -123,7 +153,8 @@ export default function NotificationBell() {
           {visibleAlerts.length > 0 && (
             <ul className="divide-y divide-gray-50 border-b border-gray-100">
               {visibleAlerts.map((a) => (
-                <li key={`alert-${a.orderId}-${a.status}`} className="px-4 py-3 flex gap-3 items-start hover:bg-gray-50">
+                <li key={`alert-${a.orderId}-${a.status}`} onClick={() => goTo(a.side === 'kitchen' && allowed('/dashboard/kitchen') ? '/dashboard/kitchen' : orderPage)}
+                  className="px-4 py-3 flex gap-3 items-start hover:bg-gray-50 cursor-pointer">
                   <div className={clsx(
                     'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
                     a.severity === 'critical' ? 'bg-red-100' : 'bg-amber-100'
@@ -150,7 +181,8 @@ export default function NotificationBell() {
           ) : (
             <ul className="divide-y divide-gray-50">
               {notifs.map((n) => (
-                <li key={n.id} className={clsx('px-4 py-3 flex gap-3 items-start hover:bg-gray-50', !n.isRead && 'bg-brand-50/40')}>
+                <li key={n.id} onClick={() => goTo(notifTarget(n))}
+                  className={clsx('px-4 py-3 flex gap-3 items-start hover:bg-gray-50', notifTarget(n) && 'cursor-pointer', !n.isRead && 'bg-brand-50/40')}>
                   <div className={clsx('w-2 h-2 rounded-full shrink-0 mt-2', n.isRead ? 'bg-gray-200' : 'bg-brand-500')} />
                   <div className="min-w-0">
                     <p className={clsx('text-sm', n.isRead ? 'text-gray-500' : 'text-gray-800 font-medium')}>{n.message}</p>
