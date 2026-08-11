@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, createStockAdjustment, getStockAdjustments } from '@/lib/api';
+import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, approvePOItems, createStockAdjustment, getStockAdjustments } from '@/lib/api';
 import { InventoryItem, Supplier, PurchaseOrder } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
 import { Package, Plus, AlertTriangle, Pencil, RefreshCw, ArrowDownToLine, ArrowUpFromLine, FileText, Trash2 } from 'lucide-react';
@@ -41,8 +41,7 @@ interface POLine { inventoryItemId: string; quantity: string; unitPrice: string;
 export default function InventoryPage() {
   const { user } = useAuthStore();
   const canApprovePO = !!user && ['admin', 'owner', 'manager'].includes(user.role);
-  const canPayPO = !!user && ['admin', 'owner', 'cashier'].includes(user.role);
-  const canReceivePO = !!user && ['admin', 'owner', 'storekeeper'].includes(user.role);
+  const canReceivePO = !!user && ['admin', 'owner', 'manager', 'storekeeper'].includes(user.role);
   const isCashier = user?.role === 'cashier';
   const visibleTabs = isCashier ? ['Purchase Orders'] : TABS;
   const [tab, setTab] = useState('Items');
@@ -117,6 +116,40 @@ export default function InventoryPage() {
   };
 
   const poTotal = poForm.lines.reduce((sum, l) => sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
+
+  // ── Purchase order detail modal (per-item approval) ───────────────────────
+  const [poDetail, setPODetail] = useState<PurchaseOrder | null>(null);
+  const [poSelected, setPOSelected] = useState<number[]>([]);
+  const [poBusy, setPOBusy] = useState(false);
+  const openPODetail = (po: PurchaseOrder) => { setPODetail(po); setPOSelected([]); };
+  const togglePOItem = (id: number) => setPOSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  const refreshPODetail = async () => {
+    const res = await getPurchaseOrders();
+    setPOs(res.data || []);
+    setPODetail(prev => prev ? (res.data || []).find((p: PurchaseOrder) => p.id === prev.id) || null : null);
+    setPOSelected([]);
+  };
+  const doApproveItems = async (all: boolean) => {
+    if (!poDetail) return;
+    setPOBusy(true);
+    try { await approvePOItems(poDetail.id, all ? { all: true } : { itemIds: poSelected }); await refreshPODetail(); }
+    catch (e: any) { alert(e?.response?.data?.message || 'Approval failed'); }
+    finally { setPOBusy(false); }
+  };
+  const doPOStatus = async (status: string) => {
+    if (!poDetail) return;
+    setPOBusy(true);
+    try {
+      await updatePOStatus(poDetail.id, status);
+      await fetchData(); // refreshes items, movements and POs so stock updates show immediately
+      setPODetail(null);
+    } catch (e: any) { alert(e?.response?.data?.message || 'Action failed'); }
+    finally { setPOBusy(false); }
+  };
+
+  // Stock movements filter: All / Stock In / Stock Out
+  const [moveFilter, setMoveFilter] = useState<'all' | 'addition' | 'deduction'>('all');
+  const filteredMovements = moveFilter === 'all' ? movements : movements.filter(m => m.type === moveFilter);
 
   // ── Reports (Excel / PDF exports with date & type filters) ────────────────
   const [report, setReport] = useState({ type: 'stock-in', from: '', to: '' });
@@ -326,36 +359,29 @@ export default function InventoryPage() {
                   <th className="table-header">PO #</th><th className="table-header">Supplier</th><th className="table-header">Items</th><th className="table-header">Total</th><th className="table-header">Status</th><th className="table-header">Requested By</th><th className="table-header">Date</th><th className="table-header">Actions</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-50">
-                  {pos.length === 0 ? <tr><td colSpan={8} className="text-center py-8 text-gray-400">No purchase orders yet — click "New Purchase Order" to create one</td></tr> : pos.map((po) => (
-                    <tr key={po.id} className="hover:bg-gray-50">
+                  {pos.length === 0 ? <tr><td colSpan={8} className="text-center py-8 text-gray-400">No purchase orders yet — click "New Purchase Order" to create one</td></tr> : pos.map((po) => {
+                    const approvedCount = (po.items || []).filter((i: any) => i.approved).length;
+                    return (
+                    <tr key={po.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openPODetail(po)}>
                       <td className="table-cell font-semibold text-brand-600">#{po.id}</td>
                       <td className="table-cell">{po.supplier?.name}</td>
                       <td className="table-cell text-gray-500 text-xs">
                         {po.items?.map(i => `${i.inventoryItem?.name} ×${Number(i.quantity)}`).join(', ') || '—'}
+                        {po.status === 'pending' && approvedCount > 0 && <span className="ml-2 text-amber-600 font-medium">({approvedCount}/{po.items.length} approved)</span>}
                       </td>
                       <td className="table-cell font-semibold">ETB {Number(po.totalAmount).toLocaleString()}</td>
                       <td className="table-cell"><span className={clsx('status-badge', PO_STATUS_COLORS[po.status] || 'bg-gray-100 text-gray-700')}>{po.status}</span></td>
-                      <td className="table-cell text-gray-500 text-xs">{(po as any).requestedBy?.name || '—'}</td>
+                      <td className="table-cell text-gray-500 text-xs">
+                        {(po as any).requestedBy?.name || '—'}
+                        {(po as any).approvedBy?.name && <div className="text-green-600">approved by {(po as any).approvedBy.name}</div>}
+                      </td>
                       <td className="table-cell text-gray-400 text-xs">{new Date(po.createdAt).toLocaleDateString()}</td>
                       <td className="table-cell">
-                        <div className="flex gap-1">
-                          {po.status === 'pending' && canApprovePO && <>
-                            <button onClick={() => updatePOStatus(po.id, 'approved').then(fetchData)} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">Approve</button>
-                            <button onClick={() => updatePOStatus(po.id, 'rejected').then(fetchData)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">Reject</button>
-                          </>}
-                          {po.status === 'pending' && !canApprovePO && <span className="text-xs text-gray-400">Awaiting approval</span>}
-                          {po.status === 'approved' && <>
-                            {canPayPO && <button onClick={() => updatePOStatus(po.id, 'paid').then(fetchData)} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">Confirm Payment</button>}
-                            {canReceivePO && <button onClick={() => updatePOStatus(po.id, 'received').then(fetchData)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Stock In</button>}
-                            {!canPayPO && !canReceivePO && <span className="text-xs text-gray-400">Awaiting store keeper stock in</span>}
-                          </>}
-                          {po.status === 'paid' && (canReceivePO
-                            ? <button onClick={() => updatePOStatus(po.id, 'received').then(fetchData)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Stock In</button>
-                            : <span className="text-xs text-gray-400">Awaiting store keeper</span>)}
-                        </div>
+                        <span className="text-xs text-brand-600 font-medium">View details →</span>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -363,12 +389,17 @@ export default function InventoryPage() {
 
           {tab === 'Stock Movements' && (
             <div className="card p-0 overflow-hidden">
+              <div className="flex gap-2 p-3 border-b bg-gray-50">
+                {([['all', 'All'], ['addition', 'Stock In'], ['deduction', 'Stock Out']] as const).map(([v, l]) => (
+                  <button key={v} onClick={() => setMoveFilter(v)} className={clsx('text-xs px-3 py-1.5 rounded-lg font-medium', moveFilter === v ? 'bg-brand-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-100')}>{l}</button>
+                ))}
+              </div>
               <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">Date</th><th className="table-header">Item</th><th className="table-header">Type</th><th className="table-header">Quantity</th><th className="table-header">Reason</th><th className="table-header">By</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-50">
-                  {movements.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-gray-400">No stock movements yet — use "Stock In" or "Stock Out" to record one</td></tr> : movements.map((m) => {
+                  {filteredMovements.length === 0 ? <tr><td colSpan={6} className="text-center py-8 text-gray-400">No stock movements yet — use "Stock In" or "Stock Out" to record one</td></tr> : filteredMovements.map((m) => {
                     const cfg = MOVEMENT_LABELS[m.type] || MOVEMENT_LABELS.adjustment;
                     const isIn = m.type === 'addition';
                     return (
@@ -503,6 +534,65 @@ export default function InventoryPage() {
             <div className="flex gap-3 mt-5">
               <button onClick={() => setShowSupplierModal(false)} className="btn-secondary flex-1">Cancel</button>
               <button onClick={saveSupplier} disabled={submitting} className="btn-primary flex-1">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Purchase Order Detail Modal */}
+      {poDetail && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setPODetail(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-gray-900 text-lg">Purchase Order #{poDetail.id}</h3>
+                <p className="text-sm text-gray-500">{poDetail.supplier?.name} · {new Date(poDetail.createdAt).toLocaleDateString()}</p>
+              </div>
+              <span className={clsx('status-badge', PO_STATUS_COLORS[poDetail.status] || 'bg-gray-100 text-gray-700')}>{poDetail.status}</span>
+            </div>
+            <div className="text-sm text-gray-600 mb-4 space-y-1">
+              <p>Requested by: <span className="font-medium">{(poDetail as any).requestedBy?.name || '—'}</span></p>
+              {(poDetail as any).approvedBy?.name && <p className="text-green-700">Approved by: <span className="font-medium">{(poDetail as any).approvedBy.name}</span></p>}
+              {poDetail.notes && <p>Notes: {poDetail.notes}</p>}
+            </div>
+            <table className="w-full mb-4">
+              <thead className="bg-gray-50 border-b"><tr>
+                {poDetail.status === 'pending' && canApprovePO && <th className="table-header w-8"></th>}
+                <th className="table-header">Item</th><th className="table-header">Qty</th><th className="table-header">Unit Price</th><th className="table-header">Total</th><th className="table-header">Approval</th>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-50">
+                {(poDetail.items || []).map((it: any) => (
+                  <tr key={it.id}>
+                    {poDetail.status === 'pending' && canApprovePO && (
+                      <td className="table-cell">
+                        {!it.approved && <input type="checkbox" checked={poSelected.includes(it.id)} onChange={() => togglePOItem(it.id)} className="w-4 h-4 accent-brand-600" />}
+                      </td>
+                    )}
+                    <td className="table-cell font-medium">{it.inventoryItem?.name || '—'}</td>
+                    <td className="table-cell">{Number(it.quantity)} {it.inventoryItem?.unit || ''}</td>
+                    <td className="table-cell">ETB {Number(it.unitPrice).toLocaleString()}</td>
+                    <td className="table-cell font-semibold">ETB {(Number(it.quantity) * Number(it.unitPrice)).toLocaleString()}</td>
+                    <td className="table-cell">
+                      {it.approved
+                        ? <span className="status-badge bg-green-100 text-green-800">approved</span>
+                        : <span className="status-badge bg-yellow-100 text-yellow-800">pending</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-right font-bold text-gray-900 mb-4">Total: ETB {Number(poDetail.totalAmount).toLocaleString()}</p>
+            <div className="flex flex-wrap gap-2 justify-end">
+              {poDetail.status === 'pending' && canApprovePO && <>
+                <button onClick={() => doApproveItems(false)} disabled={poBusy || poSelected.length === 0} className="text-sm px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium disabled:opacity-50">Approve Selected ({poSelected.length})</button>
+                <button onClick={() => doApproveItems(true)} disabled={poBusy} className="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50">Approve All</button>
+                <button onClick={() => doPOStatus('rejected')} disabled={poBusy} className="text-sm px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium disabled:opacity-50">Reject</button>
+              </>}
+              {['approved', 'paid'].includes(poDetail.status) && canReceivePO && (
+                <button onClick={() => doPOStatus('received')} disabled={poBusy} className="text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50">{poBusy ? 'Updating…' : 'Stock In'}</button>
+              )}
+              {poDetail.status === 'pending' && !canApprovePO && <span className="text-sm text-gray-400 self-center">Awaiting manager/owner approval</span>}
+              <button onClick={() => setPODetail(null)} className="text-sm px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 font-medium">Close</button>
             </div>
           </div>
         </div>

@@ -13,6 +13,13 @@ export class PurchaseOrderItem {
   @Column('decimal', { precision: 10, scale: 2 })
   unitPrice: number;
 
+  /** Per-line approval: managers/owners may approve items one by one or all at once */
+  @Column({ default: false })
+  approved: boolean;
+
+  @Column({ nullable: true })
+  approvedById: number;
+
   @ManyToOne(() => PurchaseOrder, (po) => po.items, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'purchaseOrderId' })
   purchaseOrder: PurchaseOrder;

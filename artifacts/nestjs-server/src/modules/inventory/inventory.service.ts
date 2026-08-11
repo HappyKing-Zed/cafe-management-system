@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In } from 'typeorm';
 import { InventoryItem } from '../../entities/inventory-item.entity';
 import { Supplier } from '../../entities/supplier.entity';
+import { PurchaseOrderItem } from '../../entities/purchase-order-item.entity';
 import { PurchaseOrder, POStatus } from '../../entities/purchase-order.entity';
 import { StockAdjustment, AdjustmentType } from '../../entities/stock-adjustment.entity';
 import { ItemRequest, ItemRequestStatus } from '../../entities/item-request.entity';
@@ -22,7 +23,8 @@ export class InventoryService {
   ) {}
 
   private assertBranch(entityBranchId: number | null | undefined, branchId?: number) {
-    if (branchId && entityBranchId && entityBranchId !== branchId) {
+    // Fail closed: a branch-scoped user may only touch records of their own branch (branchless records excluded)
+    if (branchId && entityBranchId !== branchId) {
       throw new ForbiddenException('This record belongs to another branch');
     }
   }
@@ -99,7 +101,7 @@ export class InventoryService {
   }
 
   async findOnePO(id: number, branchId?: number) {
-    const po = await this.poRepo.findOne({ where: { id }, relations: ['supplier', 'items', 'items.inventoryItem', 'requestedBy'] });
+    const po = await this.poRepo.findOne({ where: { id }, relations: ['supplier', 'items', 'items.inventoryItem', 'requestedBy', 'approvedBy'] });
     if (!po) throw new NotFoundException('Purchase order not found');
     this.assertBranch(po.branchId, branchId);
     return po;
@@ -156,6 +158,49 @@ export class InventoryService {
     [POStatus.REJECTED]: [],
   };
 
+  /** Per-line approval: manager/owner approve selected items or all at once; PO becomes approved when every line is approved */
+  async approvePOItems(id: number, body: { itemIds?: number[]; all?: boolean }, user: User, branchId?: number) {
+    const po = await this.findOnePO(id, branchId);
+    if (![POStatus.PENDING, POStatus.DRAFT].includes(po.status)) {
+      throw new BadRequestException(`Purchase order is already '${po.status}'`);
+    }
+    const targetIds = body.all
+      ? po.items.filter(i => !i.approved).map(i => i.id)
+      : (body.itemIds || []).filter(iid => po.items.some(i => i.id === iid && !i.approved));
+    if (!targetIds.length) throw new BadRequestException('No pending items selected for approval');
+
+    await this.dataSource.transaction(async (em) => {
+      // Lock the PO row so concurrent approvals/rejections serialize, then re-check status
+      const locked = await em.getRepository(PurchaseOrder).findOne({ where: { id: po.id }, lock: { mode: 'pessimistic_write' } });
+      if (!locked || ![POStatus.PENDING, POStatus.DRAFT].includes(locked.status)) {
+        throw new BadRequestException(`Purchase order is already '${locked?.status || 'gone'}'`);
+      }
+      await em.createQueryBuilder()
+        .update(PurchaseOrderItem)
+        .set({ approved: true, approvedById: user.id })
+        .where('id IN (:...ids) AND "purchaseOrderId" = :poId AND approved = false', { ids: targetIds, poId: po.id })
+        .execute();
+      const remaining = await em.count(PurchaseOrderItem, { where: { purchaseOrderId: po.id, approved: false } });
+      if (remaining === 0) {
+        await em.createQueryBuilder()
+          .update(PurchaseOrder)
+          .set({ status: POStatus.APPROVED, approvedById: user.id })
+          .where('id = :id AND status IN (:...from)', { id: po.id, from: [POStatus.PENDING, POStatus.DRAFT] })
+          .execute();
+      }
+    });
+
+    const updated = await this.findOnePO(id, branchId);
+    const approvedNames = updated.items.filter(i => targetIds.includes(i.id)).map(i => i.inventoryItem?.name).filter(Boolean).join(', ');
+    const who = user.name || user.role;
+    if (updated.status === POStatus.APPROVED) {
+      await this.notifications.notify({ roles: ['manager', 'owner', 'storekeeper'], userId: updated.requestedById || undefined, message: `Purchase order #${updated.id} fully approved by ${who} (ETB ${Number(updated.totalAmount).toLocaleString()}) — stock in when goods arrive`, branchId: updated.branchId });
+    } else {
+      await this.notifications.notify({ roles: ['manager', 'owner'], message: `${who} approved ${approvedNames} on purchase order #${updated.id} — some items still awaiting approval`, branchId: updated.branchId });
+    }
+    return updated;
+  }
+
   async updatePOStatus(id: number, status: string, user: User, branchId?: number) {
     const po = await this.findOnePO(id, branchId);
     const allowed = InventoryService.PO_TRANSITIONS[po.status] || [];
@@ -168,8 +213,8 @@ export class InventoryService {
     if (status === POStatus.PAID && !['admin', 'owner', 'cashier'].includes(user.role as any)) {
       throw new ForbiddenException('Only the cashier can confirm payment of a purchase order');
     }
-    if (status === POStatus.RECEIVED && !['admin', 'owner', 'storekeeper'].includes(user.role as any)) {
-      throw new ForbiddenException('Only the store keeper can receive goods into stock');
+    if (status === POStatus.RECEIVED && !['admin', 'owner', 'manager', 'storekeeper'].includes(user.role as any)) {
+      throw new ForbiddenException('Only the store keeper, manager or owner can receive goods into stock');
     }
 
     if (status === POStatus.RECEIVED) {
@@ -200,13 +245,35 @@ export class InventoryService {
       return saved;
     }
 
-    po.status = status as POStatus;
-    if (status === POStatus.APPROVED || status === POStatus.REJECTED) po.approvedById = user.id;
-    if (status === POStatus.PAID) po.paidById = user.id;
-    const saved = await this.poRepo.save(po);
+    let saved: PurchaseOrder = po;
+    if (status === POStatus.APPROVED || status === POStatus.REJECTED) {
+      // Guarded transition: approve-all is an atomic shortcut that also approves every line,
+      // so a PO can never be 'approved' while lines remain unapproved.
+      await this.dataSource.transaction(async (em) => {
+        const flip = await em.createQueryBuilder()
+          .update(PurchaseOrder)
+          .set({ status: status as POStatus, approvedById: user.id })
+          .where('id = :id AND status IN (:...from)', { id: po.id, from: [POStatus.PENDING, POStatus.DRAFT] })
+          .execute();
+        if (!flip.affected) throw new BadRequestException('Purchase order was already approved or rejected');
+        if (status === POStatus.APPROVED) {
+          await em.createQueryBuilder()
+            .update(PurchaseOrderItem)
+            .set({ approved: true, approvedById: user.id })
+            .where('"purchaseOrderId" = :poId AND approved = false', { poId: po.id })
+            .execute();
+        }
+      });
+      po.status = status as POStatus;
+      po.approvedById = user.id;
+    } else {
+      po.status = status as POStatus;
+      if (status === POStatus.PAID) po.paidById = user.id;
+      saved = await this.poRepo.save(po);
+    }
 
     if (status === POStatus.APPROVED) {
-      await this.notifications.notify({ roles: ['cashier', 'storekeeper'], userId: po.requestedById || undefined, message: `Purchase order #${po.id} approved (ETB ${Number(po.totalAmount).toLocaleString()}) — storekeeper to stock in when goods arrive`, branchId: po.branchId });
+      await this.notifications.notify({ roles: ['manager', 'owner', 'storekeeper'], userId: po.requestedById || undefined, message: `Purchase order #${po.id} approved by ${user.name || user.role} (ETB ${Number(po.totalAmount).toLocaleString()}) — stock in when goods arrive`, branchId: po.branchId });
     } else if (status === POStatus.REJECTED) {
       await this.notifications.notify({ userId: po.requestedById || undefined, message: `Purchase order #${po.id} was rejected`, branchId: po.branchId });
     } else if (status === POStatus.PAID) {

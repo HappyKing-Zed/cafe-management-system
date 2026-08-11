@@ -121,6 +121,8 @@ export const getPurchaseOrders = () => api.get('/inventory/purchase-orders');
 export const createPurchaseOrder = (data: any) => api.post('/inventory/purchase-orders', data);
 export const updatePOStatus = (id: number, status: string) =>
   api.patch(`/inventory/purchase-orders/${id}/status`, { status });
+export const approvePOItems = (id: number, body: { itemIds?: number[]; all?: boolean }) =>
+  api.patch(`/inventory/purchase-orders/${id}/items/approve`, body);
 export const createStockAdjustment = (data: any) => api.post('/inventory/adjustments', data);
 export const getStockAdjustments = (params?: { type?: string; from?: string; to?: string }) =>
   api.get('/inventory/adjustments', { params });

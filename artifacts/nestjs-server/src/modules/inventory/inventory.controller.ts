@@ -68,6 +68,12 @@ export class InventoryController {
     return this.service.createPO(body, req.user, branchScope(req.user));
   }
 
+  @Patch('purchase-orders/:id/items/approve')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
+  approvePOItems(@Param('id', ParseIntPipe) id: number, @Body() body: { itemIds?: number[]; all?: boolean }, @Req() req: any) {
+    return this.service.approvePOItems(id, body || {}, req.user, branchScope(req.user));
+  }
+
   @Patch('purchase-orders/:id/status')
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER, Role.CASHIER)
   updatePOStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Req() req: any) {
