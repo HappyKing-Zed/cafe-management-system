@@ -149,7 +149,7 @@ export class InventoryService {
   private static readonly PO_TRANSITIONS: Record<string, string[]> = {
     [POStatus.DRAFT]: [POStatus.PENDING],
     [POStatus.PENDING]: [POStatus.APPROVED, POStatus.REJECTED],
-    [POStatus.APPROVED]: [POStatus.PAID],
+    [POStatus.APPROVED]: [POStatus.PAID, POStatus.RECEIVED], // cashier payment optional — storekeeper may stock in directly once approved
     [POStatus.PAID]: [POStatus.RECEIVED],
     [POStatus.ORDERED]: [POStatus.RECEIVED], // legacy rows
     [POStatus.RECEIVED]: [],
@@ -179,7 +179,7 @@ export class InventoryService {
         const res = await em.createQueryBuilder()
           .update(PurchaseOrder)
           .set({ status: POStatus.RECEIVED })
-          .where('id = :id AND status IN (:...from)', { id: po.id, from: [POStatus.PAID, POStatus.ORDERED] })
+          .where('id = :id AND status IN (:...from)', { id: po.id, from: [POStatus.APPROVED, POStatus.PAID, POStatus.ORDERED] })
           .execute();
         if (!res.affected) throw new BadRequestException('Purchase order was already received');
         for (const item of po.items) {
@@ -206,7 +206,7 @@ export class InventoryService {
     const saved = await this.poRepo.save(po);
 
     if (status === POStatus.APPROVED) {
-      await this.notifications.notify({ roles: ['cashier'], userId: po.requestedById || undefined, message: `Purchase order #${po.id} approved (ETB ${Number(po.totalAmount).toLocaleString()}) — cashier to confirm payment`, branchId: po.branchId });
+      await this.notifications.notify({ roles: ['cashier', 'storekeeper'], userId: po.requestedById || undefined, message: `Purchase order #${po.id} approved (ETB ${Number(po.totalAmount).toLocaleString()}) — storekeeper to stock in when goods arrive`, branchId: po.branchId });
     } else if (status === POStatus.REJECTED) {
       await this.notifications.notify({ userId: po.requestedById || undefined, message: `Purchase order #${po.id} was rejected`, branchId: po.branchId });
     } else if (status === POStatus.PAID) {
@@ -244,11 +244,34 @@ export class InventoryService {
     });
   }
 
-  findAllAdjustments(inventoryItemId?: number, branchId?: number) {
-    const where: any = {};
-    if (inventoryItemId) where.inventoryItemId = inventoryItemId;
-    if (branchId) where.branchId = branchId;
-    return this.adjRepo.find({ where, relations: ['inventoryItem', 'createdBy'], order: { createdAt: 'DESC' } });
+  findAllAdjustments(inventoryItemId?: number, branchId?: number, type?: string, from?: string, to?: string) {
+    const qb = this.adjRepo.createQueryBuilder('adj')
+      .leftJoinAndSelect('adj.inventoryItem', 'item')
+      .leftJoinAndSelect('adj.createdBy', 'createdBy')
+      .orderBy('adj.createdAt', 'DESC');
+    if (inventoryItemId) qb.andWhere('adj.inventoryItemId = :inventoryItemId', { inventoryItemId });
+    if (branchId) qb.andWhere('adj.branchId = :branchId', { branchId });
+    if (type !== undefined && type !== '') {
+      if (!Object.values(AdjustmentType).includes(type as AdjustmentType)) {
+        throw new BadRequestException(`Invalid movement type '${type}'`);
+      }
+      qb.andWhere('adj.type = :type', { type });
+    }
+    const parseDate = (v: string, label: string) => {
+      const d = new Date(v);
+      if (isNaN(d.getTime())) throw new BadRequestException(`Invalid ${label} date`);
+      return d;
+    };
+    const fromDate = from ? parseDate(from, 'from') : undefined;
+    const toDate = to ? parseDate(to, 'to') : undefined;
+    if (fromDate && toDate && fromDate > toDate) throw new BadRequestException('From date must not be after the to date');
+    if (fromDate) qb.andWhere('adj.createdAt >= :from', { from: fromDate });
+    if (toDate) {
+      const end = new Date(toDate);
+      end.setDate(end.getDate() + 1); // inclusive end date
+      qb.andWhere('adj.createdAt < :to', { to: end });
+    }
+    return qb.getMany();
   }
 
   // ── Item Requests ─────────────────────────────────────────────────────────
@@ -272,7 +295,7 @@ export class InventoryService {
     return this.reqRepo.find({ where, order: { createdAt: 'DESC' } });
   }
 
-  async createRequest(data: { inventoryItemId: number; quantity: number; notes?: string }, user: User, branchId?: number) {
+  async createRequest(data: { inventoryItemId: number; quantity: number; notes?: string; requesterName?: string; reason?: string }, user: User, branchId?: number) {
     const qty = Number(data.quantity);
     if (!(qty > 0)) throw new BadRequestException('Quantity must be greater than zero');
     const item = await this.findOneItem(Number(data.inventoryItemId), branchId);
@@ -280,6 +303,9 @@ export class InventoryService {
       inventoryItemId: item.id,
       quantity: qty,
       notes: data.notes,
+      requesterName: data.requesterName?.trim() || user.name || undefined,
+      reason: data.reason?.trim() || undefined,
+      unitCost: Number(item.unitCost) || 0,
       requestedById: user.id,
       branchId: branchId || (user as any).branchId || item.branchId || undefined,
       status: ItemRequestStatus.PENDING,
@@ -293,7 +319,7 @@ export class InventoryService {
     return saved;
   }
 
-  async updateRequestStatus(id: number, status: string, user: User, branchId?: number) {
+  async updateRequestStatus(id: number, status: string, user: User, branchId?: number, adjustQuantity?: number) {
     const req = await this.reqRepo.findOne({ where: { id } });
     if (!req) throw new NotFoundException('Item request not found');
     this.assertBranch(req.branchId, branchId);
@@ -344,14 +370,33 @@ export class InventoryService {
       return this.reqRepo.findOne({ where: { id } });
     }
 
-    req.status = status as ItemRequestStatus;
-    if (status === ItemRequestStatus.APPROVED || status === ItemRequestStatus.REJECTED) req.approvedById = user.id;
-    const saved = await this.reqRepo.save(req);
+    if (status === ItemRequestStatus.APPROVED || status === ItemRequestStatus.REJECTED) {
+      // Conditional update guards against two managers acting on the same request concurrently
+      const set: any = { status: status as ItemRequestStatus, approvedById: user.id };
+      if (status === ItemRequestStatus.APPROVED && adjustQuantity !== undefined && adjustQuantity !== null) {
+        const q = Number(adjustQuantity);
+        if (!(q > 0)) throw new BadRequestException('Adjusted quantity must be greater than zero');
+        set.quantity = q;
+        req.quantity = q; // for the notification message below
+      }
+      const flip = await this.reqRepo.createQueryBuilder()
+        .update(ItemRequest)
+        .set(set)
+        .where('id = :id AND status = :from', { id: req.id, from: ItemRequestStatus.PENDING })
+        .execute();
+      if (!flip.affected) throw new BadRequestException('Request was already approved or rejected by another manager');
+      req.status = status as ItemRequestStatus;
+      req.approvedById = user.id;
+    } else {
+      req.status = status as ItemRequestStatus;
+      await this.reqRepo.save(req);
+    }
+    const saved = req;
 
     if (status === ItemRequestStatus.APPROVED) {
-      await this.notifications.notify({ roles: ['storekeeper'], userId: req.requestedById, message: `Item request #${req.id} (${Number(req.quantity)} ${item.unit} of ${item.name}) approved — storekeeper to issue stock`, branchId: req.branchId });
+      await this.notifications.notify({ roles: ['storekeeper'], userId: req.requestedById, message: `Item request #${req.id} (${Number(req.quantity)} ${item.unit} of ${item.name}) approved — storekeeper to issue stock out`, branchId: req.branchId });
     } else if (status === ItemRequestStatus.REJECTED) {
-      await this.notifications.notify({ userId: req.requestedById, message: `Your request for ${item.name} was rejected`, branchId: req.branchId });
+      await this.notifications.notify({ roles: ['storekeeper'], userId: req.requestedById, message: `Item request #${req.id} (${item.name}) was rejected by ${user.name || 'manager'}`, branchId: req.branchId });
     } else if (status === ItemRequestStatus.RECEIVED) {
       await this.notifications.notify({ roles: ['storekeeper', 'manager'], message: `Item request #${req.id} (${item.name}) confirmed received by ${user.name || 'requester'}`, branchId: req.branchId });
     }

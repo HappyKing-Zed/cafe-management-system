@@ -122,14 +122,15 @@ export const createPurchaseOrder = (data: any) => api.post('/inventory/purchase-
 export const updatePOStatus = (id: number, status: string) =>
   api.patch(`/inventory/purchase-orders/${id}/status`, { status });
 export const createStockAdjustment = (data: any) => api.post('/inventory/adjustments', data);
-export const getStockAdjustments = () => api.get('/inventory/adjustments');
+export const getStockAdjustments = (params?: { type?: string; from?: string; to?: string }) =>
+  api.get('/inventory/adjustments', { params });
 
 // Item Requests (any role can request; manager approves; storekeeper issues)
 export const getItemRequests = () => api.get('/inventory/requests');
-export const createItemRequest = (data: { inventoryItemId: number; quantity: number; notes?: string }) =>
+export const createItemRequest = (data: { inventoryItemId: number; quantity: number; notes?: string; requesterName?: string; reason?: string }) =>
   api.post('/inventory/requests', data);
-export const updateItemRequestStatus = (id: number, status: string) =>
-  api.patch(`/inventory/requests/${id}/status`, { status });
+export const updateItemRequestStatus = (id: number, status: string, quantity?: number) =>
+  api.patch(`/inventory/requests/${id}/status`, quantity !== undefined ? { status, quantity } : { status });
 export const getRequestableItems = () => api.get('/inventory/requestable-items');
 
 // Seed

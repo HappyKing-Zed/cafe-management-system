@@ -89,8 +89,8 @@ export class InventoryController {
 
   @Patch('requests/:id/status')
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
-  updateRequestStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Req() req: any) {
-    return this.service.updateRequestStatus(id, status, req.user, branchScope(req.user));
+  updateRequestStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Body('quantity') quantity: number, @Req() req: any) {
+    return this.service.updateRequestStatus(id, status, req.user, branchScope(req.user), quantity);
   }
 
   // Items also readable by all roles so the request form can list them
@@ -102,8 +102,14 @@ export class InventoryController {
 
   // Adjustments
   @Get('adjustments')
-  findAdjustments(@Req() req: any, @Query('inventoryItemId') iid?: number) {
-    return this.service.findAllAdjustments(iid ? +iid : undefined, branchScope(req.user));
+  findAdjustments(
+    @Req() req: any,
+    @Query('inventoryItemId') iid?: number,
+    @Query('type') type?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.service.findAllAdjustments(iid ? +iid : undefined, branchScope(req.user), type, from, to);
   }
 
   @Post('adjustments')

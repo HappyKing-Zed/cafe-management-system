@@ -16,7 +16,7 @@ interface StockMovement {
   createdBy?: { name: string };
 }
 
-const TABS = ['Items', 'Purchase Orders', 'Stock Movements', 'Suppliers', 'Alerts'];
+const TABS = ['Items', 'Purchase Orders', 'Stock Movements', 'Suppliers', 'Alerts', 'Reports'];
 
 const PO_STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -104,7 +104,7 @@ export default function InventoryPage() {
 
   const saveAdj = async () => {
     setSubmitting(true);
-    await createStockAdjustment({ ...adjForm, inventoryItemId: parseInt(adjForm.inventoryItemId), quantity: parseFloat(adjForm.quantity), createdById: user?.id });
+    await createStockAdjustment({ ...adjForm, inventoryItemId: parseInt(adjForm.inventoryItemId), quantity: parseFloat(adjForm.quantity) });
     setShowAdjModal(false);
     setAdjForm({ inventoryItemId: '', type: 'addition', quantity: '', reason: '' });
     setSubmitting(false);
@@ -117,6 +117,62 @@ export default function InventoryPage() {
   };
 
   const poTotal = poForm.lines.reduce((sum, l) => sum + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
+
+  // ── Reports (Excel / PDF exports with date & type filters) ────────────────
+  const [report, setReport] = useState({ type: 'stock-in', from: '', to: '' });
+  const [exporting, setExporting] = useState(false);
+
+  const reportRows = async (): Promise<{ title: string; head: string[]; rows: (string | number)[][] }> => {
+    if (report.type === 'inventory') {
+      const res = await getInventoryItems();
+      const list: InventoryItem[] = res.data || [];
+      return {
+        title: 'Inventory Report',
+        head: ['Item', 'Category', 'Unit', 'Current Stock', 'Min Stock', 'Unit Price (ETB)', 'Total Price (ETB)', 'Expiry Date'],
+        rows: list.map(i => [i.name, (i as any).category || '—', i.unit, Number(i.currentStock), Number(i.minStock), Number(i.unitCost), Number(i.currentStock) * Number(i.unitCost), (i as any).expiryDate ? new Date((i as any).expiryDate).toLocaleDateString() : '—']),
+      };
+    }
+    const type = report.type === 'stock-in' ? 'addition' : 'deduction';
+    const res = await getStockAdjustments({ type, from: report.from || undefined, to: report.to || undefined });
+    const list: StockMovement[] = res.data || [];
+    return {
+      title: report.type === 'stock-in' ? 'Stock In Report' : 'Stock Out Report',
+      head: ['Date', 'Item', 'Quantity', 'Unit', 'Reason', 'Recorded By'],
+      rows: list.map(m => [new Date(m.createdAt).toLocaleString(), m.inventoryItem?.name || '—', Number(m.quantity), m.inventoryItem?.unit || '', m.reason || '—', m.createdBy?.name || '—']),
+    };
+  };
+
+  const rangeLabel = () => [report.from && `from ${report.from}`, report.to && `to ${report.to}`].filter(Boolean).join(' ') || 'all dates';
+
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const { title, head, rows } = await reportRows();
+      const XLSX = await import('xlsx');
+      // Guard against spreadsheet formula injection: prefix risky leading chars in text cells
+      const safe = (v: string | number) => typeof v === 'string' && /^[=+\-@]/.test(v) ? `'${v}` : v;
+      const ws = XLSX.utils.aoa_to_sheet([[`${title} (${rangeLabel()})`], head, ...rows.map(r => r.map(safe))]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31));
+      XLSX.writeFile(wb, `${title.replace(/ /g, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    } catch { alert('Export failed'); } finally { setExporting(false); }
+  };
+
+  const exportPDF = async () => {
+    setExporting(true);
+    try {
+      const { title, head, rows } = await reportRows();
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      const doc = new jsPDF();
+      doc.setFontSize(14);
+      doc.text(`Jima Aba Jifar — ${title}`, 14, 16);
+      doc.setFontSize(10);
+      doc.text(`${rangeLabel()} · generated ${new Date().toLocaleString()}`, 14, 22);
+      autoTable(doc, { head: [head], body: rows.map(r => r.map(String)), startY: 27, styles: { fontSize: 8 } });
+      doc.save(`${title.replace(/ /g, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch { alert('Export failed'); } finally { setExporting(false); }
+  };
 
   const savePO = async () => {
     const validLines = poForm.lines.filter(l => l.inventoryItemId && parseFloat(l.quantity) > 0);
@@ -288,11 +344,13 @@ export default function InventoryPage() {
                             <button onClick={() => updatePOStatus(po.id, 'rejected').then(fetchData)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">Reject</button>
                           </>}
                           {po.status === 'pending' && !canApprovePO && <span className="text-xs text-gray-400">Awaiting approval</span>}
-                          {po.status === 'approved' && (canPayPO
-                            ? <button onClick={() => updatePOStatus(po.id, 'paid').then(fetchData)} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">Confirm Payment</button>
-                            : <span className="text-xs text-gray-400">Awaiting cashier payment</span>)}
+                          {po.status === 'approved' && <>
+                            {canPayPO && <button onClick={() => updatePOStatus(po.id, 'paid').then(fetchData)} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">Confirm Payment</button>}
+                            {canReceivePO && <button onClick={() => updatePOStatus(po.id, 'received').then(fetchData)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Stock In</button>}
+                            {!canPayPO && !canReceivePO && <span className="text-xs text-gray-400">Awaiting store keeper stock in</span>}
+                          </>}
                           {po.status === 'paid' && (canReceivePO
-                            ? <button onClick={() => updatePOStatus(po.id, 'received').then(fetchData)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Fill Stock In</button>
+                            ? <button onClick={() => updatePOStatus(po.id, 'received').then(fetchData)} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Stock In</button>
                             : <span className="text-xs text-gray-400">Awaiting store keeper</span>)}
                         </div>
                       </td>
@@ -328,6 +386,30 @@ export default function InventoryPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {tab === 'Reports' && (
+            <div className="card max-w-2xl">
+              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><FileText size={18} /> Generate Report</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Report Type</label>
+                  <select value={report.type} onChange={e => setReport(p => ({ ...p, type: e.target.value }))} className="input">
+                    <option value="stock-in">Stock In</option>
+                    <option value="stock-out">Stock Out</option>
+                    <option value="inventory">Inventory (current stock)</option>
+                  </select>
+                </div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">From</label>
+                  <input type="date" value={report.from} onChange={e => setReport(p => ({ ...p, from: e.target.value }))} className="input" disabled={report.type === 'inventory'} /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+                  <input type="date" value={report.to} onChange={e => setReport(p => ({ ...p, to: e.target.value }))} className="input" disabled={report.type === 'inventory'} /></div>
+              </div>
+              <p className="text-xs text-gray-400 mb-4">{report.type === 'inventory' ? 'The inventory report is a snapshot of current stock levels and values.' : 'Leave the dates empty to include all records.'}</p>
+              <div className="flex gap-3">
+                <button onClick={exportExcel} disabled={exporting} className="btn-primary flex items-center gap-2 disabled:opacity-50"><ArrowDownToLine size={16} /> {exporting ? 'Exporting…' : 'Export Excel'}</button>
+                <button onClick={exportPDF} disabled={exporting} className="btn-secondary flex items-center gap-2 disabled:opacity-50"><FileText size={16} /> {exporting ? 'Exporting…' : 'Export PDF'}</button>
+              </div>
             </div>
           )}
 

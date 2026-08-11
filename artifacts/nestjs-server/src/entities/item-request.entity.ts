@@ -24,6 +24,17 @@ export class ItemRequest {
   @Column({ nullable: true })
   notes: string;
 
+  // Who the items are for (filled in by the coordinator) and why
+  @Column({ nullable: true })
+  requesterName: string;
+
+  @Column({ nullable: true })
+  reason: string;
+
+  // Snapshot of the item's unit price at request time (total = quantity × unitCost)
+  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  unitCost: number;
+
   @ManyToOne(() => InventoryItem, { nullable: false, eager: true })
   @JoinColumn({ name: 'inventoryItemId' })
   inventoryItem: InventoryItem;
