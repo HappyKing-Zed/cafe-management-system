@@ -181,7 +181,11 @@ export class InventoryService {
 
     await this.dataSource.transaction(async (em) => {
       // Lock the PO row so concurrent approvals/rejections serialize, then re-check status
-      const locked = await em.getRepository(PurchaseOrder).findOne({ where: { id: po.id }, lock: { mode: 'pessimistic_write' } });
+      // Query builder with no joins: FOR UPDATE can't be applied when eager relations add outer joins
+      const locked = await em.getRepository(PurchaseOrder).createQueryBuilder('po')
+        .setLock('pessimistic_write')
+        .where('po.id = :id', { id: po.id })
+        .getOne();
       if (!locked || ![POStatus.PENDING, POStatus.DRAFT].includes(locked.status)) {
         throw new BadRequestException(`Purchase order is already '${locked?.status || 'gone'}'`);
       }
