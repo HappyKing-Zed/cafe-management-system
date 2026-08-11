@@ -18,7 +18,7 @@ const navItems = [
   { href: '/dashboard/tables', label: 'Tables', icon: Table2, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter'] },
   { href: '/dashboard/menu', label: 'Menu', icon: UtensilsCrossed, roles: ['admin', 'owner', 'manager'] },
   { href: '/dashboard/inventory', label: 'Inventory', icon: Package, roles: ['admin', 'owner', 'manager', 'storekeeper', 'cashier'] },
-  { href: '/dashboard/item-requests', label: 'Item Requests', icon: PackageOpen, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'cashier', 'storekeeper'] },
+  { href: '/dashboard/item-requests', label: 'Item Requests', managerLabel: 'Item Requested', icon: PackageOpen, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'cashier', 'storekeeper'] },
   { href: '/dashboard/staff', label: 'Staff', icon: Users, roles: ['admin', 'owner', 'manager'] },
   { href: '/dashboard/branches', label: 'Branches', icon: Building2, roles: ['admin', 'owner', 'manager'] },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'owner', 'manager', 'cashier'] },
@@ -65,7 +65,7 @@ export default function Sidebar() {
               )}
             >
               <item.icon size={18} />
-              <span>{item.label}</span>
+              <span>{(item as any).managerLabel && user?.role && ['admin', 'owner', 'manager'].includes(user.role) ? (item as any).managerLabel : item.label}</span>
             </Link>
           );
         })}

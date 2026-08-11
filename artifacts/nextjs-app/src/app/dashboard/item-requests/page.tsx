@@ -1,8 +1,9 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { getItemRequests, createItemRequest, updateItemRequestStatus, getRequestableItems, getStaffList } from '@/lib/api';
+import Link from 'next/link';
+import { getItemRequests, createItemRequest, updateItemRequestStatus, getRequestableItems, getStaffList, getLowStockItems } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
-import { FilePlus2, PackageOpen, Plus, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, ClipboardCheck, FilePlus2, PackageCheck, PackageOpen, Pencil, Plus, RefreshCw, ShoppingCart, X } from 'lucide-react';
 import clsx from 'clsx';
 
 interface ItemRequest {
@@ -48,6 +49,7 @@ export default function ItemRequestsPage() {
   const [requests, setRequests] = useState<ItemRequest[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [lowStock, setLowStock] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ requesterId: '', category: '', inventoryItemId: '', quantity: '', reason: '' });
   const [submitting, setSubmitting] = useState(false);
@@ -56,10 +58,15 @@ export default function ItemRequestsPage() {
   const [adjusting, setAdjusting] = useState<{ id: number; quantity: string } | null>(null);
 
   const fetchData = async () => {
-    const [reqRes, itemRes, staffRes] = await Promise.all([getItemRequests(), getRequestableItems(), getStaffList().catch(() => ({ data: [] }))]);
+    const [reqRes, itemRes, staffRes, lowRes] = await Promise.all([
+      getItemRequests(), getRequestableItems(),
+      getStaffList().catch(() => ({ data: [] })),
+      getLowStockItems().catch(() => ({ data: [] })),
+    ]);
     setRequests(reqRes.data || []);
     setItems(itemRes.data || []);
     setStaff(staffRes.data || []);
+    setLowStock(lowRes.data || []);
     setLoading(false);
   };
   useEffect(() => {
@@ -121,8 +128,8 @@ export default function ItemRequestsPage() {
             <PackageOpen className="text-blue-600" size={22} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Item Requests</h1>
-            <p className="text-sm text-gray-500">Submit new store requisitions and track the status of your pending approvals.</p>
+            <h1 className="text-2xl font-bold text-gray-900">{canApprove ? 'Item Requested' : 'Item Requests'}</h1>
+            <p className="text-sm text-gray-500">{canApprove ? 'Review and manage incoming item requests.' : 'Submit new store requisitions and track the status of your pending approvals.'}</p>
           </div>
         </div>
         <button onClick={fetchData} className="btn-secondary flex items-center gap-2 shrink-0"><RefreshCw size={16} /> Refresh</button>
@@ -130,6 +137,157 @@ export default function ItemRequestsPage() {
 
       {loading ? (
         <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
+      ) : canApprove ? (
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 items-start">
+          <div className="space-y-6">
+            {/* Pending Approvals */}
+            <div className="card p-0 overflow-hidden">
+              <div className="px-5 py-4 border-b flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center"><ClipboardCheck className="text-blue-600" size={18} /></div>
+                <div>
+                  <h2 className="font-bold text-gray-900">Pending Approvals</h2>
+                  <p className="text-xs text-gray-500">Review and manage incoming item requests.</p>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b"><tr>
+                    <th className="table-header">Requester</th><th className="table-header">Item Details</th>
+                    <th className="table-header">Qty</th><th className="table-header">In Stock</th>
+                    <th className="table-header">Total Est.</th><th className="table-header text-right">Actions</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {requests.filter(r => r.status === 'pending').length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-10 text-gray-400">No pending requests — all caught up</td></tr>
+                    ) : requests.filter(r => r.status === 'pending').map(r => {
+                      const name = r.requesterName || r.requestedBy?.name || '—';
+                      const initials = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+                      const stockItem = items.find(i => i.id === r.inventoryItem?.id);
+                      return (
+                        <tr key={r.id} className="hover:bg-gray-50">
+                          <td className="table-cell">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center shrink-0">{initials || '?'}</div>
+                              <div>
+                                <p className="font-medium text-gray-900">{name}</p>
+                                <p className="text-xs text-gray-400">{r.department || '—'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="table-cell">
+                            <p className="font-medium text-gray-900">{r.inventoryItem?.name || '—'}</p>
+                            <p className="text-xs text-gray-400">REQ-{String(r.id).padStart(3, '0')}{r.reason ? ` · ${r.reason}` : ''}</p>
+                          </td>
+                          <td className="table-cell">{Number(r.quantity)} {r.inventoryItem?.unit}</td>
+                          <td className="table-cell text-gray-500">{stockItem ? `${Number(stockItem.currentStock)} ${stockItem.unit}` : '—'}</td>
+                          <td className="table-cell font-semibold">ETB {totalPrice(r).toLocaleString()}</td>
+                          <td className="table-cell">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {adjusting?.id === r.id ? <>
+                                <input type="number" min={0} value={adjusting.quantity}
+                                  onChange={e => setAdjusting({ id: r.id, quantity: e.target.value })}
+                                  className="input !w-20 !py-1 text-xs" autoFocus />
+                                <button onClick={() => setStatus(r.id, 'approved', parseFloat(adjusting.quantity))}
+                                  disabled={!(parseFloat(adjusting.quantity) > 0)}
+                                  className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50">Approve</button>
+                                <button onClick={() => setAdjusting(null)} className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">Cancel</button>
+                              </> : <>
+                                <button onClick={() => setAdjusting({ id: r.id, quantity: String(Number(r.quantity)) })}
+                                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 tracking-wide px-1.5 py-1 flex items-center gap-1" title="Adjust quantity before approving"><Pencil size={12} /> ADJUST</button>
+                                <button onClick={() => setStatus(r.id, 'approved')} title="Approve"
+                                  className="w-8 h-8 rounded-full border border-green-200 text-green-600 hover:bg-green-50 flex items-center justify-center"><Check size={15} /></button>
+                                <button onClick={() => setStatus(r.id, 'rejected')} title="Reject"
+                                  className="w-8 h-8 rounded-full border border-red-200 text-red-500 hover:bg-red-50 flex items-center justify-center"><X size={15} /></button>
+                              </>}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-5 py-3 border-t text-xs text-gray-400">
+                Showing {requests.filter(r => r.status === 'pending').length} pending request{requests.filter(r => r.status === 'pending').length === 1 ? '' : 's'}
+              </div>
+            </div>
+
+            {/* Low Stock Alerts */}
+            <div className="card p-5">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center"><AlertTriangle className="text-red-500" size={18} /></div>
+                <h2 className="font-bold text-gray-900">Low Stock Alerts</h2>
+              </div>
+              {lowStock.length === 0 ? <p className="text-sm text-gray-400">No items are running low.</p> : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {lowStock.slice(0, 6).map((i: any) => {
+                    const critical = Number(i.currentStock) <= Number(i.minStock) / 2;
+                    return (
+                      <div key={i.id} className={clsx('border rounded-xl p-4', critical ? 'border-red-200 bg-red-50/40' : 'border-amber-200 bg-amber-50/40')}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={clsx('text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded', critical ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700')}>{critical ? 'Critical' : 'Warning'}</span>
+                          {i.category && <span className="text-[10px] text-gray-400">{i.category}</span>}
+                        </div>
+                        <p className="font-semibold text-gray-900 text-sm">{i.name}</p>
+                        <p className={clsx('text-2xl font-bold', critical ? 'text-red-600' : 'text-amber-600')}>{Number(i.currentStock)}</p>
+                        <p className="text-xs text-gray-500 mb-3">{i.unit} remaining (Min: {Number(i.minStock)})</p>
+                        <Link href="/dashboard/inventory" className="btn-primary w-full flex items-center justify-center gap-1.5 !py-1.5 text-xs"><ShoppingCart size={13} /> Initiate Purchase</Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Approval Activity */}
+          <div className="card p-5">
+            <h2 className="font-bold text-gray-900 mb-4">Approval Activity</h2>
+            {requests.filter(r => r.status !== 'pending').length === 0 ? <p className="text-sm text-gray-400">No processed requests yet.</p> : (
+              <div className="space-y-4">
+                {(() => {
+                  const processed = requests.filter(r => r.status !== 'pending');
+                  // Never hide requests that still need an action from this user
+                  const actionable = processed.filter(r =>
+                    (r.status === 'approved' && canIssue) ||
+                    (r.status === 'issued' && r.requestedBy?.id === user?.id));
+                  const rest = processed.filter(r => !actionable.includes(r)).slice(0, 10);
+                  return [...actionable, ...rest];
+                })().map(r => {
+                  const meta = {
+                    approved: { icon: <Check size={13} />, cls: 'bg-green-100 text-green-600', title: 'Approved' },
+                    rejected: { icon: <X size={13} />, cls: 'bg-red-100 text-red-500', title: 'Rejected' },
+                    issued: { icon: <PackageOpen size={13} />, cls: 'bg-indigo-100 text-indigo-600', title: 'Stocked Out' },
+                    received: { icon: <PackageCheck size={13} />, cls: 'bg-emerald-100 text-emerald-600', title: 'Received' },
+                  }[r.status] || { icon: <Check size={13} />, cls: 'bg-gray-100 text-gray-500', title: r.status };
+                  return (
+                    <div key={r.id} className="flex gap-3">
+                      <div className={clsx('w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5', meta.cls)}>{meta.icon}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{meta.title}: {r.inventoryItem?.name || '—'}</p>
+                          <span className="text-[10px] text-gray-400 shrink-0">{new Date(r.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg px-2.5 py-1.5 mt-1 text-xs text-gray-500">
+                          REQ-{String(r.id).padStart(3, '0')} · {Number(r.quantity)} {r.inventoryItem?.unit} for {r.requesterName || r.requestedBy?.name || '—'}
+                          {r.department ? ` (${r.department})` : ''}
+                          {r.status === 'approved' && r.approvedBy?.name ? ` — approved by ${r.approvedBy.name}, awaiting stock out` : ''}
+                          {r.status === 'issued' ? ' — awaiting requester confirmation' : ''}
+                        </div>
+                        {r.status === 'approved' && canIssue && (
+                          <button onClick={() => setStatus(r.id, 'issued')} className="text-xs px-2 py-1 mt-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Stock Out</button>
+                        )}
+                        {r.status === 'issued' && r.requestedBy?.id === user?.id && (
+                          <button onClick={() => setStatus(r.id, 'received')} className="text-xs px-2 py-1 mt-1.5 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200">Confirm Received</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 items-start">
           {/* New Requisition form */}
@@ -188,14 +346,12 @@ export default function ItemRequestsPage() {
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">Req ID</th><th className="table-header">Item Details</th><th className="table-header">Qty</th>
                   <th className="table-header">Value</th>
-                  {canApprove && <th className="table-header">In Stock</th>}
                   <th className="table-header">Status</th><th className="table-header">Actions</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-50">
-                  {requests.length === 0 ? <tr><td colSpan={canApprove ? 7 : 6} className="text-center py-10 text-gray-400">No item requests yet — use the form to submit one</td></tr> : requests.map((r) => {
+                  {requests.length === 0 ? <tr><td colSpan={6} className="text-center py-10 text-gray-400">No item requests yet — use the form to submit one</td></tr> : requests.map((r) => {
                     const st = STATUS_STYLES[r.status] || STATUS_STYLES.pending;
                     const mine = r.requestedBy?.id === user?.id;
-                    const stockItem = items.find(i => i.id === r.inventoryItem?.id);
                     return (
                       <tr key={r.id} className="hover:bg-gray-50">
                         <td className="table-cell text-xs font-semibold text-gray-500">REQ-{String(r.id).padStart(3, '0')}</td>
@@ -210,7 +366,6 @@ export default function ItemRequestsPage() {
                         </td>
                         <td className="table-cell">{Number(r.quantity)} {r.inventoryItem?.unit}</td>
                         <td className="table-cell font-semibold">ETB {totalPrice(r).toLocaleString()}</td>
-                        {canApprove && <td className="table-cell text-gray-500">{stockItem ? `${Number(stockItem.currentStock)} ${stockItem.unit}` : '—'}</td>}
                         <td className="table-cell">
                           <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium', st.cls)}>
                             <span className={clsx('w-1.5 h-1.5 rounded-full', st.dot)} />{st.label}
@@ -218,20 +373,7 @@ export default function ItemRequestsPage() {
                         </td>
                         <td className="table-cell">
                           <div className="flex gap-1 flex-wrap items-center">
-                            {r.status === 'pending' && canApprove && (adjusting?.id === r.id ? <>
-                              <input type="number" min={0} value={adjusting.quantity}
-                                onChange={e => setAdjusting({ id: r.id, quantity: e.target.value })}
-                                className="input !w-20 !py-1 text-xs" />
-                              <button onClick={() => setStatus(r.id, 'approved', parseFloat(adjusting.quantity))}
-                                disabled={!(parseFloat(adjusting.quantity) > 0)}
-                                className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50">Approve Adjusted</button>
-                              <button onClick={() => setAdjusting(null)} className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded">Cancel</button>
-                            </> : <>
-                              <button onClick={() => setStatus(r.id, 'approved')} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200">Approve</button>
-                              <button onClick={() => setAdjusting({ id: r.id, quantity: String(Number(r.quantity)) })} className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded hover:bg-amber-200">Adjust</button>
-                              <button onClick={() => setStatus(r.id, 'rejected')} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">Reject</button>
-                            </>)}
-                            {r.status === 'pending' && !canApprove && <span className="text-xs text-gray-400">Awaiting manager</span>}
+                            {r.status === 'pending' && <span className="text-xs text-gray-400">Awaiting manager</span>}
                             {r.status === 'approved' && (canIssue
                               ? <button onClick={() => setStatus(r.id, 'issued')} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Stock Out</button>
                               : <span className="text-xs text-gray-400">Awaiting store keeper</span>)}
