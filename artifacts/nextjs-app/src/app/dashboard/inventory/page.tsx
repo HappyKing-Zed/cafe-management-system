@@ -65,7 +65,7 @@ export default function InventoryPage() {
   const [formError, setFormError] = useState('');
   // Storekeeper Store Operations view
   const [requests, setRequests] = useState<any[]>([]);
-  const [opTab, setOpTab] = useState<'out' | 'in' | 'items'>('out');
+  const [opTab, setOpTab] = useState<'out' | 'in' | 'items' | 'ledger'>('out');
   const [opBusy, setOpBusy] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -336,6 +336,9 @@ export default function InventoryPage() {
             <Package size={15} /> Available Items
             {items.length > 0 && <span className="bg-gray-100 text-gray-600 text-[10px] font-bold rounded-full px-1.5 py-0.5">{items.length}</span>}
           </button>
+          <button onClick={() => setOpTab('ledger')} className={clsx('pb-2.5 text-sm font-semibold border-b-2 -mb-px flex items-center gap-2', opTab === 'ledger' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700')}>
+            <FileText size={15} /> Inventory Ledger
+          </button>
         </div>
 
         {loading ? (
@@ -446,7 +449,7 @@ export default function InventoryPage() {
                   </table>
                 </div>
               </div>
-            ) : (
+            ) : opTab === 'items' ? (
               <div className="card p-0 overflow-hidden mb-6">
                 <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2.5">
@@ -494,9 +497,8 @@ export default function InventoryPage() {
                   </table>
                 </div>
               </div>
-            )}
-
-            {/* Inventory Ledger */}
+            ) : (
+            /* Inventory Ledger */
             <div className="card p-0 overflow-hidden">
               <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2.5">
@@ -537,6 +539,7 @@ export default function InventoryPage() {
                 </table>
               </div>
             </div>
+            )}
           </>
         )}
         {itemModal}
