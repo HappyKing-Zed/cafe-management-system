@@ -49,7 +49,11 @@ export default function ItemRequestsPage() {
     setItems(itemRes.data || []);
     setLoading(false);
   };
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 15000);
+    return () => clearInterval(t);
+  }, []);
 
   const selectedItem = items.find(i => i.id === parseInt(form.inventoryItemId));
   const formTotal = selectedItem && parseFloat(form.quantity) > 0

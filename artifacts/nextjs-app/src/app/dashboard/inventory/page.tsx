@@ -80,7 +80,11 @@ export default function InventoryPage() {
     setMovements(movRes.data || []);
     setLoading(false);
   };
-  useEffect(() => { fetchData(); }, [isCashier]);
+  useEffect(() => {
+    fetchData();
+    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 15000);
+    return () => clearInterval(t);
+  }, [isCashier]);
 
   const saveItem = async () => {
     setSubmitting(true);
