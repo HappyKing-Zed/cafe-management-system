@@ -41,7 +41,7 @@ interface POLine { category: string; inventoryItemId: string; quantity: string; 
 export default function InventoryPage() {
   const { user } = useAuthStore();
   const canApprovePO = !!user && ['admin', 'owner', 'manager'].includes(user.role);
-  const canReceivePO = !!user && ['admin', 'owner', 'manager', 'storekeeper'].includes(user.role);
+  const canReceivePO = !!user && ['admin', 'owner', 'storekeeper'].includes(user.role);
   const isCashier = user?.role === 'cashier';
   const isStorekeeper = user?.role === 'storekeeper';
   const visibleTabs = isCashier ? ['Purchase Orders'] : TABS;
