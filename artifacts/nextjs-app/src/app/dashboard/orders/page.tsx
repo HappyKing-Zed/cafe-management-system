@@ -290,25 +290,22 @@ export default function OrdersPage() {
         <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
       ) : (
         <div className="card p-0 overflow-x-auto">
-          <table className="w-full min-w-max">
+          <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="table-header">Order #</th>
-                <th className="table-header">Table</th>
-                <th className="table-header">Chef</th>
-                <th className="table-header">Item</th>
-                <th className="table-header">Order Date</th>
-                <th className="table-header">Order Time</th>
-                <th className="table-header">Est. Completion</th>
-                <th className="table-header">Total</th>
-                <th className="table-header">Payment Method</th>
-                <th className="table-header">Status</th>
-                <th className="table-header">Actions</th>
+                <th className="table-header !px-2.5 !py-2">#</th>
+                <th className="table-header !px-2.5 !py-2">Table</th>
+                <th className="table-header !px-2.5 !py-2">Chef</th>
+                <th className="table-header !px-2.5 !py-2">Items</th>
+                <th className="table-header !px-2.5 !py-2">Time</th>
+                <th className="table-header !px-2.5 !py-2">Total</th>
+                <th className="table-header !px-2.5 !py-2">Status</th>
+                <th className="table-header !px-2.5 !py-2">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredOrders.length === 0 ? (
-                <tr><td colSpan={11} className="text-center py-12 text-gray-400">No orders found</td></tr>
+                <tr><td colSpan={8} className="text-center py-12 text-gray-400">No orders found</td></tr>
               ) : filteredOrders.map((order) => (
                 <tr
                   key={order.id}
@@ -322,19 +319,22 @@ export default function OrdersPage() {
                     }
                   }}
                 >
-                  <td className="table-cell font-semibold text-brand-600">#{order.id}</td>
-                  <td className="table-cell">
-                    {order.table?.number ? <span className="font-medium">{order.table.number}</span> : <span className="text-gray-500">Take Away</span>}
-                    {!isWaiter && order.waiter?.name && <p className="text-xs text-gray-400">Waiter: {order.waiter.name}</p>}
+                  <td className="table-cell !px-2.5 !py-2 text-xs font-semibold text-brand-600">#{order.id}</td>
+                  <td className="table-cell !px-2.5 !py-2">
+                    {order.table?.number ? <span className="text-xs font-medium">{order.table.number}</span> : <span className="text-xs text-gray-500">Take Away</span>}
+                    {!isWaiter && order.waiter?.name && <p className="text-[10px] text-gray-400 truncate max-w-[90px]">{order.waiter.name}</p>}
                   </td>
-                  <td className="table-cell text-gray-500 text-sm">{order.chef?.name || '—'}</td>
-                  <td className="table-cell text-gray-500">{order.items?.length || 0} items</td>
-                  <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{new Date(order.createdAt).toLocaleDateString()}</td>
-                  <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                  <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{estCompletion(order)}</td>
-                  <td className="table-cell font-semibold">ETB {Number(order.totalAmount).toLocaleString()}</td>
-                  <td className="table-cell text-sm text-gray-600 capitalize">{order.payments?.length ? (order.payments[order.payments.length - 1].method === 'mobile' ? 'wallet' : order.payments[order.payments.length - 1].method) : '—'}</td>
-                  <td className="table-cell" onClick={(e) => e.stopPropagation()}>
+                  <td className="table-cell !px-2.5 !py-2 text-gray-500 text-xs truncate max-w-[90px]">{order.chef?.name || '—'}</td>
+                  <td className="table-cell !px-2.5 !py-2 text-gray-500 text-xs whitespace-nowrap">{order.items?.length || 0}</td>
+                  <td className="table-cell !px-2.5 !py-2 text-xs whitespace-nowrap">
+                    <p className="text-gray-700">{new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-[10px] text-gray-400">Est: {estCompletion(order)}</p>
+                  </td>
+                  <td className="table-cell !px-2.5 !py-2 text-xs whitespace-nowrap">
+                    <p className="font-semibold">ETB {Number(order.totalAmount).toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-400 capitalize">{order.payments?.length ? (order.payments[order.payments.length - 1].method === 'mobile' ? 'wallet' : order.payments[order.payments.length - 1].method) : '—'}</p>
+                  </td>
+                  <td className="table-cell !px-2.5 !py-2" onClick={(e) => e.stopPropagation()}>
                     {order.status === 'ready' ? (
                       <button onClick={() => handleStatusChange(order.id, 'served')}
                         title="Click to mark as served"
@@ -345,8 +345,8 @@ export default function OrdersPage() {
                       <span className={`status-badge ${STATUS_COLORS[order.status]}`}>{order.status}</span>
                     )}
                   </td>
-                  <td className="table-cell" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-1">
+                  <td className="table-cell !px-2.5 !py-2" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex gap-1 flex-wrap">
                       {isWaiter && !['paid', 'cancelled'].includes(order.status) && (
                         <button onClick={() => { resetPOS(); setAppendOrder(order); setShowPOS(true); }}
                           className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded hover:bg-brand-200 whitespace-nowrap">+ Add Items</button>
