@@ -37,16 +37,16 @@ export default function Sidebar() {
   const visible = navItems.filter((item) => user?.role && item.roles.includes(user.role));
 
   return (
-    <aside className="w-64 bg-earth-900 text-white flex flex-col h-screen sticky top-0" style={{ background: '#28180E' }}>
+    <aside className="w-64 bg-gray-100 text-gray-800 border-r border-gray-200 flex flex-col h-screen sticky top-0">
       {/* Logo */}
-      <div className="p-5 border-b border-white/10">
+      <div className="p-5 border-b border-gray-200">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-brand-500 rounded-xl flex items-center justify-center flex-shrink-0">
             <Coffee size={18} className="text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-sm leading-tight">Jima Aba Jifar</h1>
-            <p className="text-xs text-white/50">Restaurant System</p>
+            <h1 className="font-bold text-sm leading-tight text-gray-900">Jima Aba Jifar</h1>
+            <p className="text-xs text-gray-500">Restaurant System</p>
           </div>
         </div>
       </div>
@@ -61,7 +61,7 @@ export default function Sidebar() {
               href={item.href}
               className={clsx(
                 'sidebar-link',
-                isActive ? 'bg-brand-500 text-white' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                isActive ? 'bg-brand-500 text-white' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
               )}
             >
               <item.icon size={18} />
@@ -72,14 +72,14 @@ export default function Sidebar() {
       </nav>
 
       {/* User */}
-      <div className="p-3 border-t border-white/10">
-        <div className="bg-white/5 rounded-lg p-3 mb-2">
-          <p className="font-medium text-sm truncate">{user?.name}</p>
-          <p className="text-xs text-white/50 mt-0.5">{user?.role ? ROLE_LABELS[user.role] : ''}</p>
+      <div className="p-3 border-t border-gray-200">
+        <div className="bg-white border border-gray-200 rounded-lg p-3 mb-2">
+          <p className="font-medium text-sm truncate text-gray-900">{user?.name}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{user?.role ? ROLE_LABELS[user.role] : ''}</p>
         </div>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-colors text-sm"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors text-sm"
         >
           <LogOut size={16} />
           Sign Out
