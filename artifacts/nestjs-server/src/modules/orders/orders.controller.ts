@@ -63,7 +63,7 @@ export class OrdersController {
 
   @Patch(':id/items/remove')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.CASHIER, Role.WAITER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.CASHIER, Role.WAITER, Role.COORDINATOR)
   removeItems(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body('orderItemIds') orderItemIds: number[]) {
     return this.service.removeItems(id, orderItemIds, req.user);
   }

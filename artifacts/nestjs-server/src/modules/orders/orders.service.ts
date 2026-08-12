@@ -156,8 +156,8 @@ export class OrdersService {
     if (order.status === OrderStatus.PAID || order.status === OrderStatus.CANCELLED) {
       throw new BadRequestException('Cannot modify a paid or cancelled order');
     }
-    // Waiters may remove items while the order is pending, confirmed, or preparing
-    if (user?.role === 'waiter' && ![OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PREPARING].includes(order.status)) {
+    // Waiters and coordinators may remove items while the order is pending, confirmed, or preparing
+    if (user && ['waiter', 'coordinator'].includes(user.role) && ![OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PREPARING].includes(order.status)) {
       throw new ForbiddenException('Items can no longer be removed once the order is ready');
     }
     const toRemove = order.items.filter(i => orderItemIds.includes(i.id));
@@ -206,9 +206,9 @@ export class OrdersService {
       if (status === OrderStatus.PAID && !['cashier', 'admin', 'owner'].includes(user.role)) {
         throw new ForbiddenException('Only the cashier can confirm payment');
       }
-      // Waiters may cancel while the order is pending, confirmed, or preparing
+      // Waiters and coordinators may cancel while the order is pending, confirmed, or preparing
       if (
-        user.role === 'waiter' &&
+        ['waiter', 'coordinator'].includes(user.role) &&
         status === OrderStatus.CANCELLED &&
         ![OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PREPARING].includes(existing.status)
       ) {

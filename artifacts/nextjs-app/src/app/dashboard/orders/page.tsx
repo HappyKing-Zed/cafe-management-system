@@ -26,6 +26,8 @@ export default function OrdersPage() {
   const canAssignWaiter = !!user && CAN_ASSIGN_WAITER.includes(user.role);
   const canPay = !!user && CAN_PAY.includes(user.role);
   const isWaiter = user?.role === 'waiter';
+  const isCoordinator = user?.role === 'coordinator';
+  const canCreateOrder = !!user && !['coordinator', 'manager', 'owner'].includes(user.role);
 
   // Estimated completion: order time + longest preparation time among its items (default 20 min)
   const estCompletion = (order: Order) => {
@@ -200,9 +202,11 @@ export default function OrdersPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Orders & POS</h1>
         </div>
-        <button onClick={() => { resetPOS(); setShowPOS(true); }} className="btn-primary flex items-center gap-2">
-          <Plus size={18} /> New Order
-        </button>
+        {canCreateOrder && (
+          <button onClick={() => { resetPOS(); setShowPOS(true); }} className="btn-primary flex items-center gap-2">
+            <Plus size={18} /> New Order
+          </button>
+        )}
       </div>
 
       {/* Filter tabs */}
@@ -258,35 +262,23 @@ export default function OrdersPage() {
         <div className="card p-0 overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
-              {isWaiter ? (
-                <tr>
-                  <th className="table-header">Order #</th>
-                  <th className="table-header">Table</th>
-                  <th className="table-header">Item</th>
-                  <th className="table-header">Order Date</th>
-                  <th className="table-header">Order Time</th>
-                  <th className="table-header">Est. Completion</th>
-                  <th className="table-header">Total</th>
-                  <th className="table-header">Payment Method</th>
-                  <th className="table-header">Status</th>
-                  <th className="table-header">Actions</th>
-                </tr>
-              ) : (
               <tr>
                 <th className="table-header">Order #</th>
-                <th className="table-header">Table / Customer</th>
-                <th className="table-header">Items</th>
+                <th className="table-header">Table</th>
+                <th className="table-header">Item</th>
+                <th className="table-header">Order Date</th>
+                <th className="table-header">Order Time</th>
+                <th className="table-header">Est. Completion</th>
                 <th className="table-header">Total</th>
+                <th className="table-header">Payment Method</th>
                 <th className="table-header">Status</th>
-                <th className="table-header">Time</th>
                 <th className="table-header">Actions</th>
               </tr>
-              )}
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredOrders.length === 0 ? (
-                <tr><td colSpan={isWaiter ? 10 : 7} className="text-center py-12 text-gray-400">No orders found</td></tr>
-              ) : isWaiter ? filteredOrders.map((order) => (
+                <tr><td colSpan={10} className="text-center py-12 text-gray-400">No orders found</td></tr>
+              ) : filteredOrders.map((order) => (
                 <tr
                   key={order.id}
                   className="hover:bg-gray-50 transition-colors cursor-pointer"
@@ -301,7 +293,8 @@ export default function OrdersPage() {
                 >
                   <td className="table-cell font-semibold text-brand-600">#{order.id}</td>
                   <td className="table-cell">
-                    {order.table?.number ? <span className="font-medium">Table {order.table.number}</span> : <span className="text-gray-500">Walk-in</span>}
+                    {order.table?.number ? <span className="font-medium">{order.table.number}</span> : <span className="text-gray-500">Take Away</span>}
+                    {!isWaiter && order.waiter?.name && <p className="text-xs text-gray-400">Waiter: {order.waiter.name}</p>}
                   </td>
                   <td className="table-cell text-gray-500">{order.items?.length || 0} items</td>
                   <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{new Date(order.createdAt).toLocaleDateString()}</td>
@@ -322,65 +315,33 @@ export default function OrdersPage() {
                   </td>
                   <td className="table-cell" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1">
-                      {!['paid', 'cancelled'].includes(order.status) && (
+                      {isWaiter && !['paid', 'cancelled'].includes(order.status) && (
                         <button onClick={() => { resetPOS(); setAppendOrder(order); setShowPOS(true); }}
                           className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded hover:bg-brand-200 whitespace-nowrap">+ Add Items</button>
                       )}
-                      {['pending', 'confirmed', 'preparing'].includes(order.status) && (
-                        <button onClick={async () => {
-                          setCancelSel([]);
-                          try { const res = await getOrder(order.id); setCancelOrder(res.data); } catch { setCancelOrder(order); }
-                        }} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 whitespace-nowrap">Cancel</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )) : filteredOrders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="hover:bg-gray-50 transition-colors cursor-pointer"
-                  onClick={async () => {
-                    try {
-                      const res = await getOrder(order.id);
-                      setDetailOrder(res.data);
-                    } catch {
-                      setDetailOrder(order);
-                    }
-                  }}
-                >
-                  <td className="table-cell font-semibold text-brand-600">#{order.id}</td>
-                  <td className="table-cell">
-                    {order.table?.number ? <span className="font-medium">Table {order.table.number}</span> : <span className="text-gray-500">{order.customerName || 'Walk-in'}</span>}
-                    {order.waiter?.name && <p className="text-xs text-gray-400">Waiter: {order.waiter.name}</p>}
-                  </td>
-                  <td className="table-cell text-gray-500">{order.items?.length || 0} items</td>
-                  <td className="table-cell font-semibold">ETB {Number(order.totalAmount).toLocaleString()}</td>
-                  <td className="table-cell">
-                    <span className={`status-badge ${STATUS_COLORS[order.status]}`}>{order.status}</span>
-                  </td>
-                  <td className="table-cell text-gray-400 text-xs">{new Date(order.createdAt).toLocaleTimeString()}</td>
-                  <td className="table-cell" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex gap-1">
-                      {order.status === 'pending' && (
+                      {!isWaiter && !isCoordinator && order.status === 'pending' && (
                         <button onClick={() => handleStatusChange(order.id, 'confirmed')} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Confirm</button>
                       )}
-                      {order.status === 'ready' && (
+                      {!isWaiter && !isCoordinator && order.status === 'ready' && (
                         <button onClick={() => handleStatusChange(order.id, 'served')} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">Served</button>
                       )}
-                      {order.status === 'served' && (canPay ? (
+                      {!isWaiter && !isCoordinator && order.status === 'served' && (canPay ? (
                         <button onClick={() => { setPayingOrder(order); setPayAmount(String(order.totalAmount)); }} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 flex items-center gap-1">
                           <CreditCard size={12} /> Pay
                         </button>
                       ) : (
                         <span className="text-xs px-2 py-1 bg-gray-100 text-gray-500 rounded">Awaiting cashier</span>
                       ))}
-                      {order.status === 'paid' && (
+                      {!isWaiter && order.status === 'paid' && (
                         <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded font-semibold flex items-center gap-1">
                           <CheckCircle size={12} /> Completed
                         </span>
                       )}
-                      {['pending', 'confirmed'].includes(order.status) && (
-                        <button onClick={() => handleStatusChange(order.id, 'cancelled')} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">Cancel</button>
+                      {['pending', 'confirmed', 'preparing'].includes(order.status) && (
+                        <button onClick={async () => {
+                          setCancelSel([]);
+                          try { const res = await getOrder(order.id); setCancelOrder(res.data); } catch { setCancelOrder(order); }
+                        }} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 whitespace-nowrap">Cancel</button>
                       )}
                     </div>
                   </td>
