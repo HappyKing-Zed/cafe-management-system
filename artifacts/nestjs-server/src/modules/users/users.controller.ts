@@ -29,7 +29,7 @@ export class UsersController {
   }
 
   @Get('waiters')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.CASHIER)
   findWaiters(@Req() req: any) {
     return this.service.findWaiters(branchScope(req.user));
   }

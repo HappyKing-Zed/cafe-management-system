@@ -73,11 +73,11 @@ export default function OrdersPage() {
   useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
-    if (!canAssignWaiter) return;
+    if (isWaiter) return;
     getWaiters()
       .then(res => setWaiters(res.data || []))
       .catch(() => setWaiters([]));
-  }, [canAssignWaiter]);
+  }, [isWaiter]);
 
   const addToCart = (item: MenuItem) => {
     setCart(prev => {
@@ -111,6 +111,7 @@ export default function OrdersPage() {
   const [fDate, setFDate] = useState('');
   const [fTime, setFTime] = useState('');
   const [fPay, setFPay] = useState('');
+  const [fWaiter, setFWaiter] = useState('');
 
   // Cancel dialog: whole order or selected items
   const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
@@ -177,7 +178,8 @@ export default function OrdersPage() {
   };
 
   const statusFiltered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
-  const filteredOrders = !isWaiter ? statusFiltered : statusFiltered.filter((o) => {
+  const filteredOrders = statusFiltered.filter((o) => {
+    if (!isWaiter && fWaiter && String(o.waiterId || o.waiter?.id || '') !== fWaiter) return false;
     if (fTable) {
       if (fTable === 'takeaway') { if (o.table?.number) return false; }
       else if (String(o.table?.number || '') !== fTable) return false;
@@ -222,9 +224,16 @@ export default function OrdersPage() {
         ))}
       </div>
 
-      {/* Waiter filters — single compact row */}
-      {isWaiter && (
+      {/* Filters — single compact row */}
+      {(
         <div className="flex flex-wrap items-center gap-1.5 mb-4">
+          {!isWaiter && (
+            <select value={fWaiter} onChange={e => setFWaiter(e.target.value)} title="Waiter"
+              className={clsx('text-xs py-1.5 px-2 rounded-lg border bg-white w-32', fWaiter ? 'border-brand-400 text-brand-700' : 'border-gray-200 text-gray-500')}>
+              <option value="">Waiter: All</option>
+              {waiters.map(w => <option key={w.id} value={String(w.id)}>{w.name}</option>)}
+            </select>
+          )}
           <select value={fTable} onChange={e => setFTable(e.target.value)} title="Table"
             className={clsx('text-xs py-1.5 px-2 rounded-lg border bg-white w-28', fTable ? 'border-brand-400 text-brand-700' : 'border-gray-200 text-gray-500')}>
             <option value="">Table: All</option>
@@ -248,8 +257,8 @@ export default function OrdersPage() {
             <option value="mobile">Wallet</option>
             <option value="unpaid">Not paid yet</option>
           </select>
-          {(fTable || fItem || fDate || fTime || fPay) && (
-            <button onClick={() => { setFTable(''); setFItem(''); setFDate(''); setFTime(''); setFPay(''); }}
+          {(fTable || fItem || fDate || fTime || fPay || fWaiter) && (
+            <button onClick={() => { setFTable(''); setFItem(''); setFDate(''); setFTime(''); setFPay(''); setFWaiter(''); }}
               className="text-xs px-2 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200" title="Clear all filters">✕ Clear</button>
           )}
         </div>
