@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SRS — Jima Aba Jifar Restaurant Management System</title>
+<style>
+  body{font-family:Georgia,'Times New Roman',serif;color:#1f2937;max-width:900px;margin:0 auto;padding:48px 32px;line-height:1.6}
+  h1{font-size:28px;border-bottom:3px solid #E8832A;padding-bottom:10px}
+  h2{font-size:20px;color:#C2611A;margin-top:36px;border-bottom:1px solid #eee;padding-bottom:6px}
+  h3{font-size:16px;margin-top:24px}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:12px 0}
+  th{background:#FDF3E7;text-align:left;padding:8px 10px;border:1px solid #e5e7eb}
+  td{padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top}
+  .meta{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 18px;font-size:14px}
+  code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:13px}
+  .req{font-weight:bold;white-space:nowrap}
+</style>
+</head>
+<body>
+<h1>Software Requirements Specification (SRS)</h1>
+<div class="meta">
+<b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
+<b>Document:</b> SRS v1.0 &nbsp;·&nbsp; <b>Date:</b> August 12, 2026<br>
+<b>Standard:</b> Structured after IEEE 830
+</div>
+
+<h2>1. Introduction</h2>
+<h3>1.1 Purpose</h3>
+<p>This SRS specifies the complete requirements — functional and non-functional — for the Jima Aba Jifar Restaurant Management System. It is intended for developers, testers, and stakeholders taking over or extending the system.</p>
+<h3>1.2 Scope</h3>
+<p>The system digitizes end-to-end restaurant operations: table-side ordering (POS), kitchen workflow, cashiering, inventory and procurement, staff and branch administration, and management analytics. It is a web application accessed from browsers on desktops and tablets.</p>
+<h3>1.3 Definitions</h3>
+<table>
+<tr><th>Term</th><th>Meaning</th></tr>
+<tr><td>POS</td><td>Point of Sale — the screen waiters use to compose orders.</td></tr>
+<tr><td>Order Board</td><td>Live kanban-style view of order progress.</td></tr>
+<tr><td>JWT</td><td>JSON Web Token used for stateless authentication.</td></tr>
+<tr><td>Item Request</td><td>An internal request for stock items from the store.</td></tr>
+</table>
+
+<h2>2. Overall Description</h2>
+<h3>2.1 Product Perspective</h3>
+<p>Three-tier architecture: a <b>Next.js 14 (React) frontend</b>, a <b>NestJS REST API backend</b>, and a <b>PostgreSQL database</b> accessed through TypeORM. The frontend calls the backend through a same-origin proxy path (<code>/backend/api/*</code>), so the browser never needs a separate API domain.</p>
+<h3>2.2 User Classes</h3>
+<p>Eight roles: admin, owner, manager, coordinator, waiter, chef, cashier, storekeeper (see FRS §2). Users are non-technical restaurant staff; the UI must remain simple, large-touch-friendly, and in plain language.</p>
+<h3>2.3 Operating Environment</h3>
+<table>
+<tr><th>Layer</th><th>Technology</th></tr>
+<tr><td>Frontend</td><td>Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Zustand (auth store), Recharts, Axios</td></tr>
+<tr><td>Backend</td><td>NestJS 10, TypeScript, Passport-JWT, bcrypt, TypeORM</td></tr>
+<tr><td>Database</td><td>PostgreSQL 14+ (TypeORM <code>synchronize: true</code> in development)</td></tr>
+<tr><td>Runtime</td><td>Node.js 18+, pnpm monorepo workspaces</td></tr>
+</table>
+<h3>2.4 Constraints</h3>
+<ul>
+<li>All API access requires JWT except login, health, and seeding.</li>
+<li>Schema is auto-synchronized from entities in development; production should switch to migrations.</li>
+<li>Realtime behavior is implemented by 10-second polling, not WebSockets.</li>
+<li>Currency is Ethiopian Birr (ETB); demo data uses Ethiopian dishes and names.</li>
+</ul>
+
+<h2>3. Functional Requirements</h2>
+<p>The complete functional catalogue is maintained in the FRS (document 01). Summary of subsystems:</p>
+<table>
+<tr><th>Subsystem</th><th>Capabilities</th></tr>
+<tr><td>Auth</td><td>Login, JWT issuance, role-based menus and guards</td></tr>
+<tr><td>Orders / POS</td><td>Create, append items, confirm + assign chef, status lifecycle, filters, auto-refresh</td></tr>
+<tr><td>Kitchen</td><td>Chef queues, accept/preparing/ready, live progress board with delay flags</td></tr>
+<tr><td>Payments</td><td>Cash/card/wallet payment capture, change, daily report, shifts</td></tr>
+<tr><td>Menu</td><td>Categories and items with availability</td></tr>
+<tr><td>Inventory</td><td>Stock, low-stock alerts, suppliers, purchase orders, adjustments, item requests</td></tr>
+<tr><td>Admin</td><td>Staff, restaurants, branches, tables</td></tr>
+<tr><td>Analytics</td><td>Manager/owner one-page dashboard, exportable reports (Excel/PDF), cashier-scoped reports</td></tr>
+<tr><td>Notifications</td><td>Role/user-targeted messages with read tracking</td></tr>
+</table>
+
+<h2>4. Non-Functional Requirements</h2>
+<table>
+<tr><th>ID</th><th>Category</th><th>Requirement</th></tr>
+<tr><td class="req">NFR-01</td><td>Performance</td><td>Standard pages should render within 2 s on a typical broadband connection; list endpoints return within 500 ms for up to 10,000 orders.</td></tr>
+<tr><td class="req">NFR-02</td><td>Freshness</td><td>Operational views (orders, kitchen, boards, dashboards) auto-refresh every 10 seconds without flicker.</td></tr>
+<tr><td class="req">NFR-03</td><td>Security</td><td>JWT-based auth; bcrypt password hashing; role guards on every protected endpoint; secrets provided via environment variables, never committed.</td></tr>
+<tr><td class="req">NFR-04</td><td>Usability</td><td>Plain-language UI, color-coded statuses, single-screen layouts that minimize scrolling; usable on tablets (≥ 768 px).</td></tr>
+<tr><td class="req">NFR-05</td><td>Reliability</td><td>Backend failures surface explicit errors; the frontend degrades gracefully (empty states, retry on next poll).</td></tr>
+<tr><td class="req">NFR-06</td><td>Maintainability</td><td>TypeScript end-to-end; modular NestJS feature modules; monorepo with shared conventions; <code>tsc --noEmit</code> must pass.</td></tr>
+<tr><td class="req">NFR-07</td><td>Portability</td><td>Runs anywhere Node 18+ and PostgreSQL are available; deployable to Replit, Vercel (frontend) + managed Node host (backend), or a single VM.</td></tr>
+<tr><td class="req">NFR-08</td><td>Auditability</td><td>Stock adjustments and item requests record acting users and timestamps.</td></tr>
+</table>
+
+<h2>5. External Interface Requirements</h2>
+<h3>5.1 User Interface</h3>
+<p>Single-page-app feel with a persistent left sidebar (role-filtered), light gray theme with brand-orange accents (#E8832A), and modal dialogs for POS, payment, order detail, and confirmations.</p>
+<h3>5.2 API Interface</h3>
+<p>REST over HTTPS, JSON bodies, prefix <code>/api</code>. Interactive documentation is exposed by the backend via Swagger at <code>/api/docs</code>. Main resource groups: <code>/auth, /users, /restaurants, /branches, /menus, /tables, /orders, /kitchen, /payments, /inventory, /notifications, /seed</code>.</p>
+<h3>5.3 Database Interface</h3>
+<p>PostgreSQL via TypeORM repositories; connection string in <code>DATABASE_URL</code>; SSL honored when <code>sslmode=require</code> is present.</p>
+
+<h2>6. Assumptions &amp; Dependencies</h2>
+<ul>
+<li>A single restaurant company operates the system; multiple branches are supported.</li>
+<li>Kitchen staff record stock deductions/waste for profitability estimates to be accurate.</li>
+<li>Exports (Excel/PDF) are generated client-side (xlsx, jsPDF) and require a modern browser.</li>
+</ul>
+</body>
+</html>

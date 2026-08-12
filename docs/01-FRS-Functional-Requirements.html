@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FRS — Jima Aba Jifar Restaurant Management System</title>
+<style>
+  body{font-family:Georgia,'Times New Roman',serif;color:#1f2937;max-width:900px;margin:0 auto;padding:48px 32px;line-height:1.6}
+  h1{font-size:28px;border-bottom:3px solid #E8832A;padding-bottom:10px}
+  h2{font-size:20px;color:#C2611A;margin-top:36px;border-bottom:1px solid #eee;padding-bottom:6px}
+  h3{font-size:16px;margin-top:24px}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:12px 0}
+  th{background:#FDF3E7;text-align:left;padding:8px 10px;border:1px solid #e5e7eb}
+  td{padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top}
+  .meta{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 18px;font-size:14px}
+  code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:13px}
+  .req{font-weight:bold;color:#374151;white-space:nowrap}
+</style>
+</head>
+<body>
+<h1>Functional Requirements Specification (FRS)</h1>
+<div class="meta">
+<b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
+<b>Document:</b> FRS v1.0 &nbsp;·&nbsp; <b>Date:</b> August 12, 2026<br>
+<b>Related documents:</b> SRS (02), SDD (03), User Manual (04), Handoff &amp; Deployment (05), Vercel Guide (06)
+</div>
+
+<h2>1. Purpose</h2>
+<p>This document defines the functional requirements of the Jima Aba Jifar Restaurant Management System — a full-stack web application that manages the daily operations of a cafe &amp; restaurant: ordering, kitchen workflow, payments, inventory, staff, branches, and reporting.</p>
+
+<h2>2. User Roles</h2>
+<table>
+<tr><th>Role</th><th>Description</th></tr>
+<tr><td>Admin</td><td>Full system access; manages all data, users, and configuration.</td></tr>
+<tr><td>Owner</td><td>Business owner; same operational visibility as manager, including analytics dashboard.</td></tr>
+<tr><td>Manager</td><td>Runs daily operations; manages menu, staff, tables, branches, inventory, and reports.</td></tr>
+<tr><td>Coordinator</td><td>Confirms incoming orders and assigns them to chefs; can cancel orders.</td></tr>
+<tr><td>Waiter</td><td>Takes orders at tables (POS), adds items to open orders, tracks order progress.</td></tr>
+<tr><td>Chef</td><td>Works the kitchen board: accepts, prepares, and marks orders ready.</td></tr>
+<tr><td>Cashier</td><td>Collects payments, closes orders, views sales and items-purchased reports.</td></tr>
+<tr><td>Storekeeper</td><td>Manages stock levels, receives goods, handles item requests and adjustments.</td></tr>
+</table>
+
+<h2>3. Functional Requirements</h2>
+
+<h3>3.1 Authentication &amp; Authorization</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td class="req">FR-A01</td><td>Users log in with e-mail and password; the system returns a JWT access token.</td></tr>
+<tr><td class="req">FR-A02</td><td>Every protected API call requires a valid <code>Authorization: Bearer</code> token.</td></tr>
+<tr><td class="req">FR-A03</td><td>Menu entries and pages are restricted per role (role-based access control).</td></tr>
+<tr><td class="req">FR-A04</td><td>Passwords are stored hashed (bcrypt), never in plain text.</td></tr>
+</table>
+
+<h3>3.2 Orders &amp; POS</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td class="req">FR-O01</td><td>Waiters create orders through a POS screen: pick a table (or take-away), select menu items by category, set quantities and notes.</td></tr>
+<tr><td class="req">FR-O02</td><td>Orders follow the lifecycle: <code>pending → confirmed → preparing → ready → served → paid</code>, with <code>cancelled</code> possible before "ready".</td></tr>
+<tr><td class="req">FR-O03</td><td>The coordinator confirms a pending order and assigns a chef to it.</td></tr>
+<tr><td class="req">FR-O04</td><td>Waiters may append items to any order that is not yet paid or cancelled.</td></tr>
+<tr><td class="req">FR-O05</td><td>The orders list shows table, chef, item count, time, total, payment method, and status; rows open a detail view.</td></tr>
+<tr><td class="req">FR-O06</td><td>Orders can be filtered by status, waiter, table, item, date, time, and payment method.</td></tr>
+<tr><td class="req">FR-O07</td><td>The list and open detail view refresh automatically every 10 seconds.</td></tr>
+</table>
+
+<h3>3.3 Kitchen</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td class="req">FR-K01</td><td>The kitchen board shows confirmed orders queued per chef, with tabs per chef.</td></tr>
+<tr><td class="req">FR-K02</td><td>Chefs move orders through accept → preparing → ready.</td></tr>
+<tr><td class="req">FR-K03</td><td>The Order Progress Board displays four live columns: Requested, Received &amp; Confirmed, In Progress, Completed (ready only).</td></tr>
+<tr><td class="req">FR-K04</td><td>Orders waiting more than 20 minutes are visually flagged.</td></tr>
+</table>
+
+<h3>3.4 Payments</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td class="req">FR-P01</td><td>Cashiers record payments against served orders with method cash, card, or wallet, including change given.</td></tr>
+<tr><td class="req">FR-P02</td><td>Paying an order marks it <code>paid</code> and frees its table.</td></tr>
+<tr><td class="req">FR-P03</td><td>Daily reports summarize revenue, transaction counts, and per-method breakdowns.</td></tr>
+</table>
+
+<h3>3.5 Menu Management</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td class="req">FR-M01</td><td>Managers maintain menu categories and items (name, price, description, availability, preparation time).</td></tr>
+<tr><td class="req">FR-M02</td><td>Unavailable items are hidden from the POS.</td></tr>
+</table>
+
+<h3>3.6 Inventory &amp; Store</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td class="req">FR-I01</td><td>Inventory items track unit, current stock, minimum stock, reorder point, unit cost, category, and expiry date.</td></tr>
+<tr><td class="req">FR-I02</td><td>Low-stock alerts flag items below minimum (critical when at or below half the minimum, or zero).</td></tr>
+<tr><td class="req">FR-I03</td><td>Suppliers and purchase orders are managed with status tracking.</td></tr>
+<tr><td class="req">FR-I04</td><td>Stock adjustments record additions, deductions, and waste with reasons and the acting user.</td></tr>
+<tr><td class="req">FR-I05</td><td>Staff submit item requests; managers/storekeepers approve, issue, and track them, with low-stock / expiry badges shown on request rows.</td></tr>
+</table>
+
+<h3>3.7 Staff, Branches &amp; Tables</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td class="req">FR-S01</td><td>Managers create and manage staff accounts with roles and branch assignment.</td></tr>
+<tr><td class="req">FR-S02</td><td>Restaurants and branches are managed hierarchically (restaurant → branches).</td></tr>
+<tr><td class="req">FR-S03</td><td>Tables have number, capacity, section, and live status (available / occupied).</td></tr>
+</table>
+
+<h3>3.8 Dashboards &amp; Reports</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td class="req">FR-D01</td><td>Admin/Owner/Manager see a combined dashboard: today's KPIs (sales, orders, average order value, in-progress, low stock, stock value), sales trend, top sellers, profitability, and kitchen performance — on a single page. KPI cards open detail popups.</td></tr>
+<tr><td class="req">FR-D02</td><td>Reports offer per-area export tabs (Order Board, Menu, Inventory, Item Requested, Staff, Branches) with filters and Excel / PDF export.</td></tr>
+<tr><td class="req">FR-D03</td><td>Cashiers see a reduced report view: Sales and Items Purchased only, filterable by type and date, exportable to Excel / PDF.</td></tr>
+<tr><td class="req">FR-D04</td><td>Role-specific landing: waiters, coordinators, and cashiers land on Orders/POS instead of the dashboard.</td></tr>
+</table>
+
+<h3>3.9 Notifications</h3>
+<table>
+<tr><th>ID</th><th>Requirement</th></tr>
+<tr><td class="req">FR-N01</td><td>The system generates notifications targeted at roles or specific users (e.g. new order, order ready) with read tracking.</td></tr>
+</table>
+
+<h2>4. Business Rules</h2>
+<ul>
+<li>An order's total is the sum of its items (quantity × unit price) plus any service charge percentage.</li>
+<li>Only pending orders can be confirmed; only served orders can be paid.</li>
+<li>Cancelling is allowed only while an order is pending, confirmed, or preparing.</li>
+<li>Data is scoped by branch where applicable (orders, tables, staff, stock).</li>
+</ul>
+</body>
+</html>

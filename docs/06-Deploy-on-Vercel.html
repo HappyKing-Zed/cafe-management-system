@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Deploying on Vercel — Jima Aba Jifar</title>
+<style>
+  body{font-family:Georgia,'Times New Roman',serif;color:#1f2937;max-width:900px;margin:0 auto;padding:48px 32px;line-height:1.6}
+  h1{font-size:28px;border-bottom:3px solid #E8832A;padding-bottom:10px}
+  h2{font-size:20px;color:#C2611A;margin-top:36px;border-bottom:1px solid #eee;padding-bottom:6px}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:12px 0}
+  th{background:#FDF3E7;text-align:left;padding:8px 10px;border:1px solid #e5e7eb}
+  td{padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top}
+  .meta{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 18px;font-size:14px}
+  code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:13px}
+  pre{background:#111827;color:#e5e7eb;padding:14px 16px;border-radius:8px;font-size:13px;overflow-x:auto}
+  .warn{background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px 16px;font-size:14px}
+</style>
+</head>
+<body>
+<h1>Deploying on Vercel</h1>
+<div class="meta">
+<b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
+<b>Document:</b> Vercel Deployment Guide v1.0 &nbsp;·&nbsp; <b>Date:</b> August 12, 2026
+</div>
+
+<h2>1. What goes where</h2>
+<p>Vercel is built for frontend frameworks. This system has <b>two services</b>, so the recommended split is:</p>
+<table>
+<tr><th>Piece</th><th>Where it runs</th></tr>
+<tr><td>Next.js frontend (<code>artifacts/nextjs-app</code>)</td><td><b>Vercel</b> — first-class Next.js support.</td></tr>
+<tr><td>NestJS backend (<code>artifacts/nestjs-server</code>)</td><td>A long-running Node host: <b>Railway, Render, Fly.io</b>, or a small VM. (Vercel serverless functions are not a good fit for a full NestJS app with TypeORM connections.)</td></tr>
+<tr><td>PostgreSQL</td><td>Managed database: <b>Neon</b>, Supabase, Railway Postgres, or RDS.</td></tr>
+</table>
+
+<h2>2. Step 1 — Database</h2>
+<ol>
+<li>Create a PostgreSQL database (e.g. Neon free tier).</li>
+<li>Copy the connection string, e.g.<br><code>postgres://user:pass@host/db?sslmode=require</code> — keep <code>sslmode=require</code>; the backend enables SSL automatically when it sees it.</li>
+</ol>
+
+<h2>3. Step 2 — Backend (Railway example)</h2>
+<ol>
+<li>Push the repository to GitHub.</li>
+<li>In Railway: <b>New Project → Deploy from GitHub</b>, root directory <code>artifacts/nestjs-server</code>.</li>
+<li>Build &amp; start commands:
+<pre>Build:  pnpm install && pnpm run build
+Start:  node dist/main.js</pre></li>
+<li>Environment variables:
+<pre>DATABASE_URL = postgres://...?sslmode=require
+JWT_SECRET   = &lt;long random string&gt;
+PORT         = 3001   (or leave to platform default)</pre></li>
+<li>Deploy, then note the public URL, e.g. <code>https://habesha-api.up.railway.app</code>. Verify <code>GET /api/docs</code> loads.</li>
+<li>Seed once (then lock it down): <code>curl -X POST https://habesha-api.up.railway.app/api/seed</code></li>
+</ol>
+
+<h2>4. Step 3 — Frontend on Vercel</h2>
+<ol>
+<li>In Vercel: <b>Add New → Project</b>, import the GitHub repository.</li>
+<li><b>Root Directory:</b> set to <code>artifacts/nextjs-app</code> (Vercel detects Next.js automatically).</li>
+<li><b>Install command:</b> <code>pnpm install</code> (Vercel supports pnpm monorepos; enable "Include files outside root directory" if prompted).</li>
+<li><b>Environment variables:</b>
+<pre>BACKEND_URL = https://habesha-api.up.railway.app</pre>
+The frontend's <code>next.config.js</code> rewrite forwards <code>/backend/api/*</code> to this URL — the browser stays on the Vercel domain, so no CORS setup is needed.</li>
+<li>Click <b>Deploy</b>. Your app is live at <code>https://&lt;project&gt;.vercel.app</code>.</li>
+</ol>
+
+<h2>5. Step 4 — Verify</h2>
+<table>
+<tr><th>Check</th><th>Expected</th></tr>
+<tr><td>Open the Vercel URL</td><td>Login page with photo background loads.</td></tr>
+<tr><td>Log in as admin</td><td>Dashboard renders with data (KPI cards populated).</td></tr>
+<tr><td>Browser dev tools → Network</td><td>API calls go to <code>/backend/api/...</code> on the same domain and return 200.</td></tr>
+<tr><td>Create a test order</td><td>Appears on the Order Progress Board within 10 s.</td></tr>
+</table>
+
+<h2>6. Custom domain (optional)</h2>
+<ol>
+<li>Vercel → Project → Settings → Domains → add <code>app.yourdomain.com</code> and follow the DNS instructions.</li>
+<li>HTTPS certificates are automatic.</li>
+</ol>
+
+<h2>7. Updates</h2>
+<p>Every push to the connected GitHub branch redeploys the frontend automatically on Vercel (and the backend on Railway). Preview deployments are created for pull requests.</p>
+
+<div class="warn"><b>Before going live:</b> complete the production checklist in the Handoff document — strong <code>JWT_SECRET</code>, disable TypeORM synchronize in favor of migrations, remove/guard the seed endpoint, and change the demo admin password.</div>
+
+<h2>8. Troubleshooting</h2>
+<table>
+<tr><th>Symptom</th><th>Likely cause / fix</th></tr>
+<tr><td>Login fails with network error</td><td><code>BACKEND_URL</code> missing or wrong on Vercel; redeploy after fixing (rewrites are baked at build time).</td></tr>
+<tr><td>500s from API</td><td>Backend can't reach the database — check <code>DATABASE_URL</code> and that <code>sslmode=require</code> is present for managed Postgres.</td></tr>
+<tr><td>Build fails on Vercel</td><td>Ensure Root Directory is <code>artifacts/nextjs-app</code> and pnpm is selected; clear build cache and retry.</td></tr>
+<tr><td>Works locally, 404 on API in production</td><td>Calls must go through <code>/backend/api/*</code>; hardcoded <code>localhost:3001</code> URLs won't work in production.</td></tr>
+</table>
+</body>
+</html>

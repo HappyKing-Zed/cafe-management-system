@@ -1,0 +1,44 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "EgXwl2DsMgvqQeMSxasuR"
+uri = "file://docs/01-FRS-Functional-Requirements.html"
+type = "text"
+title = "FRS — Functional Requirements"
+description = "What the system does: all features per role and subsystem, with business rules."
+
+[[outputs]]
+id = "Y9XXYw2izeQ2qCx8OUdyp"
+uri = "file://docs/02-SRS-Software-Requirements.html"
+type = "text"
+title = "SRS — Software Requirements"
+description = "Complete requirements spec (IEEE 830 style): scope, environment, functional and non-functional requirements."
+
+[[outputs]]
+id = "LfKJYej4g5KTWjxgX5oak"
+uri = "file://docs/03-SDD-Software-Design.html"
+type = "text"
+title = "SDD — Software Design"
+description = "Architecture, frontend/backend/database structure, ER and sequence diagrams, design decisions."
+
+[[outputs]]
+id = "tCL2PmjO1MFEGVHnsjnWt"
+uri = "file://docs/04-User-Manual.html"
+type = "text"
+title = "User Manual (with screenshots)"
+description = "Step-by-step guide for every role, illustrated with real screenshots of the app."
+
+[[outputs]]
+id = "H1jM_szbKiAQmC8VC443p"
+uri = "file://docs/05-Handoff-and-Deployment-Requirements.html"
+type = "text"
+title = "Handoff & Deployment Requirements"
+description = "Repository layout, how to run, environment variables, deployment requirements and production checklist."
+
+[[outputs]]
+id = "g7ROfY2PvF-N2RrDW-aHg"
+uri = "file://docs/06-Deploy-on-Vercel.html"
+type = "text"
+title = "Deploy on Vercel — Guide"
+description = "Step-by-step: database, backend host, and Vercel frontend deployment with troubleshooting."

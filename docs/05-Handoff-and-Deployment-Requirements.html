@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Handoff &amp; Deployment Requirements — Jima Aba Jifar</title>
+<style>
+  body{font-family:Georgia,'Times New Roman',serif;color:#1f2937;max-width:900px;margin:0 auto;padding:48px 32px;line-height:1.6}
+  h1{font-size:28px;border-bottom:3px solid #E8832A;padding-bottom:10px}
+  h2{font-size:20px;color:#C2611A;margin-top:36px;border-bottom:1px solid #eee;padding-bottom:6px}
+  h3{font-size:16px;margin-top:24px}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:12px 0}
+  th{background:#FDF3E7;text-align:left;padding:8px 10px;border:1px solid #e5e7eb}
+  td{padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top}
+  .meta{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 18px;font-size:14px}
+  code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:13px}
+  pre{background:#111827;color:#e5e7eb;padding:14px 16px;border-radius:8px;font-size:13px;overflow-x:auto}
+  .warn{background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px 16px;font-size:14px}
+</style>
+</head>
+<body>
+<h1>Project Handoff &amp; Deployment Requirements</h1>
+<div class="meta">
+<b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
+<b>Document:</b> Handoff v1.0 &nbsp;·&nbsp; <b>Date:</b> August 12, 2026
+</div>
+
+<h2>1. Repository Layout</h2>
+<pre>
+workspace/ (pnpm monorepo)
+├── artifacts/
+│   ├── nextjs-app/        # Frontend — Next.js 14, App Router, Tailwind
+│   │   ├── src/app/       # Pages: login, dashboard/* (orders, kitchen, reports, ...)
+│   │   ├── src/components # Sidebar, manager-dashboard, shared UI
+│   │   ├── src/lib/api.ts # All REST calls (Axios + JWT header)
+│   │   ├── src/store/     # Zustand auth store
+│   │   └── public/        # Static assets (login-bg.jpg, ...)
+│   └── nestjs-server/     # Backend — NestJS 10 REST API (prefix /api)
+│       └── src/&lt;module&gt;/  # auth, users, orders, kitchen, payments,
+│                          # menus, tables, inventory, branches,
+│                          # restaurants, notifications, seed
+├── docs/                  # This documentation set + screenshots
+└── package.json           # Workspace root
+</pre>
+
+<h2>2. How to Run (Development)</h2>
+<pre>
+# prerequisites: Node.js 18+, pnpm 8+, PostgreSQL 14+
+pnpm install
+
+# backend (port 3001, API prefix /api, Swagger at /api/docs)
+DATABASE_URL=postgres://user:pass@host:5432/db \
+JWT_SECRET=change-me \
+pnpm --filter @workspace/nestjs-server run dev
+
+# frontend (port 3000; proxies /backend/api/* to the backend)
+BACKEND_URL=http://localhost:3001 \
+pnpm --filter @workspace/nextjs-app run dev
+</pre>
+<p>Seed demo data with <code>POST /api/seed</code> (Ethiopian menu, staff, tables). Default admin: <code>admin@habesha.com / admin123</code> — <b>change this in production</b>.</p>
+
+<h2>3. Environment Variables</h2>
+<table>
+<tr><th>Variable</th><th>Used by</th><th>Purpose</th></tr>
+<tr><td><code>DATABASE_URL</code></td><td>Backend</td><td>PostgreSQL connection string. Append <code>?sslmode=require</code> for managed databases (SSL is honored automatically).</td></tr>
+<tr><td><code>JWT_SECRET</code></td><td>Backend</td><td>Signing key for access tokens. Required in production (a weak dev fallback exists — never rely on it).</td></tr>
+<tr><td><code>PORT</code></td><td>Both</td><td>Listen port (backend defaults to 3001).</td></tr>
+<tr><td><code>BACKEND_URL</code></td><td>Frontend</td><td>Where the Next.js rewrite proxies API calls (e.g. <code>https://api.example.com</code>).</td></tr>
+</table>
+
+<h2>4. Deployment Requirements</h2>
+<table>
+<tr><th>Requirement</th><th>Detail</th></tr>
+<tr><td>Node runtime</td><td>Node.js 18 or newer, pnpm available at build time.</td></tr>
+<tr><td>Database</td><td>PostgreSQL 14+ (managed service recommended: Neon, Supabase, RDS, Cloud SQL). ~100 MB is plenty to start.</td></tr>
+<tr><td>Processes</td><td>Two services: frontend (Next.js server or Vercel) and backend (NestJS, long-running Node process).</td></tr>
+<tr><td>Networking</td><td>Frontend must reach the backend over HTTPS; browser only ever talks to the frontend origin (same-origin proxy).</td></tr>
+<tr><td>TLS</td><td>Terminate HTTPS at the platform/load balancer.</td></tr>
+<tr><td>Memory</td><td>512 MB per service is sufficient for small deployments.</td></tr>
+</table>
+
+<h2>5. Production Checklist</h2>
+<table>
+<tr><th>✔</th><th>Item</th></tr>
+<tr><td>☐</td><td>Set a strong <code>JWT_SECRET</code>.</td></tr>
+<tr><td>☐</td><td>Change/disable the seeded admin account and remove <code>POST /api/seed</code> exposure (guard or delete the Seed module).</td></tr>
+<tr><td>☐</td><td>Turn off TypeORM <code>synchronize</code> and adopt migrations (<code>typeorm migration:generate</code>) — auto-sync on a live database can drop/alter columns unexpectedly.</td></tr>
+<tr><td>☐</td><td>Enable database backups (daily snapshot is enough initially).</td></tr>
+<tr><td>☐</td><td>Restrict CORS on the backend to the frontend's production origin.</td></tr>
+<tr><td>☐</td><td>Set up log retention / error alerting on both services.</td></tr>
+<tr><td>☐</td><td>Create real staff accounts with strong passwords; deactivate demo users.</td></tr>
+</table>
+
+<div class="warn"><b>Data safety:</b> the system currently relies on <code>synchronize:true</code>. Before the first production deploy, generate the schema once, then disable synchronize. Never point a synchronized dev backend at the production database.</div>
+
+<h2>6. Operational Notes for the Next Team</h2>
+<ul>
+<li><b>Verification habit:</b> run <code>npx tsc --noEmit</code> inside <code>artifacts/nextjs-app</code> after frontend changes. Avoid running <code>next build</code> while the dev server is running.</li>
+<li><b>Polling:</b> all live pages poll every 10 s; there is no WebSocket layer to maintain.</li>
+<li><b>Exports:</b> Excel/PDF exports happen in the browser (xlsx, jspdf) — no server-side rendering service is needed.</li>
+<li><b>Role logic:</b> sidebar visibility lives in <code>src/components/sidebar.tsx</code>; per-page role behavior is in each page component; backend guards are authoritative.</li>
+<li><b>Profitability math:</b> food cost is estimated from stock deduction/waste movements × unit cost; accuracy depends on the store team recording usage.</li>
+<li><b>API reference:</b> Swagger UI is served by the backend at <code>/api/docs</code>.</li>
+</ul>
+
+<h2>7. Support Artifacts Included</h2>
+<table>
+<tr><th>File</th><th>Content</th></tr>
+<tr><td>docs/01-FRS…html</td><td>Functional requirements by subsystem and role</td></tr>
+<tr><td>docs/02-SRS…html</td><td>Full software requirements incl. non-functional</td></tr>
+<tr><td>docs/03-SDD…html</td><td>Architecture, ER, and sequence diagrams; design decisions</td></tr>
+<tr><td>docs/04-User-Manual.html</td><td>Step-by-step guide with screenshots</td></tr>
+<tr><td>docs/06-Deploy-on-Vercel.html</td><td>Vercel-specific deployment walkthrough</td></tr>
+</table>
+</body>
+</html>
