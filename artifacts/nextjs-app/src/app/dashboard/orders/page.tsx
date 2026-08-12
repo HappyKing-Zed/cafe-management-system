@@ -25,6 +25,14 @@ export default function OrdersPage() {
   const { user } = useAuthStore();
   const canAssignWaiter = !!user && CAN_ASSIGN_WAITER.includes(user.role);
   const canPay = !!user && CAN_PAY.includes(user.role);
+  const isWaiter = user?.role === 'waiter';
+
+  // Estimated completion: order time + longest preparation time among its items (default 20 min)
+  const estCompletion = (order: Order) => {
+    if (['served', 'paid', 'cancelled'].includes(order.status)) return '—';
+    const prep = Math.max(20, ...(order.items || []).map((i: any) => Number(i.menuItem?.preparationTime) || 0));
+    return new Date(new Date(order.createdAt).getTime() + prep * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [waiters, setWaiters] = useState<User[]>([]);
   const [selectedWaiter, setSelectedWaiter] = useState<number | null>(null);
@@ -163,6 +171,18 @@ export default function OrdersPage() {
         <div className="card p-0 overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
+              {isWaiter ? (
+                <tr>
+                  <th className="table-header">Order #</th>
+                  <th className="table-header">Table</th>
+                  <th className="table-header">Item</th>
+                  <th className="table-header">Order Date</th>
+                  <th className="table-header">Order Time</th>
+                  <th className="table-header">Est. Completion</th>
+                  <th className="table-header">Total</th>
+                  <th className="table-header">Status</th>
+                </tr>
+              ) : (
               <tr>
                 <th className="table-header">Order #</th>
                 <th className="table-header">Table / Customer</th>
@@ -172,11 +192,38 @@ export default function OrdersPage() {
                 <th className="table-header">Time</th>
                 <th className="table-header">Actions</th>
               </tr>
+              )}
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredOrders.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">No orders found</td></tr>
-              ) : filteredOrders.map((order) => (
+                <tr><td colSpan={isWaiter ? 8 : 7} className="text-center py-12 text-gray-400">No orders found</td></tr>
+              ) : isWaiter ? filteredOrders.map((order) => (
+                <tr
+                  key={order.id}
+                  className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={async () => {
+                    try {
+                      const res = await getOrder(order.id);
+                      setDetailOrder(res.data);
+                    } catch {
+                      setDetailOrder(order);
+                    }
+                  }}
+                >
+                  <td className="table-cell font-semibold text-brand-600">#{order.id}</td>
+                  <td className="table-cell">
+                    {order.table?.number ? <span className="font-medium">Table {order.table.number}</span> : <span className="text-gray-500">Walk-in</span>}
+                  </td>
+                  <td className="table-cell text-gray-500">{order.items?.length || 0} items</td>
+                  <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{new Date(order.createdAt).toLocaleDateString()}</td>
+                  <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                  <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{estCompletion(order)}</td>
+                  <td className="table-cell font-semibold">ETB {Number(order.totalAmount).toLocaleString()}</td>
+                  <td className="table-cell">
+                    <span className={`status-badge ${STATUS_COLORS[order.status]}`}>{order.status}</span>
+                  </td>
+                </tr>
+              )) : filteredOrders.map((order) => (
                 <tr
                   key={order.id}
                   className="hover:bg-gray-50 transition-colors cursor-pointer"

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { getOrderStats, getDailyReport, getOrders, getKitchenBoard, getInventoryItems, getLowStockItems, seedDatabase } from '@/lib/api';
 import { ShoppingCart, TrendingUp, Clock, CheckCircle, RefreshCw, ChefHat, Package, HandPlatter, Wallet } from 'lucide-react';
@@ -99,6 +100,10 @@ export default function DashboardPage() {
   const isCashier = role === 'cashier';
   const isWaiter = role === 'waiter';
   const isStore = role === 'storekeeper';
+
+  // Waiters land on Orders / POS — the Dashboard page is not part of their menu
+  const router = useRouter();
+  useEffect(() => { if (isWaiter) router.replace('/dashboard/orders'); }, [isWaiter, router]);
 
   const fetchData = async () => {
     if (!role) return;
