@@ -90,29 +90,26 @@ export default function OrderBoardPage() {
                   </div>
                   <span className={clsx('text-xs font-bold px-2.5 py-1 rounded-full', col.badge)}>{list.length}</span>
                 </div>
-                <div className="p-3 space-y-3 min-h-[120px]">
+                <div className="p-2 min-h-[100px] grid grid-cols-1 xl:grid-cols-2 gap-2 items-start content-start">
                   {list.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-8">No orders</p>
+                    <p className="text-sm text-gray-400 text-center py-8 col-span-full">No orders</p>
                   ) : (
                     list.map(o => (
-                      <div key={o.id} className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="font-bold text-gray-900">#{o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerName || 'Walk-in'}</p>
-                          <span className={clsx('text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full', col.badge)}>
+                      <div key={o.id} className="bg-white rounded-lg border border-gray-200 shadow-sm px-2.5 py-2">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="font-bold text-gray-900 text-sm truncate">#{o.id} · {o.table?.number ? `T${o.table.number}` : o.customerName || 'Take Away'}</p>
+                          <span className={clsx('text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full shrink-0', col.badge)}>
                             {o.status}
                           </span>
                         </div>
                         {o.items && o.items.length > 0 && (
-                          <ul className="text-xs text-gray-600 space-y-0.5 mb-1.5">
-                            {o.items.slice(0, 4).map((it: any) => (
-                              <li key={it.id}>{it.quantity}× {it.menuItem?.name || 'Item'}</li>
-                            ))}
-                            {o.items.length > 4 && <li className="text-gray-400">+{o.items.length - 4} more…</li>}
-                          </ul>
+                          <p className="text-[11px] leading-snug text-gray-600 mt-0.5">
+                            {o.items.map((it: any) => `${it.quantity}× ${it.menuItem?.name || 'Item'}`).join(', ')}
+                          </p>
                         )}
-                        <div className="flex items-center justify-between text-[11px] text-gray-400">
-                          <span>{o.waiter?.name ? `Waiter: ${o.waiter.name}` : ''}</span>
-                          <span>{minutesAgo(o.createdAt)} min ago</span>
+                        <div className="flex items-center justify-between text-[10px] text-gray-400 mt-0.5">
+                          <span className="truncate">{o.waiter?.name || ''}</span>
+                          <span className="shrink-0">{minutesAgo(o.createdAt)}m</span>
                         </div>
                       </div>
                     ))

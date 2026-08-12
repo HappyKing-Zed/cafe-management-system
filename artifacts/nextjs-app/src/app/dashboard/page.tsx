@@ -103,7 +103,7 @@ export default function DashboardPage() {
 
   // Waiters land on Orders / POS — the Dashboard page is not part of their menu
   const router = useRouter();
-  useEffect(() => { if (isWaiter) router.replace('/dashboard/orders'); }, [isWaiter, router]);
+  useEffect(() => { if (isWaiter || role === 'coordinator') router.replace('/dashboard/orders'); }, [isWaiter, role, router]);
 
   const fetchData = async () => {
     if (!role) return;

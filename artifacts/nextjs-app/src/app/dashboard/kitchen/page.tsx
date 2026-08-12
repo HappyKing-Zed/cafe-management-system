@@ -94,50 +94,43 @@ export default function KitchenPage() {
           <div className="text-center"><div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" /><p className="text-gray-500">Loading kitchen board...</p></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           {COLUMNS.map((col) => (
-            <div key={col.key} className={`rounded-xl border-2 ${col.color} p-4`}>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-gray-800">{col.label}</h2>
-                <span className={`${col.badge} text-white text-sm font-bold w-7 h-7 rounded-full flex items-center justify-center`}>
+            <div key={col.key} className={`rounded-xl border-2 ${col.color} p-2.5`}>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-bold text-gray-800 text-sm">{col.label}</h2>
+                <span className={`${col.badge} text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center`}>
                   {grouped[col.key]?.length || 0}
                 </span>
               </div>
               {grouped[col.key]?.length === 0 ? (
-                <p className="text-gray-400 text-sm text-center py-8">No orders</p>
+                <p className="text-gray-400 text-sm text-center py-6">No orders</p>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {grouped[col.key].map((order) => (
-                    <div key={order.id} className="bg-white rounded-xl shadow-sm p-4 border border-white">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-gray-900">Order #{order.id}</span>
-                          {order.table && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">🪑 {order.table.number}</span>}
+                    <div key={order.id} className="bg-white rounded-lg shadow-sm px-2.5 py-2 border border-white">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-bold text-gray-900 text-sm">#{order.id}</span>
+                          {order.table && <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full shrink-0">🪑 {order.table.number}</span>}
+                          {order.waiter?.name && <span className="text-[10px] text-gray-400 truncate">👤 {order.waiter.name}</span>}
                         </div>
-                        <span className="flex items-center gap-1 text-xs text-gray-400">
-                          <Clock size={12} /> {elapsed(order.createdAt)}
+                        <span className="flex items-center gap-1 text-[10px] text-gray-400 shrink-0">
+                          <Clock size={10} /> {elapsed(order.createdAt)}
                         </span>
                       </div>
-                      {order.waiter?.name && (
-                        <p className="text-xs text-gray-500 mb-2">👤 Waiter: {order.waiter.name}</p>
-                      )}
-                      <div className="space-y-1 mb-3">
-                        {order.items?.map((item) => (
-                          <div key={item.id} className="flex justify-between text-sm">
-                            <span className="text-gray-700">• {item.menuItem?.name}</span>
-                            <span className="font-semibold text-gray-900">×{item.quantity}</span>
-                          </div>
-                        ))}
-                      </div>
+                      <p className="text-xs leading-snug text-gray-700 mt-1">
+                        {order.items?.map((item) => `${item.quantity}× ${item.menuItem?.name || 'Item'}`).join(', ')}
+                      </p>
                       {order.notes && (
-                        <p className="text-xs text-amber-700 bg-amber-50 rounded p-2 mb-3">📝 {order.notes}</p>
+                        <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-1 mt-1">📝 {order.notes}</p>
                       )}
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 mt-1.5">
                         {col.key === 'pending' && (
                           <button
                             onClick={() => handleAction(order.id, 'accept')}
                             disabled={actionLoading === order.id}
-                            className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-1.5 px-3 rounded-lg text-sm font-medium disabled:opacity-50"
+                            className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-2 rounded-lg text-xs font-medium disabled:opacity-50"
                           >
                             {actionLoading === order.id ? '...' : 'Accept'}
                           </button>
@@ -146,7 +139,7 @@ export default function KitchenPage() {
                           <button
                             onClick={() => handleAction(order.id, 'preparing')}
                             disabled={actionLoading === order.id}
-                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-1.5 px-3 rounded-lg text-sm font-medium disabled:opacity-50"
+                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-1 px-2 rounded-lg text-xs font-medium disabled:opacity-50"
                           >
                             {actionLoading === order.id ? '...' : 'Start Preparing'}
                           </button>
@@ -155,14 +148,14 @@ export default function KitchenPage() {
                           <button
                             onClick={() => handleAction(order.id, 'ready')}
                             disabled={actionLoading === order.id}
-                            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-1.5 px-3 rounded-lg text-sm font-medium disabled:opacity-50"
+                            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-1 px-2 rounded-lg text-xs font-medium disabled:opacity-50"
                           >
                             {actionLoading === order.id ? '...' : 'Mark Ready ✓'}
                           </button>
                         )}
                         {col.key === 'completed' && (
-                          <span className={`flex-1 text-center py-1.5 px-3 rounded-lg text-sm font-medium ${order.status === 'served' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
-                            {order.status === 'served' ? 'Served ✓' : 'Ready — waiting for waiter'}
+                          <span className={`flex-1 text-center py-1 px-2 rounded-lg text-xs font-medium ${order.status === 'served' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
+                            {order.status === 'served' ? 'Served ✓' : 'Ready — waiting'}
                           </span>
                         )}
                       </div>
