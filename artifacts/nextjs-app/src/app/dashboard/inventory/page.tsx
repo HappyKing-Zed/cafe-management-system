@@ -16,7 +16,7 @@ interface StockMovement {
   createdBy?: { name: string };
 }
 
-const TABS = ['Items', 'Purchase Orders', 'Stock Movements', 'Suppliers', 'Alerts', 'Reports'];
+const TABS = ['Items', 'Purchase Orders', 'Stock Movements', 'Suppliers', 'Alerts'];
 
 const PO_STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -53,6 +53,9 @@ export default function InventoryPage() {
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [showItemModal, setShowItemModal] = useState(false);
+  const [supSearch, setSupSearch] = useState('');
+  const [poFilter, setPoFilter] = useState('all');
+  const [alertFilter, setAlertFilter] = useState<'all' | 'critical' | 'warning'>('all');
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
@@ -674,12 +677,16 @@ export default function InventoryPage() {
 
           {tab === 'Suppliers' && (
             <div className="card p-0 overflow-hidden">
+              <div className="flex items-center gap-2 p-3 border-b bg-gray-50">
+                <label className="text-xs font-medium text-gray-600">Search:</label>
+                <input value={supSearch} onChange={e => setSupSearch(e.target.value)} placeholder="Supplier name…" className="input text-sm !w-56 !py-1.5" />
+              </div>
               <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">Name</th><th className="table-header">Contact</th><th className="table-header">Email</th><th className="table-header">Phone</th><th className="table-header">Rating</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-50">
-                  {suppliers.map((s) => (
+                  {suppliers.filter(s => !supSearch || s.name?.toLowerCase().includes(supSearch.toLowerCase())).map((s) => (
                     <tr key={s.id} className="hover:bg-gray-50">
                       <td className="table-cell font-medium">{s.name}</td>
                       <td className="table-cell text-gray-500">{s.contactPerson || '—'}</td>
@@ -695,12 +702,19 @@ export default function InventoryPage() {
 
           {tab === 'Purchase Orders' && (
             <div className="card p-0 overflow-hidden">
+              <div className="flex items-center gap-2 p-3 border-b bg-gray-50">
+                <label className="text-xs font-medium text-gray-600">Status:</label>
+                <select value={poFilter} onChange={e => setPoFilter(e.target.value)} className="input text-sm !w-44 !py-1.5">
+                  <option value="all">All statuses</option>
+                  {Object.keys(PO_STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
               <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">PO #</th><th className="table-header">Supplier</th><th className="table-header">Items</th><th className="table-header">Total</th><th className="table-header">Status</th><th className="table-header">Requested By</th><th className="table-header">Date</th><th className="table-header">Actions</th>
                 </tr></thead>
                 <tbody className="divide-y divide-gray-50">
-                  {pos.length === 0 ? <tr><td colSpan={8} className="text-center py-8 text-gray-400">No purchase orders yet — click "New Purchase Order" to create one</td></tr> : pos.map((po) => {
+                  {pos.filter(po => poFilter === 'all' || po.status === poFilter).length === 0 ? <tr><td colSpan={8} className="text-center py-8 text-gray-400">No purchase orders found</td></tr> : pos.filter(po => poFilter === 'all' || po.status === poFilter).map((po) => {
                     const approvedCount = (po.items || []).filter((i: any) => i.approved).length;
                     return (
                     <tr key={po.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => openPODetail(po)}>
@@ -787,6 +801,13 @@ export default function InventoryPage() {
           )}
 
           {tab === 'Alerts' && (
+            <div className="flex gap-2 mb-4">
+              {([['all', 'All'], ['critical', 'Critical'], ['warning', 'Warning']] as const).map(([v, l]) => (
+                <button key={v} onClick={() => setAlertFilter(v)} className={clsx('text-xs px-3 py-1.5 rounded-lg font-medium', alertFilter === v ? 'bg-brand-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-100')}>{l}</button>
+              ))}
+            </div>
+          )}
+          {tab === 'Alerts' && (
             lowStockItems.length === 0 ? (
               <div className="text-center py-16 text-gray-400">
                 <Package size={48} className="mx-auto mb-4 opacity-40" />
@@ -795,7 +816,13 @@ export default function InventoryPage() {
               </div>
             ) : (
               <div className="space-y-3 max-w-3xl">
-                {lowStockItems.sort((a, b) => Number(a.currentStock) - Number(b.currentStock)).map((item) => {
+                {lowStockItems
+                  .filter(item => {
+                    if (alertFilter === 'all') return true;
+                    const critical = Number(item.currentStock) <= 0 || Number(item.currentStock) <= Number(item.minStock) / 2;
+                    return alertFilter === 'critical' ? critical : !critical;
+                  })
+                  .sort((a, b) => Number(a.currentStock) - Number(b.currentStock)).map((item) => {
                   const isOut = Number(item.currentStock) <= 0;
                   return (
                     <div key={item.id} className={clsx('card flex items-center justify-between gap-4 border-l-4', isOut ? 'border-l-red-500 bg-red-50/50' : 'border-l-amber-500 bg-amber-50/50')}>

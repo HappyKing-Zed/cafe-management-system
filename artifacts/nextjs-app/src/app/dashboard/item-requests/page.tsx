@@ -83,7 +83,7 @@ export default function ItemRequestsPage() {
   useEffect(() => {
     if (!allowed) return;
     fetchData();
-    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 15000);
+    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 10000);
     return () => clearInterval(t);
   }, [allowed]);
 
@@ -238,7 +238,8 @@ export default function ItemRequestsPage() {
 
   return (
     <div className="p-8">
-      {/* Hero banner */}
+      {/* Hero banner (hidden for managers/owners — their list auto-refreshes) */}
+      {!canApprove && (
       <div className="bg-gray-50 border border-gray-100 rounded-2xl px-6 py-5 mb-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -251,6 +252,7 @@ export default function ItemRequestsPage() {
         </div>
         <button onClick={fetchData} className="btn-secondary flex items-center gap-2 shrink-0"><RefreshCw size={16} /> Refresh</button>
       </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
@@ -320,7 +322,27 @@ export default function ItemRequestsPage() {
                             <p className="text-xs text-gray-400">REQ-{String(r.id).padStart(3, '0')}{r.reason ? ` · ${r.reason}` : ''}</p>
                           </td>
                           <td className="table-cell">{Number(r.quantity)} {r.inventoryItem?.unit}</td>
-                          <td className="table-cell text-gray-500">{stockItem ? `${Number(stockItem.currentStock)} ${stockItem.unit}` : '—'}</td>
+                          <td className="table-cell">
+                            {stockItem ? (
+                              <div>
+                                <span className="text-gray-500">{Number(stockItem.currentStock)} {stockItem.unit}</span>
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                  {Number(stockItem.currentStock) <= Number((stockItem as any).minStock) && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">⚠ Low stock</span>
+                                  )}
+                                  {(() => {
+                                    const expRaw = (stockItem as any).expiryDate;
+                                    if (!expRaw) return null;
+                                    const exp = new Date(expRaw); const today = new Date(); today.setHours(0, 0, 0, 0);
+                                    const soon = new Date(today); soon.setDate(soon.getDate() + 7);
+                                    if (exp < today) return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">Expired</span>;
+                                    if (exp <= soon) return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Expires soon</span>;
+                                    return null;
+                                  })()}
+                                </div>
+                              </div>
+                            ) : '—'}
+                          </td>
                           <td className="table-cell font-semibold">ETB {totalPrice(r).toLocaleString()}</td>
                           <td className="table-cell text-xs text-gray-500 whitespace-nowrap">
                             {new Date(r.createdAt).toLocaleDateString()}
@@ -375,34 +397,6 @@ export default function ItemRequestsPage() {
               </div>
             </div>
 
-            {/* Low Stock Alerts */}
-            <div className="card p-5">
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center"><AlertTriangle className="text-red-500" size={18} /></div>
-                <h2 className="font-bold text-gray-900">Low Stock Alerts</h2>
-              </div>
-              {lowStock.length === 0 ? <p className="text-sm text-gray-400">No items are running low.</p> : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {lowStock.slice(0, 6).map((i: any) => {
-                    const critical = Number(i.currentStock) <= Number(i.minStock) / 2;
-                    return (
-                      <div key={i.id} className={clsx('border rounded-xl p-4', critical ? 'border-red-200 bg-red-50/40' : 'border-amber-200 bg-amber-50/40')}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={clsx('text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded', critical ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700')}>{critical ? 'Critical' : 'Warning'}</span>
-                          {i.category && <span className="text-[10px] text-gray-400">{i.category}</span>}
-                        </div>
-                        <p className="font-semibold text-gray-900 text-sm">{i.name}</p>
-                        <p className={clsx('text-2xl font-bold', critical ? 'text-red-600' : 'text-amber-600')}>{Number(i.currentStock)}</p>
-                        <p className="text-xs text-gray-500 mb-3">{i.unit} remaining (Min: {Number(i.minStock)})</p>
-                        <Link href="/dashboard/inventory" className="btn-primary w-full flex items-center justify-center gap-1.5 !py-1.5 text-xs"><ShoppingCart size={13} /> Initiate Purchase</Link>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {exportCard}
           </div>
         </div>
       ) : (

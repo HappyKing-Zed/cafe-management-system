@@ -71,7 +71,7 @@ export default function StaffPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Staff Management</h1>
-            <p className="text-gray-500 text-sm">{users.length} staff members</p>
+            <p className="text-gray-500 text-sm">{filtered.length} {filterRole === 'all' ? 'staff members' : `${filterRole}${filtered.length === 1 ? '' : 's'}`}</p>
           </div>
         </div>
         <button onClick={openCreate} className="btn-primary flex items-center gap-2">

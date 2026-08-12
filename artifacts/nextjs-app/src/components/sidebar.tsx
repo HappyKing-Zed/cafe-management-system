@@ -20,9 +20,8 @@ const navItems = [
   { href: '/dashboard/inventory', label: 'Inventory', icon: Package, roles: ['admin', 'owner', 'manager', 'storekeeper', 'cashier'] },
   { href: '/dashboard/item-requests', label: 'Item Requests', managerLabel: 'Item Requested', icon: PackageOpen, roles: ['admin', 'owner', 'manager', 'coordinator'] },
   { href: '/dashboard/staff', label: 'Staff', icon: Users, roles: ['admin', 'owner', 'manager'] },
-  { href: '/dashboard/branches', label: 'Branches', icon: Building2, roles: ['admin', 'owner', 'manager'] },
+  { href: '/dashboard/branches', label: 'Branches and Restaurants', icon: Building2, roles: ['admin', 'owner', 'manager'] },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'owner', 'manager', 'cashier'] },
-  { href: '/dashboard/report', label: 'Report', icon: BarChart3, roles: ['admin', 'owner', 'manager', 'coordinator'] },
 ];
 
 export default function Sidebar() {
