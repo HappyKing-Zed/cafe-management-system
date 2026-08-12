@@ -278,8 +278,8 @@ export default function OrdersPage() {
       {loading ? (
         <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
       ) : (
-        <div className="card p-0 overflow-hidden">
-          <table className="w-full">
+        <div className="card p-0 overflow-x-auto">
+          <table className="w-full min-w-max">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="table-header">Order #</th>
