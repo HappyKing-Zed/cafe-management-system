@@ -93,10 +93,10 @@ export default function OrdersPage() {
 
   const cartTotal = cart.reduce((sum, c) => sum + Number(c.menuItem.price) * c.quantity, 0);
 
-  // Pay-at-order (waiter POS): optionally take payment while placing the order
-  const [payNow, setPayNow] = useState(false);
+  // Pay-at-order (waiter POS): take payment while placing the order when an amount is entered
   const [posPayMethod, setPosPayMethod] = useState<'cash' | 'card' | 'mobile'>('cash');
   const [posPayAmount, setPosPayAmount] = useState('');
+  const payNow = parseFloat(posPayAmount) > 0;
 
   const submitOrder = async () => {
     if (cart.length === 0) return;
@@ -116,7 +116,6 @@ export default function OrdersPage() {
           alert(e?.response?.data?.message || 'Order placed, but the payment could not be processed');
         }
       }
-      setPayNow(false);
       setPosPayAmount('');
       setCart([]);
       setSelectedTable(null);
@@ -376,12 +375,9 @@ export default function OrdersPage() {
                 </div>
 
                 {/* Process Payment (pay at order) */}
-                <label className="flex items-center gap-2 mb-3 cursor-pointer select-none">
-                  <input type="checkbox" checked={payNow} onChange={e => { setPayNow(e.target.checked); if (e.target.checked) setPosPayAmount(String(cartTotal)); }} className="w-4 h-4 accent-brand-500" />
-                  <span className="text-sm font-semibold text-gray-800">Process Payment</span>
-                </label>
-                {payNow && (
-                  <div className="mb-3 space-y-3">
+                <div className="border-t pt-3 mb-3">
+                  <p className="text-sm font-bold text-gray-900 mb-2">Process Payment</p>
+                  <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">Payment Method</label>
                       <div className="grid grid-cols-3 gap-2">
@@ -395,15 +391,16 @@ export default function OrdersPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">Amount Received</label>
-                      <input type="number" value={posPayAmount} onChange={e => setPosPayAmount(e.target.value)} className="input text-sm" placeholder="Enter amount" />
+                      <input type="number" value={posPayAmount} onChange={e => setPosPayAmount(e.target.value)} className="input text-sm" placeholder={cartTotal ? String(cartTotal) : 'Enter amount'} />
                     </div>
                     {posPayMethod === 'cash' && parseFloat(posPayAmount) > cartTotal && (
                       <div className="bg-green-50 rounded-lg p-2 text-center">
                         <p className="text-xs text-green-700">Change: <span className="font-bold">ETB {(parseFloat(posPayAmount) - cartTotal).toLocaleString()}</span></p>
                       </div>
                     )}
+                    <p className="text-[11px] text-gray-400">Leave the amount empty to let the cashier take payment later.</p>
                   </div>
-                )}
+                </div>
 
                 <button onClick={submitOrder} disabled={cart.length === 0 || submitting}
                   className="btn-primary w-full py-3 disabled:opacity-50">
