@@ -62,6 +62,12 @@ export default function OrdersPage() {
         getTables(),
       ]);
       setOrders(ordersRes.data || []);
+      // Keep the open order detail in sync with the latest data
+      setDetailOrder(prev => {
+        if (!prev) return prev;
+        const fresh = (ordersRes.data || []).find((o: Order) => o.id === prev.id);
+        return fresh ? { ...prev, ...fresh } : prev;
+      });
       setCategories(catsRes.data || []);
       setTables(tablesRes.data?.filter((t: RestaurantTable) => t.status === 'available') || []);
       if (catsRes.data?.length) setSelectedCat(catsRes.data[0].id);
