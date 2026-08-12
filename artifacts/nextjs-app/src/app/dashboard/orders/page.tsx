@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getOrders, getOrder, createOrder, updateOrderStatus, processPayment, getMenuCategories, getTables, getWaiters } from '@/lib/api';
+import { getOrders, getOrder, createOrder, addOrderItems, updateOrderStatus, processPayment, getMenuCategories, getTables, getWaiters } from '@/lib/api';
 import { Order, MenuItem, MenuCategory, RestaurantTable, User } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
 import { ShoppingCart, Plus, X, CreditCard, CheckCircle } from 'lucide-react';
@@ -97,31 +97,42 @@ export default function OrdersPage() {
   const [posPayMethod, setPosPayMethod] = useState<'cash' | 'card' | 'mobile'>('cash');
   const [posPayAmount, setPosPayAmount] = useState('');
   const payNow = parseFloat(posPayAmount) > 0;
+  // When set, the POS adds items to this existing order instead of creating a new one
+  const [appendOrder, setAppendOrder] = useState<Order | null>(null);
+
+  // Clear all POS state so stale carts/amounts never leak into the next order
+  const resetPOS = () => {
+    setCart([]);
+    setSelectedTable(null);
+    setSelectedWaiter(null);
+    setCustomerName('');
+    setNotes('');
+    setPosPayAmount('');
+    setPosPayMethod('cash');
+    setAppendOrder(null);
+  };
 
   const submitOrder = async () => {
     if (cart.length === 0) return;
     setSubmitting(true);
     try {
-      const res = await createOrder({
+      const res = appendOrder
+        ? await addOrderItems(appendOrder.id, cart.map(c => ({ menuItemId: c.menuItem.id, quantity: c.quantity, notes: c.notes })))
+        : await createOrder({
         tableId: selectedTable,
         waiterId: canAssignWaiter ? selectedWaiter : user?.role === 'waiter' ? user.id : undefined,
         customerName,
         notes,
         items: cart.map(c => ({ menuItemId: c.menuItem.id, quantity: c.quantity, notes: c.notes })),
       });
-      if (payNow && res.data?.id) {
+      if (!appendOrder && payNow && res.data?.id) {
         try {
           await processPayment({ orderId: res.data.id, method: posPayMethod, amount: parseFloat(posPayAmount) || cartTotal });
         } catch (e: any) {
           alert(e?.response?.data?.message || 'Order placed, but the payment could not be processed');
         }
       }
-      setPosPayAmount('');
-      setCart([]);
-      setSelectedTable(null);
-      setSelectedWaiter(null);
-      setCustomerName('');
-      setNotes('');
+      resetPOS();
       setShowPOS(false);
       await fetchData();
     } finally {
@@ -159,7 +170,7 @@ export default function OrdersPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Orders & POS</h1>
         </div>
-        <button onClick={() => setShowPOS(true)} className="btn-primary flex items-center gap-2">
+        <button onClick={() => { resetPOS(); setShowPOS(true); }} className="btn-primary flex items-center gap-2">
           <Plus size={18} /> New Order
         </button>
       </div>
@@ -195,6 +206,7 @@ export default function OrdersPage() {
                   <th className="table-header">Total</th>
                   <th className="table-header">Payment Method</th>
                   <th className="table-header">Status</th>
+                  <th className="table-header">Actions</th>
                 </tr>
               ) : (
               <tr>
@@ -210,7 +222,7 @@ export default function OrdersPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredOrders.length === 0 ? (
-                <tr><td colSpan={isWaiter ? 9 : 7} className="text-center py-12 text-gray-400">No orders found</td></tr>
+                <tr><td colSpan={isWaiter ? 10 : 7} className="text-center py-12 text-gray-400">No orders found</td></tr>
               ) : isWaiter ? filteredOrders.map((order) => (
                 <tr
                   key={order.id}
@@ -233,9 +245,15 @@ export default function OrdersPage() {
                   <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                   <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{estCompletion(order)}</td>
                   <td className="table-cell font-semibold">ETB {Number(order.totalAmount).toLocaleString()}</td>
-                  <td className="table-cell text-sm text-gray-600 capitalize">{order.payments?.length ? order.payments[order.payments.length - 1].method : '—'}</td>
+                  <td className="table-cell text-sm text-gray-600 capitalize">{order.payments?.length ? (order.payments[order.payments.length - 1].method === 'mobile' ? 'wallet' : order.payments[order.payments.length - 1].method) : '—'}</td>
                   <td className="table-cell">
                     <span className={`status-badge ${STATUS_COLORS[order.status]}`}>{order.status}</span>
+                  </td>
+                  <td className="table-cell" onClick={(e) => e.stopPropagation()}>
+                    {!['paid', 'cancelled'].includes(order.status) && (
+                      <button onClick={() => { resetPOS(); setAppendOrder(order); setShowPOS(true); }}
+                        className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded hover:bg-brand-200 whitespace-nowrap">+ Add Items</button>
+                    )}
                   </td>
                 </tr>
               )) : filteredOrders.map((order) => (
@@ -301,8 +319,8 @@ export default function OrdersPage() {
             {/* Menu */}
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="p-4 border-b flex items-center justify-between">
-                <h2 className="text-lg font-bold">Point of Sale</h2>
-                <button onClick={() => setShowPOS(false)} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
+                <h2 className="text-lg font-bold">{appendOrder ? `Add Items to Order #${appendOrder.id}` : 'Point of Sale'}</h2>
+                <button onClick={() => { setShowPOS(false); resetPOS(); }} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
               </div>
               {/* Category tabs */}
               <div className="flex gap-2 p-3 border-b overflow-x-auto">
@@ -331,15 +349,20 @@ export default function OrdersPage() {
             <div className="w-80 border-l flex flex-col bg-gray-50">
               <div className="p-4 border-b bg-white">
                 <h3 className="font-bold text-gray-900">Cart</h3>
+                {!appendOrder && (
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <select value={selectedTable || ''} onChange={(e) => setSelectedTable(e.target.value ? +e.target.value : null)}
                     className="input text-xs py-1.5">
-                    <option value="">Walk-in</option>
-                    {tables.map(t => <option key={t.id} value={t.id}>Table {t.number}</option>)}
+                    <option value="">Take Away</option>
+                    {tables.map(t => <option key={t.id} value={t.id}>{t.number}</option>)}
                   </select>
                   <input placeholder="Customer name" value={customerName} onChange={e => setCustomerName(e.target.value)} className="input text-xs py-1.5" />
                 </div>
-                {canAssignWaiter && (
+                )}
+                {appendOrder && (
+                  <p className="text-xs text-gray-500 mt-1">Adding to Order #{appendOrder.id} · {appendOrder.table?.number || 'Take Away'}</p>
+                )}
+                {!appendOrder && canAssignWaiter && (
                   <select value={selectedWaiter || ''} onChange={(e) => setSelectedWaiter(e.target.value ? +e.target.value : null)}
                     className="input text-xs py-1.5 mt-2 w-full">
                     <option value="">Assign waiter (optional)</option>
@@ -368,43 +391,34 @@ export default function OrdersPage() {
                 ))}
               </div>
               <div className="p-4 bg-white border-t">
-                <input placeholder="Order notes..." value={notes} onChange={e => setNotes(e.target.value)} className="input text-sm mb-3" />
+                {!appendOrder && <input placeholder="Order notes..." value={notes} onChange={e => setNotes(e.target.value)} className="input text-sm mb-3" />}
                 <div className="flex justify-between mb-3">
                   <span className="font-semibold text-gray-700">Total</span>
                   <span className="font-bold text-xl text-brand-600">ETB {cartTotal.toLocaleString()}</span>
                 </div>
 
-                {/* Process Payment (pay at order) */}
-                <div className="border-t pt-3 mb-3">
-                  <p className="text-sm font-bold text-gray-900 mb-2">Process Payment</p>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Payment Method</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(['cash', 'card', 'mobile'] as const).map((m) => (
-                          <button key={m} onClick={() => setPosPayMethod(m)}
-                            className={clsx('py-2 rounded-lg text-xs font-medium border-2 transition-colors', posPayMethod === m ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
-                            {m === 'cash' ? '💵' : m === 'card' ? '💳' : '📱'} {m.charAt(0).toUpperCase() + m.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Amount Received</label>
-                      <input type="number" value={posPayAmount} onChange={e => setPosPayAmount(e.target.value)} className="input text-sm" placeholder={cartTotal ? String(cartTotal) : 'Enter amount'} />
-                    </div>
-                    {posPayMethod === 'cash' && parseFloat(posPayAmount) > cartTotal && (
-                      <div className="bg-green-50 rounded-lg p-2 text-center">
-                        <p className="text-xs text-green-700">Change: <span className="font-bold">ETB {(parseFloat(posPayAmount) - cartTotal).toLocaleString()}</span></p>
-                      </div>
-                    )}
-                    <p className="text-[11px] text-gray-400">Leave the amount empty to let the cashier take payment later.</p>
+                {/* Payment (pay at order) */}
+                {!appendOrder && (
+                <div className="border-t pt-2 mb-2 space-y-1.5">
+                  <label className="block text-[11px] font-semibold text-gray-600">Payment Method</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {(['cash', 'card', 'mobile'] as const).map((m) => (
+                      <button key={m} onClick={() => setPosPayMethod(m)}
+                        className={clsx('py-1.5 rounded-lg text-[11px] font-medium border transition-colors', posPayMethod === m ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
+                        {m === 'cash' ? '💵 Cash' : m === 'card' ? '💳 Card' : '📱 Wallet'}
+                      </button>
+                    ))}
                   </div>
+                  <input type="number" value={posPayAmount} onChange={e => setPosPayAmount(e.target.value)} className="input text-xs py-1.5" placeholder="Amount received (empty = pay later)" />
+                  {posPayMethod === 'cash' && parseFloat(posPayAmount) > cartTotal && (
+                    <p className="text-[11px] text-green-700 text-center">Change: <span className="font-bold">ETB {(parseFloat(posPayAmount) - cartTotal).toLocaleString()}</span></p>
+                  )}
                 </div>
+                )}
 
                 <button onClick={submitOrder} disabled={cart.length === 0 || submitting}
                   className="btn-primary w-full py-3 disabled:opacity-50">
-                  {submitting ? 'Placing Order...' : payNow ? 'Place Order & Confirm Payment' : 'Place Order'}
+                  {submitting ? 'Saving...' : appendOrder ? `Add to Order #${appendOrder.id}` : payNow ? 'Place Order & Confirm Payment' : 'Place Order'}
                 </button>
               </div>
             </div>

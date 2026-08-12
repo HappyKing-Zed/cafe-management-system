@@ -55,6 +55,8 @@ export class OrdersController {
   }
 
   @Patch(':id/items')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.CASHIER, Role.WAITER)
   addItems(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body('items') items: any[]) {
     return this.service.addItems(id, items, req.user);
   }

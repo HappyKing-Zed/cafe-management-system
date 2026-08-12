@@ -26,11 +26,15 @@ export class PaymentsService {
     return qb.getMany();
   }
 
-  async processPayment(data: { orderId: number; method: any; amount: number; cashierId?: number; reference?: string }, branchId?: number, cashierUserId?: number) {
+  async processPayment(data: { orderId: number; method: any; amount: number; cashierId?: number; reference?: string }, branchId?: number, cashierUserId?: number, actorRole?: string) {
     const order = await this.orderRepo.findOne({ where: { id: data.orderId } });
     if (!order) throw new NotFoundException('Order not found');
     if (branchId && order.branchId && order.branchId !== branchId) {
       throw new ForbiddenException('This order belongs to another branch');
+    }
+    // Waiters may only take payment for their own orders
+    if (actorRole === 'waiter' && order.waiterId !== cashierUserId) {
+      throw new ForbiddenException('You can only take payment for your own orders');
     }
     if (order.status === OrderStatus.PAID) throw new BadRequestException('Order already paid');
     if (order.status === OrderStatus.CANCELLED) throw new BadRequestException('Order is cancelled');

@@ -23,7 +23,7 @@ export class PaymentsController {
   @Post()
   @Roles(Role.ADMIN, Role.OWNER, Role.CASHIER, Role.WAITER)
   process(@Req() req: any, @Body() body: any) {
-    return this.service.processPayment(body, branchScope(req.user), req.user?.id);
+    return this.service.processPayment(body, branchScope(req.user), req.user?.id, req.user?.role);
   }
 
   @Get('report')
