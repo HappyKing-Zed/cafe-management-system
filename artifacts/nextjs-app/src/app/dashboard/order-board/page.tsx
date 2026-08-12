@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getOrders } from '@/lib/api';
 import { Order } from '@/lib/types';
-import { ChefHat, Flame, CheckCircle2, RefreshCw, ClipboardList } from 'lucide-react';
+import { ChefHat, Flame, CheckCircle2, ClipboardList, Clock, User } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '@/store/auth';
 
@@ -12,32 +12,44 @@ const COLUMNS = [
     title: 'Requested',
     icon: ClipboardList,
     statuses: ['pending'],
-    accent: 'border-t-sky-500',
-    badge: 'bg-sky-100 text-sky-800',
+    grad: 'linear-gradient(135deg, #0EA5E9, #0369A1)',
+    ring: 'ring-sky-100',
+    chip: 'bg-sky-50 text-sky-700',
+    bar: 'bg-sky-500',
+    step: 1,
   },
   {
     key: 'received',
-    title: 'Received and Confirmed',
+    title: 'Received & Confirmed',
     icon: ChefHat,
     statuses: ['confirmed'],
-    accent: 'border-t-amber-500',
-    badge: 'bg-amber-100 text-amber-800',
+    grad: 'linear-gradient(135deg, #F59E0B, #B45309)',
+    ring: 'ring-amber-100',
+    chip: 'bg-amber-50 text-amber-700',
+    bar: 'bg-amber-500',
+    step: 2,
   },
   {
     key: 'progress',
     title: 'In Progress',
     icon: Flame,
     statuses: ['preparing'],
-    accent: 'border-t-orange-500',
-    badge: 'bg-orange-100 text-orange-800',
+    grad: 'linear-gradient(135deg, #F97316, #C2410C)',
+    ring: 'ring-orange-100',
+    chip: 'bg-orange-50 text-orange-700',
+    bar: 'bg-orange-500',
+    step: 3,
   },
   {
     key: 'completed',
     title: 'Completed',
     icon: CheckCircle2,
     statuses: ['ready', 'served'],
-    accent: 'border-t-green-500',
-    badge: 'bg-green-100 text-green-800',
+    grad: 'linear-gradient(135deg, #22C55E, #15803D)',
+    ring: 'ring-green-100',
+    chip: 'bg-green-50 text-green-700',
+    bar: 'bg-green-500',
+    step: 4,
   },
 ];
 
@@ -76,6 +88,9 @@ export default function OrderBoardPage() {
             {user?.role === 'waiter' ? 'Showing your orders only · ' : ''}Updates automatically every 10 seconds
           </p>
         </div>
+        <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5">
+          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Live
+        </div>
       </div>
 
       {loading ? (
@@ -87,37 +102,61 @@ export default function OrderBoardPage() {
           {COLUMNS.map(col => {
             const list = orders.filter(o => col.statuses.includes(o.status));
             return (
-              <div key={col.key} className={clsx('bg-gray-50 rounded-xl border border-gray-200 border-t-4', col.accent)}>
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-                  <div className="flex items-center gap-2 font-semibold text-gray-800">
-                    <col.icon size={18} />
-                    {col.title}
+              <div key={col.key} className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
+                {/* Column header */}
+                <div className="px-4 py-3 text-white" style={{ background: col.grad }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-semibold text-sm">
+                      <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center"><col.icon size={15} /></div>
+                      {col.title}
+                    </div>
+                    <span className="text-xs font-bold bg-white/25 px-2.5 py-1 rounded-full">{list.length}</span>
                   </div>
-                  <span className={clsx('text-xs font-bold px-2.5 py-1 rounded-full', col.badge)}>{list.length}</span>
+                  {/* step dots */}
+                  <div className="flex items-center gap-1 mt-2.5">
+                    {[1, 2, 3, 4].map(s => (
+                      <div key={s} className={clsx('h-1 flex-1 rounded-full', s <= col.step ? 'bg-white/90' : 'bg-white/25')} />
+                    ))}
+                  </div>
                 </div>
-                <div className="p-2 min-h-[100px] grid grid-cols-1 xl:grid-cols-2 gap-2 items-start content-start">
+
+                {/* Cards */}
+                <div className="p-2.5 min-h-[120px] bg-gray-50/60 space-y-2">
                   {list.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-8 col-span-full">No orders</p>
+                    <div className="text-center py-8">
+                      <col.icon size={22} className="mx-auto text-gray-300 mb-1.5" />
+                      <p className="text-xs text-gray-400">No orders here</p>
+                    </div>
                   ) : (
-                    list.map(o => (
-                      <div key={o.id} className="bg-white rounded-lg border border-gray-200 shadow-sm px-2.5 py-2">
-                        <div className="flex items-center justify-between gap-1">
-                          <p className="font-bold text-gray-900 text-sm truncate">#{o.id} · {o.table?.number ? `T${o.table.number}` : o.customerName || 'Take Away'}</p>
-                          <span className={clsx('text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded-full shrink-0', col.badge)}>
-                            {o.status}
-                          </span>
+                    list.map(o => {
+                      const mins = minutesAgo(o.createdAt);
+                      const slow = mins >= 20 && col.key !== 'completed';
+                      return (
+                        <div key={o.id} className={clsx('bg-white rounded-xl border shadow-sm px-3 py-2.5 ring-2 transition-shadow hover:shadow-md', col.ring, slow ? 'border-red-200' : 'border-gray-100')}>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className="font-bold text-gray-900 text-sm truncate">
+                              #{o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerName || 'Take Away'}
+                            </p>
+                            <span className={clsx('text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full shrink-0', col.chip)}>
+                              {o.status}
+                            </span>
+                          </div>
+                          {o.items && o.items.length > 0 && (
+                            <p className="text-[11px] leading-snug text-gray-600 mb-1.5 line-clamp-2">
+                              {o.items.map((it: any) => `${it.quantity}× ${it.menuItem?.name || 'Item'}`).join(', ')}
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="flex items-center gap-1 text-gray-400 truncate">
+                              {o.waiter?.name && <><User size={10} className="shrink-0" /> {o.waiter.name}</>}
+                            </span>
+                            <span className={clsx('flex items-center gap-1 font-semibold px-1.5 py-0.5 rounded-full shrink-0', slow ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500')}>
+                              <Clock size={10} /> {mins}m{slow ? ' ⚠' : ''}
+                            </span>
+                          </div>
                         </div>
-                        {o.items && o.items.length > 0 && (
-                          <p className="text-[11px] leading-snug text-gray-600 mt-0.5">
-                            {o.items.map((it: any) => `${it.quantity}× ${it.menuItem?.name || 'Item'}`).join(', ')}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between text-[10px] text-gray-400 mt-0.5">
-                          <span className="truncate">{o.waiter?.name || ''}</span>
-                          <span className="shrink-0">{minutesAgo(o.createdAt)}m</span>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
