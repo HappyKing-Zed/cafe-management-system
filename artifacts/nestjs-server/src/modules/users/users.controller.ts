@@ -34,6 +34,12 @@ export class UsersController {
     return this.service.findWaiters(branchScope(req.user));
   }
 
+  @Get('chefs')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR)
+  findChefs(@Req() req: any) {
+    return this.service.findChefs(branchScope(req.user));
+  }
+
   @Get(':id')
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
   findOne(@Param('id', ParseIntPipe) id: number) {

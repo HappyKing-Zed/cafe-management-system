@@ -21,6 +21,7 @@ export class KitchenService {
       .createQueryBuilder('o')
       .leftJoinAndSelect('o.table', 'table')
       .leftJoinAndSelect('o.waiter', 'waiter')
+      .leftJoinAndSelect('o.chef', 'chef')
       .leftJoinAndSelect('o.items', 'items')
       .leftJoinAndSelect('items.menuItem', 'menuItem')
       .where(

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getOrders, getOrder, createOrder, addOrderItems, removeOrderItems, updateOrderStatus, processPayment, getMenuCategories, getTables, getWaiters } from '@/lib/api';
+import { getOrders, getOrder, createOrder, addOrderItems, removeOrderItems, updateOrderStatus, processPayment, getMenuCategories, getTables, getWaiters, getChefs } from '@/lib/api';
 import { Order, MenuItem, MenuCategory, RestaurantTable, User } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
 import { ShoppingCart, Plus, X, CreditCard, CheckCircle } from 'lucide-react';
@@ -79,6 +79,13 @@ export default function OrdersPage() {
       .catch(() => setWaiters([]));
   }, [isWaiter]);
 
+  useEffect(() => {
+    if (!user || !['admin', 'owner', 'manager', 'coordinator'].includes(user.role)) return;
+    getChefs()
+      .then(res => setChefs(res.data || []))
+      .catch(() => setChefs([]));
+  }, [user]);
+
   const addToCart = (item: MenuItem) => {
     setCart(prev => {
       const existing = prev.find(c => c.menuItem.id === item.id);
@@ -115,6 +122,9 @@ export default function OrdersPage() {
 
   // Cancel dialog: whole order or selected items
   const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
+  const [chefs, setChefs] = useState<User[]>([]);
+  const [confirmOrder, setConfirmOrder] = useState<Order | null>(null);
+  const [chefSel, setChefSel] = useState('');
   const [cancelSel, setCancelSel] = useState<number[]>([]);
 
   // Clear all POS state so stale carts/amounts never leak into the next order
@@ -274,6 +284,7 @@ export default function OrdersPage() {
               <tr>
                 <th className="table-header">Order #</th>
                 <th className="table-header">Table</th>
+                <th className="table-header">Chef</th>
                 <th className="table-header">Item</th>
                 <th className="table-header">Order Date</th>
                 <th className="table-header">Order Time</th>
@@ -286,7 +297,7 @@ export default function OrdersPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredOrders.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-12 text-gray-400">No orders found</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-gray-400">No orders found</td></tr>
               ) : filteredOrders.map((order) => (
                 <tr
                   key={order.id}
@@ -305,6 +316,7 @@ export default function OrdersPage() {
                     {order.table?.number ? <span className="font-medium">{order.table.number}</span> : <span className="text-gray-500">Take Away</span>}
                     {!isWaiter && order.waiter?.name && <p className="text-xs text-gray-400">Waiter: {order.waiter.name}</p>}
                   </td>
+                  <td className="table-cell text-gray-500 text-sm">{order.chef?.name || '—'}</td>
                   <td className="table-cell text-gray-500">{order.items?.length || 0} items</td>
                   <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{new Date(order.createdAt).toLocaleDateString()}</td>
                   <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
@@ -330,6 +342,9 @@ export default function OrdersPage() {
                       )}
                       {!isWaiter && !isCoordinator && order.status === 'pending' && (
                         <button onClick={() => handleStatusChange(order.id, 'confirmed')} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Confirm</button>
+                      )}
+                      {isCoordinator && order.status === 'pending' && (
+                        <button onClick={() => { setChefSel(''); setConfirmOrder(order); }} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Confirm</button>
                       )}
                       {!isWaiter && !isCoordinator && order.status === 'ready' && (
                         <button onClick={() => handleStatusChange(order.id, 'served')} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">Served</button>
@@ -539,6 +554,38 @@ export default function OrdersPage() {
                 Cancel Entire Order
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm & Assign Chef Modal (coordinator) */}
+      {confirmOrder && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setConfirmOrder(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold">Confirm Order #{confirmOrder.id}</h2>
+              <button onClick={() => setConfirmOrder(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Assign Chef</label>
+            <select value={chefSel} onChange={e => setChefSel(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mb-4 bg-white">
+              <option value="">Select a chef…</option>
+              {chefs.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+            </select>
+            <button disabled={!chefSel || submitting}
+              onClick={async () => {
+                setSubmitting(true);
+                try {
+                  await updateOrderStatus(confirmOrder.id, 'confirmed', Number(chefSel));
+                  setConfirmOrder(null);
+                  await fetchData();
+                } catch (e: any) {
+                  alert(e?.response?.data?.message || 'Could not confirm the order');
+                } finally { setSubmitting(false); }
+              }}
+              className="btn-primary w-full disabled:opacity-50">
+              Confirm & Assign
+            </button>
           </div>
         </div>
       )}

@@ -1,8 +1,10 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { getKitchenBoard, acceptOrder, startPreparing, markReady, updateOrderStatus } from '@/lib/api';
-import { Order } from '@/lib/types';
+import { getKitchenBoard, acceptOrder, startPreparing, markReady, updateOrderStatus, getChefs } from '@/lib/api';
+import { Order, User } from '@/lib/types';
 import { Clock, RefreshCw, ChefHat } from 'lucide-react';
+import { useAuthStore } from '@/store/auth';
+import clsx from 'clsx';
 
 const COLUMNS = [
   { key: 'pending', label: '🔴 New Orders', color: 'border-red-400 bg-red-50', badge: 'bg-red-500' },
@@ -17,14 +19,31 @@ function elapsed(dateStr: string) {
 }
 
 export default function KitchenPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const { user } = useAuthStore();
+  const isChef = user?.role === 'chef';
+  const canPickChef = !!user && ['admin', 'owner', 'manager', 'coordinator'].includes(user.role);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [chefTabs, setChefTabs] = useState<User[]>([]);
+  const [chefTab, setChefTab] = useState('');
+
+  useEffect(() => {
+    if (!canPickChef) return;
+    getChefs().then(res => setChefTabs(res.data || [])).catch(() => setChefTabs([]));
+  }, [canPickChef]);
+
+  // Chefs only see their own orders (plus new unassigned ones); others can filter by chef tab
+  const orders = isChef
+    ? allOrders.filter(o => o.chefId === user?.id || !o.chefId)
+    : chefTab
+      ? allOrders.filter(o => String(o.chefId || '') === chefTab)
+      : allOrders;
 
   const fetchBoard = useCallback(async () => {
     try {
       const res = await getKitchenBoard();
-      setOrders(res.data || []);
+      setAllOrders(res.data || []);
     } finally {
       setLoading(false);
     }
@@ -74,6 +93,22 @@ export default function KitchenPage() {
           <RefreshCw size={16} /> Refresh
         </button>
       </div>
+
+      {/* Chef tabs for coordinators/managers/owners/admins */}
+      {canPickChef && (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          <button onClick={() => setChefTab('')}
+            className={clsx('text-xs font-medium px-3 py-1.5 rounded-lg border', !chefTab ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50')}>
+            All Chefs
+          </button>
+          {chefTabs.map(c => (
+            <button key={c.id} onClick={() => setChefTab(String(c.id))}
+              className={clsx('text-xs font-medium px-3 py-1.5 rounded-lg border', chefTab === String(c.id) ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50')}>
+              👨‍🍳 {c.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Ready orders banner */}
       {readyOrders.length > 0 && (

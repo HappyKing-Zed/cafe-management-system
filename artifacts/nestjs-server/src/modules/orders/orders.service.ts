@@ -29,7 +29,7 @@ export class OrdersService {
     if (branchId) where.branchId = branchId;
     return this.orderRepo.find({
       where,
-      relations: ['table', 'waiter', 'items', 'items.menuItem', 'payments'],
+      relations: ['table', 'waiter', 'chef', 'items', 'items.menuItem', 'payments'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -37,7 +37,7 @@ export class OrdersService {
   async findOne(id: number) {
     const o = await this.orderRepo.findOne({
       where: { id },
-      relations: ['table', 'waiter', 'items', 'items.menuItem', 'payments'],
+      relations: ['table', 'waiter', 'chef', 'items', 'items.menuItem', 'payments'],
     });
     if (!o) throw new NotFoundException('Order not found');
     return o;
@@ -194,7 +194,7 @@ export class OrdersService {
     [OrderStatus.CANCELLED]: [],
   };
 
-  async updateStatus(id: number, status: OrderStatus, user?: { id: number; role: string }) {
+  async updateStatus(id: number, status: OrderStatus, user?: { id: number; role: string }, chefId?: number) {
     if (user) {
       const existing = await this.findOne(id);
       this.assertCanAccess(existing, user);
@@ -219,7 +219,7 @@ export class OrdersService {
     if (before.status !== status && !OrdersService.TRANSITIONS[before.status]?.includes(status)) {
       throw new BadRequestException(`Cannot move an order from "${before.status}" to "${status}"`);
     }
-    await this.orderRepo.update(id, { status });
+    await this.orderRepo.update(id, { status, ...(chefId ? { chefId } : {}) });
     const order = await this.findOne(id);
     if (before.status !== status) await this.notifications.orderEvent(order, status);
 

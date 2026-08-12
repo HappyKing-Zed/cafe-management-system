@@ -50,8 +50,8 @@ export class OrdersController {
   }
 
   @Patch(':id/status')
-  updateStatus(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body('status') status: OrderStatus) {
-    return this.service.updateStatus(id, status, req.user);
+  updateStatus(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body('status') status: OrderStatus, @Body('chefId') chefId?: number) {
+    return this.service.updateStatus(id, status, req.user, chefId ? +chefId : undefined);
   }
 
   @Patch(':id/items')

@@ -38,6 +38,14 @@ export class UsersService {
     });
   }
 
+  findChefs(branchId?: number) {
+    return this.repo.find({
+      where: { role: 'chef' as any, isActive: true, ...(branchId ? { branchId } : {}) },
+      select: ['id', 'name'],
+      order: { name: 'ASC' },
+    });
+  }
+
   async findOne(id: number) {
     const user = await this.repo.findOne({ where: { id }, relations: ['branch', 'restaurant'] });
     if (!user) throw new NotFoundException('User not found');

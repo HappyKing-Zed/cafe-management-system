@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/auth';
 const COLUMNS = [
   {
     key: 'received',
-    title: 'Received by Chef',
+    title: 'Received',
     icon: ChefHat,
     statuses: ['pending', 'confirmed'],
     accent: 'border-t-amber-500',

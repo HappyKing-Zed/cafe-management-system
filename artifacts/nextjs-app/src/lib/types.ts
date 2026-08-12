@@ -89,6 +89,8 @@ export interface Order {
   table?: RestaurantTable;
   waiterId?: number;
   waiter?: User;
+  chefId?: number;
+  chef?: User;
   items: OrderItem[];
   payments?: Payment[];
 }

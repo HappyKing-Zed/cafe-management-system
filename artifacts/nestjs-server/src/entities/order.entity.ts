@@ -49,6 +49,13 @@ export class Order {
   @Column({ nullable: true })
   waiterId: number;
 
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'chefId' })
+  chef: User;
+
+  @Column({ nullable: true })
+  chefId: number;
+
   @Column({ nullable: true })
   branchId: number;
 
