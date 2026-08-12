@@ -29,7 +29,6 @@ export default function ReportsPage() {
   const [fStaff, setFStaff] = useState({ role: 'all' });
 
   const fetchData = async () => {
-    setLoading(true);
     try {
       const [reportRes, ordersRes, paymentsRes, catRes, invRes, reqRes, staffRes, brRes] = await Promise.all([
         getDailyReport(selectedDate).catch(() => ({ data: null })),
@@ -54,7 +53,12 @@ export default function ReportsPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [selectedDate]);
+  useEffect(() => {
+    fetchData();
+    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 10000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   // ── Export data builders ─────────────────────────────────────────────
   const menuItems = menuCats.flatMap((c: any) => (c.items || []).map((i: any) => ({ ...i, categoryName: c.name })));
@@ -192,7 +196,6 @@ export default function ReportsPage() {
         </div>
         <div className="flex items-center gap-3">
           {tab === 'Overview' && <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="input w-auto" />}
-          <button onClick={fetchData} className="btn-secondary flex items-center gap-2"><RefreshCw size={16} /></button>
         </div>
       </div>
 

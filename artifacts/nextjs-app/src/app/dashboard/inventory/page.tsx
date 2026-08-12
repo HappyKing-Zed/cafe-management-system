@@ -92,7 +92,7 @@ export default function InventoryPage() {
   };
   useEffect(() => {
     fetchData();
-    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 15000);
+    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 10000);
     return () => clearInterval(t);
   }, [user?.role]);
 
@@ -595,7 +595,6 @@ export default function InventoryPage() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
-          <button onClick={fetchData} className="btn-secondary flex items-center gap-2"><RefreshCw size={16} /></button>
           {canApprovePO && tab === 'Purchase Orders' && (
             <button onClick={() => { setShowPOModal(true); setFormError(''); }} className="btn-primary flex items-center gap-2"><FileText size={16} /> New Purchase Order</button>
           )}

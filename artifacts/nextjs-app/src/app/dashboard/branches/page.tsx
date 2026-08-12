@@ -20,7 +20,12 @@ export default function BranchesPage() {
     setBranches(branchesRes.data || []);
     setLoading(false);
   };
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 10000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const saveRestaurant = async () => {
     setSubmitting(true);

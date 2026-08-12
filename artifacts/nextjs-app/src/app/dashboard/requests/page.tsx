@@ -59,9 +59,6 @@ export default function RequestsPage() {
             </p>
           </div>
         </div>
-        <button onClick={fetchData} className="btn-secondary flex items-center gap-2">
-          <RefreshCw size={16} /> Refresh
-        </button>
       </div>
 
       {loading ? (

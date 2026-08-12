@@ -39,7 +39,12 @@ export default function MenuPage() {
     setCategories(res.data || []);
     setLoading(false);
   };
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 10000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleExpand = (id: number) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 

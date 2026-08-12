@@ -76,9 +76,6 @@ export default function OrderBoardPage() {
             {user?.role === 'waiter' ? 'Showing your orders only · ' : ''}Updates automatically every 10 seconds
           </p>
         </div>
-        <button onClick={fetchData} className="btn-secondary flex items-center gap-2">
-          <RefreshCw size={16} /> Refresh
-        </button>
       </div>
 
       {loading ? (

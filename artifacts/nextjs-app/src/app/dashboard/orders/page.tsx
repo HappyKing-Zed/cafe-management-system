@@ -70,7 +70,12 @@ export default function OrdersPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 10000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (isWaiter) return;

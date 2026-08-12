@@ -121,7 +121,12 @@ export default function DashboardPage() {
     }
   };
 
-  useEffect(() => { fetchData(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [role]);
+  useEffect(() => {
+    fetchData();
+    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 10000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
 
   const handleSeed = async () => {
     setSeeding(true);
@@ -232,9 +237,6 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <button onClick={fetchData} className="btn-secondary flex items-center gap-2">
-            <RefreshCw size={16} /> Refresh
-          </button>
           {['admin', 'owner'].includes(role) && (
             <button onClick={handleSeed} disabled={seeding} className="btn-primary flex items-center gap-2">
               {seeding ? '⏳ Seeding...' : '🌱 Seed Data'}

@@ -250,7 +250,6 @@ export default function ItemRequestsPage() {
             <p className="text-sm text-gray-500">{canApprove ? 'Review and manage incoming item requests.' : 'Submit new store requisitions and track the status of your pending approvals.'}</p>
           </div>
         </div>
-        <button onClick={fetchData} className="btn-secondary flex items-center gap-2 shrink-0"><RefreshCw size={16} /> Refresh</button>
       </div>
       )}
 

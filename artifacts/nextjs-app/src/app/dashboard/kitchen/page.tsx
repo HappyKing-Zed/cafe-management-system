@@ -51,7 +51,7 @@ export default function KitchenPage() {
 
   useEffect(() => {
     fetchBoard();
-    const interval = setInterval(fetchBoard, 15000);
+    const interval = setInterval(fetchBoard, 10000);
     return () => clearInterval(interval);
   }, [fetchBoard]);
 
@@ -86,12 +86,9 @@ export default function KitchenPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Kitchen Display</h1>
-            <p className="text-gray-500 text-sm">Auto-refreshes every 15 seconds</p>
+            <p className="text-gray-500 text-sm">Auto-refreshes every 10 seconds</p>
           </div>
         </div>
-        <button onClick={fetchBoard} className="btn-secondary flex items-center gap-2">
-          <RefreshCw size={16} /> Refresh
-        </button>
       </div>
 
       {/* Chef tabs for coordinators/managers/owners/admins */}
