@@ -213,42 +213,35 @@ export default function OrdersPage() {
         ))}
       </div>
 
-      {/* Waiter filters */}
+      {/* Waiter filters — single compact row */}
       {isWaiter && (
-        <div className="flex flex-wrap gap-2 mb-4 items-end">
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Table</label>
-            <select value={fTable} onChange={e => setFTable(e.target.value)} className="input text-xs py-1.5 w-32">
-              <option value="">All</option>
-              <option value="takeaway">Take Away</option>
-              {tables.map(t => <option key={t.id} value={String(t.number)}>{t.number}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Item</label>
-            <input value={fItem} onChange={e => setFItem(e.target.value)} placeholder="Search item..." className="input text-xs py-1.5 w-36" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Order Date</label>
-            <input type="date" value={fDate} onChange={e => setFDate(e.target.value)} className="input text-xs py-1.5" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">From Time</label>
-            <input type="time" value={fTime} onChange={e => setFTime(e.target.value)} className="input text-xs py-1.5" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Payment Method</label>
-            <select value={fPay} onChange={e => setFPay(e.target.value)} className="input text-xs py-1.5 w-32">
-              <option value="">All</option>
-              <option value="cash">Cash</option>
-              <option value="card">Card</option>
-              <option value="mobile">Wallet</option>
-              <option value="unpaid">Not paid yet</option>
-            </select>
-          </div>
+        <div className="flex flex-wrap items-center gap-1.5 mb-4">
+          <select value={fTable} onChange={e => setFTable(e.target.value)} title="Table"
+            className={clsx('text-xs py-1.5 px-2 rounded-lg border bg-white w-28', fTable ? 'border-brand-400 text-brand-700' : 'border-gray-200 text-gray-500')}>
+            <option value="">Table: All</option>
+            <option value="takeaway">Take Away</option>
+            {tables.map(t => <option key={t.id} value={String(t.number)}>{t.number}</option>)}
+          </select>
+          <input list="filter-items" value={fItem} onChange={e => setFItem(e.target.value)} placeholder="Item…" title="Item"
+            className={clsx('text-xs py-1.5 px-2 rounded-lg border bg-white w-32', fItem ? 'border-brand-400 text-brand-700' : 'border-gray-200 text-gray-500')} />
+          <datalist id="filter-items">
+            {categories.flatMap(c => c.items || []).map(i => <option key={i.id} value={i.name} />)}
+          </datalist>
+          <input type="date" value={fDate} onChange={e => setFDate(e.target.value)} title="Order date"
+            className={clsx('text-xs py-1.5 px-2 rounded-lg border bg-white', fDate ? 'border-brand-400 text-brand-700' : 'border-gray-200 text-gray-500')} />
+          <input type="time" value={fTime} onChange={e => setFTime(e.target.value)} title="From time"
+            className={clsx('text-xs py-1.5 px-2 rounded-lg border bg-white', fTime ? 'border-brand-400 text-brand-700' : 'border-gray-200 text-gray-500')} />
+          <select value={fPay} onChange={e => setFPay(e.target.value)} title="Payment method"
+            className={clsx('text-xs py-1.5 px-2 rounded-lg border bg-white w-28', fPay ? 'border-brand-400 text-brand-700' : 'border-gray-200 text-gray-500')}>
+            <option value="">Payment: All</option>
+            <option value="cash">Cash</option>
+            <option value="card">Card</option>
+            <option value="mobile">Wallet</option>
+            <option value="unpaid">Not paid yet</option>
+          </select>
           {(fTable || fItem || fDate || fTime || fPay) && (
             <button onClick={() => { setFTable(''); setFItem(''); setFDate(''); setFTime(''); setFPay(''); }}
-              className="text-xs text-brand-600 hover:underline pb-2">Clear filters</button>
+              className="text-xs px-2 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200" title="Clear all filters">✕ Clear</button>
           )}
         </div>
       )}
