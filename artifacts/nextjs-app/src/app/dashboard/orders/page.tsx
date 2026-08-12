@@ -250,10 +250,16 @@ export default function OrdersPage() {
                     <span className={`status-badge ${STATUS_COLORS[order.status]}`}>{order.status}</span>
                   </td>
                   <td className="table-cell" onClick={(e) => e.stopPropagation()}>
-                    {!['paid', 'cancelled'].includes(order.status) && (
-                      <button onClick={() => { resetPOS(); setAppendOrder(order); setShowPOS(true); }}
-                        className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded hover:bg-brand-200 whitespace-nowrap">+ Add Items</button>
-                    )}
+                    <div className="flex gap-1">
+                      {!['paid', 'cancelled'].includes(order.status) && (
+                        <button onClick={() => { resetPOS(); setAppendOrder(order); setShowPOS(true); }}
+                          className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded hover:bg-brand-200 whitespace-nowrap">+ Add Items</button>
+                      )}
+                      {['pending', 'confirmed'].includes(order.status) && (
+                        <button onClick={() => { if (confirm(`Cancel order #${order.id}?`)) handleStatusChange(order.id, 'cancelled'); }}
+                          className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 whitespace-nowrap">Cancel</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )) : filteredOrders.map((order) => (

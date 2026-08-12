@@ -179,6 +179,14 @@ export class OrdersService {
       if (status === OrderStatus.PAID && !['cashier', 'admin', 'owner'].includes(user.role)) {
         throw new ForbiddenException('Only the cashier can confirm payment');
       }
+      // Waiters may only cancel before the kitchen starts preparing
+      if (
+        user.role === 'waiter' &&
+        status === OrderStatus.CANCELLED &&
+        ![OrderStatus.PENDING, OrderStatus.CONFIRMED].includes(existing.status)
+      ) {
+        throw new ForbiddenException('Orders can no longer be cancelled once the kitchen starts preparing');
+      }
     }
     const before = await this.findOne(id);
     if (before.status !== status && !OrdersService.TRANSITIONS[before.status]?.includes(status)) {
