@@ -81,15 +81,24 @@ export default function OrderBoardPage() {
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Order Progress Board</h1>
-          <p className="text-gray-500 text-sm">
-            {user?.role === 'waiter' ? 'Showing your orders only · ' : ''}Updates automatically every 10 seconds
-          </p>
-        </div>
-        <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5">
-          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> Live
+      <div className="rounded-2xl px-6 py-5 mb-6 text-white shadow-lg relative overflow-hidden" style={{ background: 'linear-gradient(120deg, #1E293B 0%, #334155 55%, #E8832A 130%)' }}>
+        <div className="absolute -right-8 -top-10 w-44 h-44 rounded-full bg-white/5" />
+        <div className="absolute right-16 -bottom-14 w-36 h-36 rounded-full bg-white/5" />
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow" style={{ background: 'linear-gradient(135deg, #E8832A, #C2611A)' }}>
+              <Flame size={22} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Order Progress Board</h1>
+              <p className="text-white/60 text-sm">
+                {user?.role === 'waiter' ? 'Showing your orders only · ' : ''}Updates automatically every 10 seconds
+              </p>
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-white bg-white/10 border border-white/20 rounded-full px-3 py-1.5 backdrop-blur">
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" /> Live
+          </div>
         </div>
       </div>
 
