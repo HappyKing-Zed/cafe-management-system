@@ -93,17 +93,31 @@ export default function OrdersPage() {
 
   const cartTotal = cart.reduce((sum, c) => sum + Number(c.menuItem.price) * c.quantity, 0);
 
+  // Pay-at-order (waiter POS): optionally take payment while placing the order
+  const [payNow, setPayNow] = useState(false);
+  const [posPayMethod, setPosPayMethod] = useState<'cash' | 'card' | 'mobile'>('cash');
+  const [posPayAmount, setPosPayAmount] = useState('');
+
   const submitOrder = async () => {
     if (cart.length === 0) return;
     setSubmitting(true);
     try {
-      await createOrder({
+      const res = await createOrder({
         tableId: selectedTable,
         waiterId: canAssignWaiter ? selectedWaiter : user?.role === 'waiter' ? user.id : undefined,
         customerName,
         notes,
         items: cart.map(c => ({ menuItemId: c.menuItem.id, quantity: c.quantity, notes: c.notes })),
       });
+      if (payNow && res.data?.id) {
+        try {
+          await processPayment({ orderId: res.data.id, method: posPayMethod, amount: parseFloat(posPayAmount) || cartTotal });
+        } catch (e: any) {
+          alert(e?.response?.data?.message || 'Order placed, but the payment could not be processed');
+        }
+      }
+      setPayNow(false);
+      setPosPayAmount('');
       setCart([]);
       setSelectedTable(null);
       setSelectedWaiter(null);
@@ -360,9 +374,40 @@ export default function OrdersPage() {
                   <span className="font-semibold text-gray-700">Total</span>
                   <span className="font-bold text-xl text-brand-600">ETB {cartTotal.toLocaleString()}</span>
                 </div>
+
+                {/* Process Payment (pay at order) */}
+                <label className="flex items-center gap-2 mb-3 cursor-pointer select-none">
+                  <input type="checkbox" checked={payNow} onChange={e => { setPayNow(e.target.checked); if (e.target.checked) setPosPayAmount(String(cartTotal)); }} className="w-4 h-4 accent-brand-500" />
+                  <span className="text-sm font-semibold text-gray-800">Process Payment</span>
+                </label>
+                {payNow && (
+                  <div className="mb-3 space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Payment Method</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['cash', 'card', 'mobile'] as const).map((m) => (
+                          <button key={m} onClick={() => setPosPayMethod(m)}
+                            className={clsx('py-2 rounded-lg text-xs font-medium border-2 transition-colors', posPayMethod === m ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
+                            {m === 'cash' ? '💵' : m === 'card' ? '💳' : '📱'} {m.charAt(0).toUpperCase() + m.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Amount Received</label>
+                      <input type="number" value={posPayAmount} onChange={e => setPosPayAmount(e.target.value)} className="input text-sm" placeholder="Enter amount" />
+                    </div>
+                    {posPayMethod === 'cash' && parseFloat(posPayAmount) > cartTotal && (
+                      <div className="bg-green-50 rounded-lg p-2 text-center">
+                        <p className="text-xs text-green-700">Change: <span className="font-bold">ETB {(parseFloat(posPayAmount) - cartTotal).toLocaleString()}</span></p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <button onClick={submitOrder} disabled={cart.length === 0 || submitting}
                   className="btn-primary w-full py-3 disabled:opacity-50">
-                  {submitting ? 'Placing Order...' : 'Place Order'}
+                  {submitting ? 'Placing Order...' : payNow ? 'Place Order & Confirm Payment' : 'Place Order'}
                 </button>
               </div>
             </div>
