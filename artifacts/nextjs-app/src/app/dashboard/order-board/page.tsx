@@ -47,7 +47,7 @@ const COLUMNS = [
     key: 'completed',
     title: 'Completed',
     icon: CheckCircle2,
-    statuses: ['ready', 'served'],
+    statuses: ['ready'],
     grad: 'linear-gradient(135deg, #10B981, #047857)',
     body: 'bg-emerald-50/60',
     ring: 'ring-emerald-100',
@@ -57,7 +57,7 @@ const COLUMNS = [
   },
 ];
 
-const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'served'];
+const ACTIVE_STATUSES = ['pending', 'confirmed', 'preparing', 'ready'];
 
 function minutesAgo(date: string) {
   return Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 60000));
