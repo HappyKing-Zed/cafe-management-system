@@ -309,8 +309,16 @@ export default function OrdersPage() {
                   <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{estCompletion(order)}</td>
                   <td className="table-cell font-semibold">ETB {Number(order.totalAmount).toLocaleString()}</td>
                   <td className="table-cell text-sm text-gray-600 capitalize">{order.payments?.length ? (order.payments[order.payments.length - 1].method === 'mobile' ? 'wallet' : order.payments[order.payments.length - 1].method) : '—'}</td>
-                  <td className="table-cell">
-                    <span className={`status-badge ${STATUS_COLORS[order.status]}`}>{order.status}</span>
+                  <td className="table-cell" onClick={(e) => e.stopPropagation()}>
+                    {order.status === 'ready' ? (
+                      <button onClick={() => handleStatusChange(order.id, 'served')}
+                        title="Click to mark as served"
+                        className={`status-badge ${STATUS_COLORS[order.status]} cursor-pointer hover:ring-2 hover:ring-purple-300`}>
+                        ready → serve
+                      </button>
+                    ) : (
+                      <span className={`status-badge ${STATUS_COLORS[order.status]}`}>{order.status}</span>
+                    )}
                   </td>
                   <td className="table-cell" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1">
