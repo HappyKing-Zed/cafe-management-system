@@ -11,7 +11,24 @@ export default function MenuPage() {
   const [expanded, setExpanded] = useState<number[]>([]);
   const [catForm, setCatForm] = useState({ name: '', description: '', restaurantId: 1 });
   const [editCat, setEditCat] = useState<MenuCategory | null>(null);
-  const [itemForm, setItemForm] = useState({ name: '', description: '', price: '', categoryId: 0, isAvailable: true, preparationTime: '' });
+  const [itemForm, setItemForm] = useState({ name: '', description: '', price: '', categoryId: 0, isAvailable: true, preparationTime: '', imageUrl: '' });
+
+  // Downscale the chosen photo to a small JPEG data URL so it stores neatly with the item
+  const onImagePick = (file: File | undefined) => {
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => {
+      const max = 320;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      setItemForm(p => ({ ...p, imageUrl: canvas.toDataURL('image/jpeg', 0.8) }));
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+  };
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
   const [showCatModal, setShowCatModal] = useState(false);
   const [showItemModal, setShowItemModal] = useState(false);
@@ -45,10 +62,10 @@ export default function MenuPage() {
     setSelectedCatForItem(catId);
     if (item) {
       setEditItem(item);
-      setItemForm({ name: item.name, description: item.description || '', price: String(item.price), categoryId: item.categoryId, isAvailable: item.isAvailable, preparationTime: String(item.preparationTime || '') });
+      setItemForm({ name: item.name, description: item.description || '', price: String(item.price), categoryId: item.categoryId, isAvailable: item.isAvailable, preparationTime: String(item.preparationTime || ''), imageUrl: item.imageUrl || '' });
     } else {
       setEditItem(null);
-      setItemForm({ name: '', description: '', price: '', categoryId: catId, isAvailable: true, preparationTime: '' });
+      setItemForm({ name: '', description: '', price: '', categoryId: catId, isAvailable: true, preparationTime: '', imageUrl: '' });
     }
     setShowItemModal(true);
   };
@@ -194,6 +211,19 @@ export default function MenuPage() {
                   <input type="number" value={itemForm.price} onChange={e => setItemForm(p => ({ ...p, price: e.target.value }))} className="input" /></div>
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Prep (min)</label>
                   <input type="number" value={itemForm.preparationTime} onChange={e => setItemForm(p => ({ ...p, preparationTime: e.target.value }))} className="input" /></div>
+              </div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Photo (optional)</label>
+                <div className="flex items-center gap-3">
+                  {itemForm.imageUrl ? (
+                    <img src={itemForm.imageUrl} alt="" className="w-14 h-14 rounded-lg object-cover border" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg bg-gray-100 border border-dashed flex items-center justify-center text-gray-300 text-xs">No photo</div>
+                  )}
+                  <div className="flex flex-col gap-1">
+                    <input type="file" accept="image/*" onChange={e => onImagePick(e.target.files?.[0])} className="text-xs" />
+                    {itemForm.imageUrl && <button onClick={() => setItemForm(p => ({ ...p, imageUrl: '' }))} className="text-xs text-red-500 text-left hover:underline">Remove photo</button>}
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex gap-3 mt-5">

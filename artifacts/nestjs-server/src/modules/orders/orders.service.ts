@@ -29,7 +29,7 @@ export class OrdersService {
     if (branchId) where.branchId = branchId;
     return this.orderRepo.find({
       where,
-      relations: ['table', 'waiter', 'items', 'items.menuItem'],
+      relations: ['table', 'waiter', 'items', 'items.menuItem', 'payments'],
       order: { createdAt: 'DESC' },
     });
   }

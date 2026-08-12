@@ -180,6 +180,7 @@ export default function OrdersPage() {
                   <th className="table-header">Order Time</th>
                   <th className="table-header">Est. Completion</th>
                   <th className="table-header">Total</th>
+                  <th className="table-header">Payment Method</th>
                   <th className="table-header">Status</th>
                 </tr>
               ) : (
@@ -196,7 +197,7 @@ export default function OrdersPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredOrders.length === 0 ? (
-                <tr><td colSpan={isWaiter ? 8 : 7} className="text-center py-12 text-gray-400">No orders found</td></tr>
+                <tr><td colSpan={isWaiter ? 9 : 7} className="text-center py-12 text-gray-400">No orders found</td></tr>
               ) : isWaiter ? filteredOrders.map((order) => (
                 <tr
                   key={order.id}
@@ -219,6 +220,7 @@ export default function OrdersPage() {
                   <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                   <td className="table-cell text-gray-500 text-xs whitespace-nowrap">{estCompletion(order)}</td>
                   <td className="table-cell font-semibold">ETB {Number(order.totalAmount).toLocaleString()}</td>
+                  <td className="table-cell text-sm text-gray-600 capitalize">{order.payments?.length ? order.payments[order.payments.length - 1].method : '—'}</td>
                   <td className="table-cell">
                     <span className={`status-badge ${STATUS_COLORS[order.status]}`}>{order.status}</span>
                   </td>
@@ -303,6 +305,7 @@ export default function OrdersPage() {
                   <button key={item.id} onClick={() => addToCart(item)}
                     className="p-4 border-2 border-gray-100 hover:border-brand-400 rounded-xl text-left transition-all hover:shadow-md"
                   >
+                    {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-20 object-cover rounded-lg mb-2" />}
                     <p className="font-semibold text-gray-900 text-sm mb-1">{item.name}</p>
                     <p className="text-xs text-gray-400 mb-2 line-clamp-2">{item.description}</p>
                     <p className="text-brand-600 font-bold">ETB {Number(item.price).toLocaleString()}</p>
