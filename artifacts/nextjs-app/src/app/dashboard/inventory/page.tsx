@@ -65,7 +65,7 @@ export default function InventoryPage() {
   const [formError, setFormError] = useState('');
   // Storekeeper Store Operations view
   const [requests, setRequests] = useState<any[]>([]);
-  const [opTab, setOpTab] = useState<'out' | 'in' | 'items' | 'ledger'>('out');
+  const [opTab, setOpTab] = useState<'out' | 'in' | 'items' | 'ledger' | 'report'>('out');
   const [opBusy, setOpBusy] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -340,6 +340,9 @@ export default function InventoryPage() {
           <button onClick={() => setOpTab('ledger')} className={clsx('pb-2.5 text-sm font-semibold border-b-2 -mb-px flex items-center gap-2', opTab === 'ledger' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700')}>
             <FileText size={15} /> Inventory Ledger
           </button>
+          <button onClick={() => setOpTab('report')} className={clsx('pb-2.5 text-sm font-semibold border-b-2 -mb-px flex items-center gap-2', opTab === 'report' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700')}>
+            <ArrowDownToLine size={15} /> Export Report
+          </button>
         </div>
 
         {loading ? (
@@ -498,7 +501,7 @@ export default function InventoryPage() {
                   </table>
                 </div>
               </div>
-            ) : (
+            ) : opTab === 'ledger' ? (
             /* Inventory Ledger */
             <div className="card p-0 overflow-hidden">
               <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-2">
@@ -540,10 +543,9 @@ export default function InventoryPage() {
                 </table>
               </div>
             </div>
-            )}
-
-            {/* Export Report */}
-            <div className="card mt-6 max-w-3xl">
+            ) : (
+            /* Export Report */
+            <div className="card max-w-3xl">
               <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><FileText size={18} /> Export Report</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Report Type</label>
@@ -565,6 +567,7 @@ export default function InventoryPage() {
                 <button onClick={exportPDF} disabled={exporting} className="btn-secondary flex items-center gap-2 disabled:opacity-50"><FileText size={16} /> {exporting ? 'Exporting…' : 'Export PDF'}</button>
               </div>
             </div>
+            )}
           </>
         )}
         {itemModal}
