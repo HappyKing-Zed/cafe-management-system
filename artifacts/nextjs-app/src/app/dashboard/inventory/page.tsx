@@ -155,11 +155,12 @@ export default function InventoryPage() {
   const [exporting, setExporting] = useState(false);
 
   const reportRows = async (): Promise<{ title: string; head: string[]; rows: (string | number)[][] }> => {
-    if (report.type === 'inventory') {
+    if (report.type === 'inventory' || report.type === 'low-stock') {
       const res = await getInventoryItems();
-      const list: InventoryItem[] = res.data || [];
+      let list: InventoryItem[] = res.data || [];
+      if (report.type === 'low-stock') list = list.filter(i => Number(i.currentStock) <= Number(i.minStock));
       return {
-        title: 'Inventory Report',
+        title: report.type === 'low-stock' ? 'Low Stock Items Report' : 'Available Items Report',
         head: ['Item', 'Category', 'Unit', 'Current Stock', 'Min Stock', 'Unit Price (ETB)', 'Total Price (ETB)', 'Expiry Date'],
         rows: list.map(i => [i.name, (i as any).category || '—', i.unit, Number(i.currentStock), Number(i.minStock), Number(i.unitCost), Number(i.currentStock) * Number(i.unitCost), (i as any).expiryDate ? new Date((i as any).expiryDate).toLocaleDateString() : '—']),
       };
@@ -540,6 +541,30 @@ export default function InventoryPage() {
               </div>
             </div>
             )}
+
+            {/* Export Report */}
+            <div className="card mt-6 max-w-3xl">
+              <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><FileText size={18} /> Export Report</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Report Type</label>
+                  <select value={report.type} onChange={e => setReport(p => ({ ...p, type: e.target.value }))} className="input">
+                    <option value="stock-in">Stock In</option>
+                    <option value="stock-out">Stock Out</option>
+                    <option value="inventory">Available Items</option>
+                    <option value="low-stock">Low Stock Items</option>
+                  </select>
+                </div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">From</label>
+                  <input type="date" value={report.from} onChange={e => setReport(p => ({ ...p, from: e.target.value }))} className="input" disabled={['inventory', 'low-stock'].includes(report.type)} /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+                  <input type="date" value={report.to} onChange={e => setReport(p => ({ ...p, to: e.target.value }))} className="input" disabled={['inventory', 'low-stock'].includes(report.type)} /></div>
+              </div>
+              <p className="text-xs text-gray-400 mb-4">{['inventory', 'low-stock'].includes(report.type) ? 'Item reports are a snapshot of current stock levels and values.' : 'Leave the dates empty to include all records.'}</p>
+              <div className="flex gap-3">
+                <button onClick={exportExcel} disabled={exporting} className="btn-primary flex items-center gap-2 disabled:opacity-50"><ArrowDownToLine size={16} /> {exporting ? 'Exporting…' : 'Export Excel'}</button>
+                <button onClick={exportPDF} disabled={exporting} className="btn-secondary flex items-center gap-2 disabled:opacity-50"><FileText size={16} /> {exporting ? 'Exporting…' : 'Export PDF'}</button>
+              </div>
+            </div>
           </>
         )}
         {itemModal}
@@ -741,15 +766,16 @@ export default function InventoryPage() {
                   <select value={report.type} onChange={e => setReport(p => ({ ...p, type: e.target.value }))} className="input">
                     <option value="stock-in">Stock In</option>
                     <option value="stock-out">Stock Out</option>
-                    <option value="inventory">Inventory (current stock)</option>
+                    <option value="inventory">Available Items (current stock)</option>
+                    <option value="low-stock">Low Stock Items</option>
                   </select>
                 </div>
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">From</label>
-                  <input type="date" value={report.from} onChange={e => setReport(p => ({ ...p, from: e.target.value }))} className="input" disabled={report.type === 'inventory'} /></div>
+                  <input type="date" value={report.from} onChange={e => setReport(p => ({ ...p, from: e.target.value }))} className="input" disabled={['inventory', 'low-stock'].includes(report.type)} /></div>
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">To</label>
-                  <input type="date" value={report.to} onChange={e => setReport(p => ({ ...p, to: e.target.value }))} className="input" disabled={report.type === 'inventory'} /></div>
+                  <input type="date" value={report.to} onChange={e => setReport(p => ({ ...p, to: e.target.value }))} className="input" disabled={['inventory', 'low-stock'].includes(report.type)} /></div>
               </div>
-              <p className="text-xs text-gray-400 mb-4">{report.type === 'inventory' ? 'The inventory report is a snapshot of current stock levels and values.' : 'Leave the dates empty to include all records.'}</p>
+              <p className="text-xs text-gray-400 mb-4">{['inventory', 'low-stock'].includes(report.type) ? 'Item reports are a snapshot of current stock levels and values.' : 'Leave the dates empty to include all records.'}</p>
               <div className="flex gap-3">
                 <button onClick={exportExcel} disabled={exporting} className="btn-primary flex items-center gap-2 disabled:opacity-50"><ArrowDownToLine size={16} /> {exporting ? 'Exporting…' : 'Export Excel'}</button>
                 <button onClick={exportPDF} disabled={exporting} className="btn-secondary flex items-center gap-2 disabled:opacity-50"><FileText size={16} /> {exporting ? 'Exporting…' : 'Export PDF'}</button>
