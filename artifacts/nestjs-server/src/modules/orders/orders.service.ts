@@ -148,6 +148,30 @@ export class OrdersService {
     return this.findOne(orderId);
   }
 
+  async removeItems(orderId: number, orderItemIds: number[], user?: { id: number; role: string }) {
+    const order = await this.findOne(orderId);
+    this.assertCanAccess(order, user);
+    if (order.status === OrderStatus.PAID || order.status === OrderStatus.CANCELLED) {
+      throw new BadRequestException('Cannot modify a paid or cancelled order');
+    }
+    // Waiters may only remove items before the kitchen starts preparing
+    if (user?.role === 'waiter' && ![OrderStatus.PENDING, OrderStatus.CONFIRMED].includes(order.status)) {
+      throw new ForbiddenException('Items can no longer be removed once the kitchen starts preparing');
+    }
+    const toRemove = order.items.filter(i => orderItemIds.includes(i.id));
+    if (toRemove.length === 0) throw new BadRequestException('No matching items on this order');
+
+    if (toRemove.length >= order.items.length) {
+      // Removing everything cancels the order
+      return this.updateStatus(orderId, OrderStatus.CANCELLED, user);
+    }
+    await this.itemRepo.remove(toRemove);
+    const updated = await this.findOne(orderId);
+    const total = updated.items.reduce((sum, i) => sum + Number(i.unitPrice) * i.quantity, 0);
+    await this.orderRepo.update(orderId, { totalAmount: total });
+    return this.findOne(orderId);
+  }
+
   // Which statuses each role may set. Managers/admin/owner/coordinator: any.
   private static readonly ROLE_STATUS: Record<string, OrderStatus[]> = {
     waiter: [OrderStatus.SERVED, OrderStatus.CANCELLED],

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getOrders, getOrder, createOrder, addOrderItems, updateOrderStatus, processPayment, getMenuCategories, getTables, getWaiters } from '@/lib/api';
+import { getOrders, getOrder, createOrder, addOrderItems, removeOrderItems, updateOrderStatus, processPayment, getMenuCategories, getTables, getWaiters } from '@/lib/api';
 import { Order, MenuItem, MenuCategory, RestaurantTable, User } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
 import { ShoppingCart, Plus, X, CreditCard, CheckCircle } from 'lucide-react';
@@ -100,6 +100,17 @@ export default function OrdersPage() {
   // When set, the POS adds items to this existing order instead of creating a new one
   const [appendOrder, setAppendOrder] = useState<Order | null>(null);
 
+  // Waiter list filters
+  const [fTable, setFTable] = useState('');
+  const [fItem, setFItem] = useState('');
+  const [fDate, setFDate] = useState('');
+  const [fTime, setFTime] = useState('');
+  const [fPay, setFPay] = useState('');
+
+  // Cancel dialog: whole order or selected items
+  const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
+  const [cancelSel, setCancelSel] = useState<number[]>([]);
+
   // Clear all POS state so stale carts/amounts never leak into the next order
   const resetPOS = () => {
     setCart([]);
@@ -158,7 +169,21 @@ export default function OrdersPage() {
     }
   };
 
-  const filteredOrders = filter === 'all' ? orders : orders.filter(o => o.status === filter);
+  const statusFiltered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
+  const filteredOrders = !isWaiter ? statusFiltered : statusFiltered.filter((o) => {
+    if (fTable) {
+      if (fTable === 'takeaway') { if (o.table?.number) return false; }
+      else if (String(o.table?.number || '') !== fTable) return false;
+    }
+    if (fItem && !o.items?.some(i => i.menuItem?.name?.toLowerCase().includes(fItem.toLowerCase()))) return false;
+    if (fDate && new Date(o.createdAt).toLocaleDateString('en-CA') !== fDate) return false;
+    if (fTime && new Date(o.createdAt).toTimeString().slice(0, 5) < fTime) return false;
+    if (fPay) {
+      const m = o.payments?.length ? o.payments[o.payments.length - 1].method : '';
+      if (fPay === 'unpaid' ? !!m : m !== fPay) return false;
+    }
+    return true;
+  });
   const currentCat = categories.find(c => c.id === selectedCat);
 
   return (
@@ -187,6 +212,46 @@ export default function OrdersPage() {
           </button>
         ))}
       </div>
+
+      {/* Waiter filters */}
+      {isWaiter && (
+        <div className="flex flex-wrap gap-2 mb-4 items-end">
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Table</label>
+            <select value={fTable} onChange={e => setFTable(e.target.value)} className="input text-xs py-1.5 w-32">
+              <option value="">All</option>
+              <option value="takeaway">Take Away</option>
+              {tables.map(t => <option key={t.id} value={String(t.number)}>{t.number}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Item</label>
+            <input value={fItem} onChange={e => setFItem(e.target.value)} placeholder="Search item..." className="input text-xs py-1.5 w-36" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Order Date</label>
+            <input type="date" value={fDate} onChange={e => setFDate(e.target.value)} className="input text-xs py-1.5" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">From Time</label>
+            <input type="time" value={fTime} onChange={e => setFTime(e.target.value)} className="input text-xs py-1.5" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Payment Method</label>
+            <select value={fPay} onChange={e => setFPay(e.target.value)} className="input text-xs py-1.5 w-32">
+              <option value="">All</option>
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="mobile">Wallet</option>
+              <option value="unpaid">Not paid yet</option>
+            </select>
+          </div>
+          {(fTable || fItem || fDate || fTime || fPay) && (
+            <button onClick={() => { setFTable(''); setFItem(''); setFDate(''); setFTime(''); setFPay(''); }}
+              className="text-xs text-brand-600 hover:underline pb-2">Clear filters</button>
+          )}
+        </div>
+      )}
 
       {/* Orders Table */}
       {loading ? (
@@ -256,8 +321,10 @@ export default function OrdersPage() {
                           className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded hover:bg-brand-200 whitespace-nowrap">+ Add Items</button>
                       )}
                       {['pending', 'confirmed'].includes(order.status) && (
-                        <button onClick={() => { if (confirm(`Cancel order #${order.id}?`)) handleStatusChange(order.id, 'cancelled'); }}
-                          className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 whitespace-nowrap">Cancel</button>
+                        <button onClick={async () => {
+                          setCancelSel([]);
+                          try { const res = await getOrder(order.id); setCancelOrder(res.data); } catch { setCancelOrder(order); }
+                        }} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 whitespace-nowrap">Cancel</button>
                       )}
                     </div>
                   </td>
@@ -362,7 +429,7 @@ export default function OrdersPage() {
                     <option value="">Take Away</option>
                     {tables.map(t => <option key={t.id} value={t.id}>{t.number}</option>)}
                   </select>
-                  <input placeholder="Customer name" value={customerName} onChange={e => setCustomerName(e.target.value)} className="input text-xs py-1.5" />
+                  <input placeholder="Customer phone number" type="tel" value={customerName} onChange={e => setCustomerName(e.target.value)} className="input text-xs py-1.5" />
                 </div>
                 )}
                 {appendOrder && (
@@ -427,6 +494,60 @@ export default function OrdersPage() {
                   {submitting ? 'Saving...' : appendOrder ? `Add to Order #${appendOrder.id}` : payNow ? 'Place Order & Confirm Payment' : 'Place Order'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Order Modal */}
+      {cancelOrder && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-xl font-bold">Cancel Order #{cancelOrder.id}</h3>
+              <button onClick={() => setCancelOrder(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">Cancel the whole order, or tick the items to remove.</p>
+            <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
+              {cancelOrder.items?.map((i) => (
+                <label key={i.id} className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 cursor-pointer">
+                  <input type="checkbox" checked={cancelSel.includes(i.id)}
+                    onChange={e => setCancelSel(s => e.target.checked ? [...s, i.id] : s.filter(x => x !== i.id))}
+                    className="w-4 h-4 accent-brand-500" />
+                  <span className="text-sm flex-1">{i.menuItem?.name || `Item #${i.menuItemId}`} × {i.quantity}</span>
+                  <span className="text-sm font-semibold text-gray-600">ETB {(Number(i.unitPrice) * i.quantity).toLocaleString()}</span>
+                </label>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <button disabled={cancelSel.length === 0 || submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  try {
+                    await removeOrderItems(cancelOrder.id, cancelSel);
+                    setCancelOrder(null);
+                    await fetchData();
+                  } catch (e: any) {
+                    alert(e?.response?.data?.message || 'Could not remove the items');
+                  } finally { setSubmitting(false); }
+                }}
+                className="btn-secondary w-full disabled:opacity-50">
+                Remove Selected Items{cancelSel.length ? ` (${cancelSel.length})` : ''}
+              </button>
+              <button disabled={submitting}
+                onClick={async () => {
+                  setSubmitting(true);
+                  try {
+                    await updateOrderStatus(cancelOrder.id, 'cancelled');
+                    setCancelOrder(null);
+                    await fetchData();
+                  } catch (e: any) {
+                    alert(e?.response?.data?.message || 'Could not cancel the order');
+                  } finally { setSubmitting(false); }
+                }}
+                className="w-full py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 disabled:opacity-50">
+                Cancel Entire Order
+              </button>
             </div>
           </div>
         </div>

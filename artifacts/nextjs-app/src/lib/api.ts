@@ -88,6 +88,8 @@ export const updateOrderStatus = (id: number, status: string) =>
   api.patch(`/orders/${id}/status`, { status });
 export const addOrderItems = (id: number, items: any[]) =>
   api.patch(`/orders/${id}/items`, { items });
+export const removeOrderItems = (id: number, orderItemIds: number[]) =>
+  api.patch(`/orders/${id}/items/remove`, { orderItemIds });
 
 export const getOrderAlerts = () => api.get('/orders/alerts');
 

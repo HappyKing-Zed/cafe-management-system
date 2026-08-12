@@ -61,6 +61,13 @@ export class OrdersController {
     return this.service.addItems(id, items, req.user);
   }
 
+  @Patch(':id/items/remove')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.CASHIER, Role.WAITER)
+  removeItems(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body('orderItemIds') orderItemIds: number[]) {
+    return this.service.removeItems(id, orderItemIds, req.user);
+  }
+
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
