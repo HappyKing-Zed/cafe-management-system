@@ -13,7 +13,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'owner', 'manager', 'chef', 'cashier', 'storekeeper'] },
   { href: '/dashboard/orders', label: 'Orders / POS', icon: ShoppingCart, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'cashier'] },
   { href: '/dashboard/order-board', label: 'Order Board', icon: Columns3, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'cashier', 'storekeeper'] },
-  { href: '/dashboard/requests', label: 'Requests', icon: Send, roles: ['admin', 'owner', 'manager', 'coordinator', 'chef'] },
+  { href: '/dashboard/requests', label: 'Requests', icon: Send, roles: ['admin', 'chef'] },
   { href: '/dashboard/kitchen', label: 'Kitchen Board', icon: ChefHat, roles: ['admin', 'owner', 'manager', 'coordinator', 'chef'] },
   { href: '/dashboard/tables', label: 'Tables', icon: Table2, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter'] },
   { href: '/dashboard/menu', label: 'Menu', icon: UtensilsCrossed, roles: ['admin', 'owner', 'manager'] },
