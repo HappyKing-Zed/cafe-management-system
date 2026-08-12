@@ -2,16 +2,24 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getOrders } from '@/lib/api';
 import { Order } from '@/lib/types';
-import { ChefHat, Flame, CheckCircle2, RefreshCw } from 'lucide-react';
+import { ChefHat, Flame, CheckCircle2, RefreshCw, ClipboardList } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '@/store/auth';
 
 const COLUMNS = [
   {
+    key: 'requested',
+    title: 'Requested',
+    icon: ClipboardList,
+    statuses: ['pending'],
+    accent: 'border-t-sky-500',
+    badge: 'bg-sky-100 text-sky-800',
+  },
+  {
     key: 'received',
-    title: 'Received',
+    title: 'Received and Confirmed',
     icon: ChefHat,
-    statuses: ['pending', 'confirmed'],
+    statuses: ['confirmed'],
     accent: 'border-t-amber-500',
     badge: 'bg-amber-100 text-amber-800',
   },
@@ -78,7 +86,7 @@ export default function OrderBoardPage() {
           <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
           {COLUMNS.map(col => {
             const list = orders.filter(o => col.statuses.includes(o.status));
             return (

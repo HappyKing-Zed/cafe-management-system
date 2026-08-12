@@ -22,6 +22,7 @@ const navItems = [
   { href: '/dashboard/staff', label: 'Staff', icon: Users, roles: ['admin', 'owner', 'manager'] },
   { href: '/dashboard/branches', label: 'Branches', icon: Building2, roles: ['admin', 'owner', 'manager'] },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'owner', 'manager', 'cashier'] },
+  { href: '/dashboard/report', label: 'Report', icon: BarChart3, roles: ['admin', 'owner', 'manager', 'coordinator'] },
 ];
 
 export default function Sidebar() {
