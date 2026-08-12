@@ -326,7 +326,7 @@ export default function OrdersPage() {
                         <button onClick={() => { resetPOS(); setAppendOrder(order); setShowPOS(true); }}
                           className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded hover:bg-brand-200 whitespace-nowrap">+ Add Items</button>
                       )}
-                      {['pending', 'confirmed'].includes(order.status) && (
+                      {['pending', 'confirmed', 'preparing'].includes(order.status) && (
                         <button onClick={async () => {
                           setCancelSel([]);
                           try { const res = await getOrder(order.id); setCancelOrder(res.data); } catch { setCancelOrder(order); }

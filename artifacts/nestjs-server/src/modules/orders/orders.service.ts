@@ -156,9 +156,9 @@ export class OrdersService {
     if (order.status === OrderStatus.PAID || order.status === OrderStatus.CANCELLED) {
       throw new BadRequestException('Cannot modify a paid or cancelled order');
     }
-    // Waiters may only remove items before the kitchen starts preparing
-    if (user?.role === 'waiter' && ![OrderStatus.PENDING, OrderStatus.CONFIRMED].includes(order.status)) {
-      throw new ForbiddenException('Items can no longer be removed once the kitchen starts preparing');
+    // Waiters may remove items while the order is pending, confirmed, or preparing
+    if (user?.role === 'waiter' && ![OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PREPARING].includes(order.status)) {
+      throw new ForbiddenException('Items can no longer be removed once the order is ready');
     }
     const toRemove = order.items.filter(i => orderItemIds.includes(i.id));
     if (toRemove.length === 0) throw new BadRequestException('No matching items on this order');
@@ -206,13 +206,13 @@ export class OrdersService {
       if (status === OrderStatus.PAID && !['cashier', 'admin', 'owner'].includes(user.role)) {
         throw new ForbiddenException('Only the cashier can confirm payment');
       }
-      // Waiters may only cancel before the kitchen starts preparing
+      // Waiters may cancel while the order is pending, confirmed, or preparing
       if (
         user.role === 'waiter' &&
         status === OrderStatus.CANCELLED &&
-        ![OrderStatus.PENDING, OrderStatus.CONFIRMED].includes(existing.status)
+        ![OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PREPARING].includes(existing.status)
       ) {
-        throw new ForbiddenException('Orders can no longer be cancelled once the kitchen starts preparing');
+        throw new ForbiddenException('Orders can no longer be cancelled once they are ready');
       }
     }
     const before = await this.findOne(id);
