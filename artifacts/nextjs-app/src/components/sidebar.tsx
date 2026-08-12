@@ -31,7 +31,7 @@ export default function Sidebar() {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    router.replace('/login');
   };
 
   const visible = navItems.filter((item) => user?.role && item.roles.includes(user.role));

@@ -17,9 +17,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
+      // Only force a redirect when a real session expired (a token was present).
+      // During sign-out the token is already cleared, so skip the slow full-page reload.
+      const hadToken = !!localStorage.getItem('access_token');
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      if (hadToken && window.location.pathname !== '/login') {
+        window.location.replace('/login');
+      }
     }
     return Promise.reject(error);
   }
