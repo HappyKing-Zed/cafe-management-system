@@ -6,7 +6,7 @@ import {
   getOrderStats, getOrders, getPayments, getInventoryItems, getLowStockItems, getStockAdjustments,
 } from '@/lib/api';
 import {
-  TrendingUp, ShoppingCart, Wallet, Flame, Package, AlertTriangle, Timer, ChefHat, Trophy,
+  TrendingUp, ShoppingCart, Wallet, Flame, Package, AlertTriangle, Timer, ChefHat, Trophy, X,
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell,
@@ -25,6 +25,7 @@ export default function ManagerDashboard() {
   const [lowStock, setLowStock] = useState<any[]>([]);
   const [movements, setMovements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -124,13 +125,16 @@ export default function ManagerDashboard() {
           { label: 'Low Stock', value: loading ? '…' : lowStock.length, icon: AlertTriangle, grad: 'linear-gradient(135deg, #EF4444, #B91C1C)' },
           { label: 'Stock Value', value: loading ? '…' : fmt(stockValue), icon: Package, grad: 'linear-gradient(135deg, #6366F1, #4338CA)' },
         ].map(c => (
-          <div key={c.label} className="rounded-xl px-3.5 py-3 text-white shadow" style={{ background: c.grad }}>
+          <button key={c.label} onClick={() => setDetail(c.label)}
+            className="rounded-xl px-3.5 py-3 text-white shadow text-left cursor-pointer transition-transform hover:scale-[1.03] hover:shadow-lg focus:outline-none"
+            style={{ background: c.grad }}>
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-medium text-white/80 truncate">{c.label}</span>
               <c.icon size={14} className="shrink-0 opacity-80" />
             </div>
             <p className="text-lg font-bold leading-tight mt-1 truncate">{c.value}</p>
-          </div>
+            <p className="text-[10px] text-white/60 mt-0.5">Click for details</p>
+          </button>
         ))}
       </div>
 
@@ -299,6 +303,97 @@ export default function ManagerDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Stat card detail modal */}
+      {detail && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setDetail(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b">
+              <h3 className="font-bold text-gray-900">{detail}</h3>
+              <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+            <div className="p-5 overflow-y-auto text-sm">
+              {detail === "Today's Sales" && (
+                todayPayments.length === 0 ? <p className="text-gray-400 text-center py-6">No payments received today yet</p> : (
+                  <div className="space-y-2">
+                    {todayPayments.map((p: any) => (
+                      <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                        <span className="text-gray-700">Order #{p.orderId} · <span className="capitalize text-gray-400">{p.method === 'mobile' ? 'wallet' : p.method}</span></span>
+                        <span className="font-semibold">{fmt(Number(p.amount))} <span className="text-xs text-gray-400 font-normal">{new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-2 font-bold text-gray-900">
+                      <span>Total</span><span>{fmt(todaySales)}</span>
+                    </div>
+                  </div>
+                )
+              )}
+              {detail === "Today's Orders" && (() => {
+                const list = orders.filter(o => new Date(o.createdAt).toDateString() === todayStr);
+                return list.length === 0 ? <p className="text-gray-400 text-center py-6">No orders placed today yet</p> : (
+                  <div className="space-y-2">
+                    {list.map(o => (
+                      <div key={o.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                        <span className="text-gray-700">#{o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerName || 'Take Away'}</span>
+                        <span className="font-semibold">{fmt(Number(o.totalAmount))} <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize" style={{ background: `${STATUS_COLORS[o.status]}20`, color: STATUS_COLORS[o.status] }}>{o.status}</span></span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+              {detail === 'Avg Order Value' && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500">Sales today</p><p className="font-bold">{fmt(todaySales)}</p></div>
+                    <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500">Payments</p><p className="font-bold">{todayPayments.length}</p></div>
+                    <div className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-500">Average</p><p className="font-bold">{fmt(avgOrderValue)}</p></div>
+                  </div>
+                  <p className="text-xs text-gray-400">Average = today's sales divided by the number of payments received today.</p>
+                </div>
+              )}
+              {detail === 'In Progress' && (
+                inProgress.length === 0 ? <p className="text-gray-400 text-center py-6">No orders in progress right now</p> : (
+                  <div className="space-y-2">
+                    {inProgress.map(o => (
+                      <div key={o.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                        <span className="text-gray-700">#{o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerName || 'Take Away'} · {o.items?.length || 0} items</span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize" style={{ background: `${STATUS_COLORS[o.status]}20`, color: STATUS_COLORS[o.status] }}>{o.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+              {detail === 'Low Stock' && (
+                lowStock.length === 0 ? <p className="text-gray-400 text-center py-6">All stock levels are healthy 🎉</p> : (
+                  <div className="space-y-2">
+                    {lowStock.map((i: any) => (
+                      <div key={i.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                        <span className="text-gray-700">{i.name}</span>
+                        <span className={clsx('font-semibold', Number(i.currentStock) <= Number(i.minStock) / 2 ? 'text-red-600' : 'text-amber-600')}>{Number(i.currentStock)} / {Number(i.minStock)} {i.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+              {detail === 'Stock Value' && (
+                inventory.length === 0 ? <p className="text-gray-400 text-center py-6">No inventory yet</p> : (
+                  <div className="space-y-2">
+                    {[...inventory].sort((a: any, b: any) => Number(b.currentStock) * Number(b.unitCost || 0) - Number(a.currentStock) * Number(a.unitCost || 0)).map((i: any) => (
+                      <div key={i.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                        <span className="text-gray-700">{i.name} <span className="text-xs text-gray-400">{Number(i.currentStock)} {i.unit}</span></span>
+                        <span className="font-semibold">{fmt(Number(i.currentStock) * Number(i.unitCost || 0))}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-2 font-bold text-gray-900">
+                      <span>Total value</span><span>{fmt(stockValue)}</span>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
