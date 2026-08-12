@@ -12,10 +12,11 @@ const COLUMNS = [
     title: 'Requested',
     icon: ClipboardList,
     statuses: ['pending'],
-    grad: 'linear-gradient(135deg, #0EA5E9, #0369A1)',
-    ring: 'ring-sky-100',
-    chip: 'bg-sky-50 text-sky-700',
-    bar: 'bg-sky-500',
+    grad: 'linear-gradient(135deg, #8B5CF6, #6D28D9)',
+    body: 'bg-violet-50/60',
+    ring: 'ring-violet-100',
+    chip: 'bg-violet-50 text-violet-700',
+    edge: 'border-l-violet-500',
     step: 1,
   },
   {
@@ -23,10 +24,11 @@ const COLUMNS = [
     title: 'Received & Confirmed',
     icon: ChefHat,
     statuses: ['confirmed'],
-    grad: 'linear-gradient(135deg, #F59E0B, #B45309)',
-    ring: 'ring-amber-100',
-    chip: 'bg-amber-50 text-amber-700',
-    bar: 'bg-amber-500',
+    grad: 'linear-gradient(135deg, #0EA5E9, #0369A1)',
+    body: 'bg-sky-50/60',
+    ring: 'ring-sky-100',
+    chip: 'bg-sky-50 text-sky-700',
+    edge: 'border-l-sky-500',
     step: 2,
   },
   {
@@ -35,9 +37,10 @@ const COLUMNS = [
     icon: Flame,
     statuses: ['preparing'],
     grad: 'linear-gradient(135deg, #F97316, #C2410C)',
+    body: 'bg-orange-50/60',
     ring: 'ring-orange-100',
     chip: 'bg-orange-50 text-orange-700',
-    bar: 'bg-orange-500',
+    edge: 'border-l-orange-500',
     step: 3,
   },
   {
@@ -45,10 +48,11 @@ const COLUMNS = [
     title: 'Completed',
     icon: CheckCircle2,
     statuses: ['ready', 'served'],
-    grad: 'linear-gradient(135deg, #22C55E, #15803D)',
-    ring: 'ring-green-100',
-    chip: 'bg-green-50 text-green-700',
-    bar: 'bg-green-500',
+    grad: 'linear-gradient(135deg, #10B981, #047857)',
+    body: 'bg-emerald-50/60',
+    ring: 'ring-emerald-100',
+    chip: 'bg-emerald-50 text-emerald-700',
+    edge: 'border-l-emerald-500',
     step: 4,
   },
 ];
@@ -129,13 +133,30 @@ export default function OrderBoardPage() {
                   </div>
                 </div>
 
-                {/* Cards */}
-                <div className="p-2.5 min-h-[120px] bg-gray-50/60 space-y-2">
+                {/* Cards — switches to a compact list when the column is busy */}
+                <div className={clsx('p-2.5 min-h-[120px]', col.body, list.length > 5 ? 'space-y-1.5' : 'space-y-2')}>
                   {list.length === 0 ? (
                     <div className="text-center py-8">
                       <col.icon size={22} className="mx-auto text-gray-300 mb-1.5" />
                       <p className="text-xs text-gray-400">No orders here</p>
                     </div>
+                  ) : list.length > 5 ? (
+                    /* Compact rows: one line per order, fits many without scrolling */
+                    list.map(o => {
+                      const mins = minutesAgo(o.createdAt);
+                      const slow = mins >= 20 && col.key !== 'completed';
+                      return (
+                        <div key={o.id} className={clsx('bg-white rounded-lg border border-l-4 shadow-sm px-2.5 py-1.5 flex items-center justify-between gap-2', col.edge, slow ? 'border-red-200' : 'border-gray-100')}>
+                          <p className="text-xs font-semibold text-gray-900 truncate">
+                            #{o.id} · {o.table?.number ? `T${o.table.number}` : o.customerName || 'Take Away'}
+                            <span className="font-normal text-gray-400"> · {o.items?.length || 0} item{(o.items?.length || 0) === 1 ? '' : 's'}</span>
+                          </p>
+                          <span className={clsx('flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0', slow ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500')}>
+                            <Clock size={10} /> {mins}m{slow ? ' ⚠' : ''}
+                          </span>
+                        </div>
+                      );
+                    })
                   ) : (
                     list.map(o => {
                       const mins = minutesAgo(o.createdAt);
