@@ -16,6 +16,10 @@ export class Order {
   @Column('decimal', { precision: 10, scale: 2, default: 0 })
   totalAmount: number;
 
+  // Service charge percentage applied on top of the items subtotal (e.g. 2 = 2%)
+  @Column('decimal', { precision: 5, scale: 2, default: 0 })
+  serviceChargePct: number;
+
   @Column({ nullable: true })
   notes: string;
 

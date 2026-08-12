@@ -96,6 +96,9 @@ export default function OrdersPage() {
   // Pay-at-order (waiter POS): take payment while placing the order when an amount is entered
   const [posPayMethod, setPosPayMethod] = useState<'cash' | 'card' | 'mobile'>('cash');
   const [posPayAmount, setPosPayAmount] = useState('');
+  const [svcPct, setSvcPct] = useState('2');
+  const svcAmount = Math.round(cartTotal * ((parseFloat(svcPct) || 0) / 100) * 100) / 100;
+  const grandTotal = Math.round((cartTotal + svcAmount) * 100) / 100;
   const payNow = parseFloat(posPayAmount) > 0;
   // When set, the POS adds items to this existing order instead of creating a new one
   const [appendOrder, setAppendOrder] = useState<Order | null>(null);
@@ -120,6 +123,7 @@ export default function OrdersPage() {
     setNotes('');
     setPosPayAmount('');
     setPosPayMethod('cash');
+    setSvcPct('2');
     setAppendOrder(null);
   };
 
@@ -134,11 +138,12 @@ export default function OrdersPage() {
         waiterId: canAssignWaiter ? selectedWaiter : user?.role === 'waiter' ? user.id : undefined,
         customerName,
         notes,
+        serviceChargePct: parseFloat(svcPct) || 0,
         items: cart.map(c => ({ menuItemId: c.menuItem.id, quantity: c.quantity, notes: c.notes })),
       });
       if (!appendOrder && payNow && res.data?.id) {
         try {
-          await processPayment({ orderId: res.data.id, method: posPayMethod, amount: parseFloat(posPayAmount) || cartTotal });
+          await processPayment({ orderId: res.data.id, method: posPayMethod, amount: parseFloat(posPayAmount) || grandTotal });
         } catch (e: any) {
           alert(e?.response?.data?.message || 'Order placed, but the payment could not be processed');
         }
@@ -458,9 +463,23 @@ export default function OrdersPage() {
               </div>
               <div className="p-4 bg-white border-t">
                 {!appendOrder && <input placeholder="Order notes..." value={notes} onChange={e => setNotes(e.target.value)} className="input text-sm mb-3" />}
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-500">Subtotal</span>
+                  <span className="font-medium text-gray-700">ETB {cartTotal.toLocaleString()}</span>
+                </div>
+                {!appendOrder && (
+                <div className="flex justify-between items-center text-sm mb-1">
+                  <span className="text-gray-500 flex items-center gap-1">
+                    Service Charge
+                    <input type="number" min={0} max={100} step={0.5} value={svcPct} onChange={e => setSvcPct(e.target.value)}
+                      className="w-14 text-xs border border-gray-200 rounded px-1 py-0.5 text-right" />%
+                  </span>
+                  <span className="font-medium text-gray-700">ETB {svcAmount.toLocaleString()}</span>
+                </div>
+                )}
                 <div className="flex justify-between mb-3">
                   <span className="font-semibold text-gray-700">Total</span>
-                  <span className="font-bold text-xl text-brand-600">ETB {cartTotal.toLocaleString()}</span>
+                  <span className="font-bold text-xl text-brand-600">ETB {(appendOrder ? cartTotal : grandTotal).toLocaleString()}</span>
                 </div>
 
                 {/* Payment (pay at order) */}
@@ -476,8 +495,8 @@ export default function OrdersPage() {
                     ))}
                   </div>
                   <input type="number" value={posPayAmount} onChange={e => setPosPayAmount(e.target.value)} className="input text-xs py-1.5" placeholder="Amount received (empty = pay later)" />
-                  {posPayMethod === 'cash' && parseFloat(posPayAmount) > cartTotal && (
-                    <p className="text-[11px] text-green-700 text-center">Change: <span className="font-bold">ETB {(parseFloat(posPayAmount) - cartTotal).toLocaleString()}</span></p>
+                  {posPayMethod === 'cash' && parseFloat(posPayAmount) > grandTotal && (
+                    <p className="text-[11px] text-green-700 text-center">Change: <span className="font-bold">ETB {(parseFloat(posPayAmount) - grandTotal).toLocaleString()}</span></p>
                   )}
                 </div>
                 )}

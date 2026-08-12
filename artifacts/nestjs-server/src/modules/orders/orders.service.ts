@@ -59,7 +59,7 @@ export class OrdersService {
     return order;
   }
 
-  async create(data: { tableId?: number; waiterId?: number; notes?: string; customerName?: string; guestCount?: number; items?: Array<{ menuItemId: number; quantity: number; notes?: string }> }, creator?: { id: number; role: string; branchId?: number }) {
+  async create(data: { tableId?: number; waiterId?: number; notes?: string; customerName?: string; guestCount?: number; serviceChargePct?: number; items?: Array<{ menuItemId: number; quantity: number; notes?: string }> }, creator?: { id: number; role: string; branchId?: number }) {
     if (data.waiterId) {
       const waiter = await this.userRepo.findOne({ where: { id: data.waiterId } });
       if (!waiter || waiter.role !== ('waiter' as any) || !waiter.isActive) {
@@ -80,6 +80,7 @@ export class OrdersService {
       notes: data.notes,
       customerName: data.customerName,
       guestCount: data.guestCount || 1,
+      serviceChargePct: Math.min(100, Math.max(0, Number(data.serviceChargePct) || 0)),
       status: OrderStatus.PENDING,
     });
 
@@ -99,7 +100,7 @@ export class OrdersService {
         total += Number(menuItem.price) * item.quantity;
       }
       order.items = orderItems;
-      order.totalAmount = total;
+      order.totalAmount = Math.round(total * (1 + Number(order.serviceChargePct || 0) / 100) * 100) / 100;
     }
 
     const saved = await this.orderRepo.save(order);
@@ -141,9 +142,10 @@ export class OrdersService {
       }
     }
 
-    // Recalculate total
+    // Recalculate total (service charge included)
     const updated = await this.findOne(orderId);
-    const total = updated.items.reduce((sum, i) => sum + Number(i.unitPrice) * i.quantity, 0);
+    const subtotal = updated.items.reduce((sum, i) => sum + Number(i.unitPrice) * i.quantity, 0);
+    const total = Math.round(subtotal * (1 + Number(updated.serviceChargePct || 0) / 100) * 100) / 100;
     await this.orderRepo.update(orderId, { totalAmount: total });
     return this.findOne(orderId);
   }
@@ -167,7 +169,8 @@ export class OrdersService {
     }
     await this.itemRepo.remove(toRemove);
     const updated = await this.findOne(orderId);
-    const total = updated.items.reduce((sum, i) => sum + Number(i.unitPrice) * i.quantity, 0);
+    const subtotal = updated.items.reduce((sum, i) => sum + Number(i.unitPrice) * i.quantity, 0);
+    const total = Math.round(subtotal * (1 + Number(updated.serviceChargePct || 0) / 100) * 100) / 100;
     await this.orderRepo.update(orderId, { totalAmount: total });
     return this.findOne(orderId);
   }
