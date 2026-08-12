@@ -28,16 +28,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex relative" style={{ backgroundImage: "linear-gradient(135deg, rgba(46,20,5,0.82) 0%, rgba(92,41,9,0.72) 50%, rgba(46,20,5,0.85) 100%), url('/login-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }}>
+    <div className="min-h-screen flex relative" style={{ backgroundImage: "linear-gradient(135deg, rgba(243,244,246,0.92) 0%, rgba(229,231,235,0.88) 50%, rgba(243,244,246,0.92) 100%), url('/login-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }}>
       {/* Left Panel */}
-      <div className="hidden lg:flex flex-col justify-center px-16 w-1/2 text-white">
+      <div className="hidden lg:flex flex-col justify-center px-16 w-1/2 text-gray-800">
         <div className="mb-8">
-          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-6">
+          <div className="w-16 h-16 bg-white/70 border border-gray-200 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
             <span className="text-3xl">🍽</span>
           </div>
-          <h1 className="text-4xl font-bold mb-3">Jima Aba Jifar</h1>
-          <p className="text-xl text-white/80 mb-6">Restaurant Management System</p>
-          <p className="text-white/60 text-base leading-relaxed">
+          <h1 className="text-4xl font-bold mb-3 text-gray-900">Jima Aba Jifar</h1>
+          <p className="text-xl text-gray-600 mb-6">Restaurant Management System</p>
+          <p className="text-gray-500 text-base leading-relaxed">
             Complete management solution for Ethiopian cafes and restaurants. Handle orders, kitchen, inventory, staff and finances — all in one place.
           </p>
         </div>
@@ -48,7 +48,7 @@ export default function LoginPage() {
             { icon: '📦', label: 'Inventory Control' },
             { icon: '💰', label: 'Payment Processing' },
           ].map((f) => (
-            <div key={f.label} className="bg-white/10 rounded-xl p-4 flex items-center gap-3">
+            <div key={f.label} className="bg-white/70 border border-gray-200 rounded-xl p-4 flex items-center gap-3 shadow-sm">
               <span className="text-2xl">{f.icon}</span>
               <span className="text-sm font-medium">{f.label}</span>
             </div>
