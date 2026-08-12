@@ -231,15 +231,7 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold text-gray-900">Selam, {user?.name?.split(' ')[0]}! 👋</h1>
             <p className="text-gray-500 mt-1">Here's what's happening at Jima Aba Jifar today</p>
           </div>
-          {['admin', 'owner'].includes(role) && (
-            <button onClick={handleSeed} disabled={seeding} className="btn-primary flex items-center gap-2">
-              {seeding ? '⏳ Seeding...' : '🌱 Seed Data'}
-            </button>
-          )}
         </div>
-        {seedMsg && (
-          <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">✓ {seedMsg}</div>
-        )}
         <ManagerDashboard />
       </div>
     );
