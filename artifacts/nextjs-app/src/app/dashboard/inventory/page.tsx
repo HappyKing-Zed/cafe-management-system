@@ -593,7 +593,7 @@ export default function InventoryPage() {
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
           <button onClick={fetchData} className="btn-secondary flex items-center gap-2"><RefreshCw size={16} /></button>
-          {canApprovePO && (
+          {canApprovePO && tab === 'Purchase Orders' && (
             <button onClick={() => { setShowPOModal(true); setFormError(''); }} className="btn-primary flex items-center gap-2"><FileText size={16} /> New Purchase Order</button>
           )}
           {tab === 'Items' && <button onClick={() => { setShowItemModal(true); setEditItem(null); setCustomCat(false); setItemForm({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 }); }} className="btn-primary flex items-center gap-2"><Plus size={18} /> Add Item</button>}
