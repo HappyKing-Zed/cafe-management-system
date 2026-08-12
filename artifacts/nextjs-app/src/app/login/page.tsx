@@ -27,10 +27,8 @@ export default function LoginPage() {
     }
   };
 
-  const quickLogin = (e: string, p: string) => { setEmail(e); setPassword(p); };
-
   return (
-    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg, #5C2909 0%, #A04D18 50%, #E8832A 100%)' }}>
+    <div className="min-h-screen flex relative" style={{ backgroundImage: "linear-gradient(135deg, rgba(46,20,5,0.82) 0%, rgba(92,41,9,0.72) 50%, rgba(46,20,5,0.85) 100%), url('/login-bg.jpg')", backgroundSize: 'cover', backgroundPosition: 'center' }}>
       {/* Left Panel */}
       <div className="hidden lg:flex flex-col justify-center px-16 w-1/2 text-white">
         <div className="mb-8">
@@ -106,32 +104,6 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
-
-          {/* Quick Login */}
-          <div className="mt-8">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Quick Login (Demo)</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: '🔴 Admin', email: 'admin@habesha.com', pass: 'admin123' },
-                { label: '🟠 Owner', email: 'owner@habesha.com', pass: 'owner123' },
-                { label: '🟡 Manager', email: 'manager@habesha.com', pass: 'manager123' },
-                { label: '🟢 Coordinator', email: 'coordinator@habesha.com', pass: 'coord123' },
-                { label: '🔵 Waiter', email: 'waiter1@habesha.com', pass: 'waiter123' },
-                { label: '🟣 Chef', email: 'chef@habesha.com', pass: 'chef123' },
-                { label: '⚪ Cashier', email: 'cashier@habesha.com', pass: 'cashier123' },
-                { label: '🟤 Storekeeper', email: 'storekeeper@habesha.com', pass: 'store123' },
-              ].map((u) => (
-                <button
-                  key={u.email}
-                  type="button"
-                  onClick={() => quickLogin(u.email, u.pass)}
-                  className="text-xs px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-left transition-colors"
-                >
-                  {u.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
