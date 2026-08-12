@@ -3,11 +3,15 @@ import { useEffect, useState } from 'react';
 import { getDailyReport, getOrders, getPayments, getMenuCategories, getInventoryItems, getItemRequests, getStaffList, getBranches } from '@/lib/api';
 import { BarChart3, TrendingUp, RefreshCw, FileText, ArrowDownToLine } from 'lucide-react';
 import clsx from 'clsx';
+import { useAuthStore } from '@/store/auth';
 
 const EXPORT_TABS = ['Overview', 'Order Board', 'Menu', 'Inventory', 'Item Requested', 'Staff', 'Branches'] as const;
-type Tab = typeof EXPORT_TABS[number];
+const CASHIER_TABS = ['Sales', 'Items Purchased'] as const;
+type Tab = typeof EXPORT_TABS[number] | typeof CASHIER_TABS[number];
 
 export default function ReportsPage() {
+  const { user } = useAuthStore();
+  const isCashier = user?.role === 'cashier';
   const [report, setReport] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -27,6 +31,13 @@ export default function ReportsPage() {
   const [fInv, setFInv] = useState({ category: 'all', lowOnly: false });
   const [fReq, setFReq] = useState({ status: 'all', from: '', to: '' });
   const [fStaff, setFStaff] = useState({ role: 'all' });
+  const [fSales, setFSales] = useState({ method: 'all', from: '', to: '' });
+  const [fPur, setFPur] = useState({ category: 'all', from: '', to: '' });
+
+  useEffect(() => {
+    if (isCashier && !(CASHIER_TABS as readonly string[]).includes(tab)) setTab('Sales');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCashier]);
 
   const fetchData = async () => {
     try {
@@ -65,7 +76,43 @@ export default function ReportsPage() {
   const invCategories = Array.from(new Set(invItems.map((i: any) => i.category).filter(Boolean))).sort() as string[];
   const staffRoles = Array.from(new Set(staff.map((s: any) => s.role).filter(Boolean))).sort() as string[];
 
+  const categoryByItemName: Record<string, string> = {};
+  menuItems.forEach((i: any) => { categoryByItemName[i.name] = i.categoryName || '—'; });
+
   const dataFor = (t: Tab) => {
+    if (t === 'Sales') {
+      let list = payments;
+      if (fSales.method !== 'all') list = list.filter((p: any) => p.method === fSales.method);
+      if (fSales.from) list = list.filter((p: any) => new Date(p.createdAt) >= new Date(fSales.from));
+      if (fSales.to) list = list.filter((p: any) => new Date(p.createdAt) <= new Date(`${fSales.to}T23:59:59`));
+      return {
+        title: 'Sales Report', file: 'sales',
+        head: ['Payment #', 'Order', 'Type', 'Amount (ETB)', 'Change (ETB)', 'Date'],
+        rows: list.map((p: any) => [
+          `#${p.id}`, `Order #${p.orderId}`, p.method === 'mobile' ? 'wallet' : p.method,
+          Number(p.amount), Number(p.changeGiven || 0), new Date(p.createdAt).toLocaleString(),
+        ]),
+      };
+    }
+    if (t === 'Items Purchased') {
+      let list = orders.filter((o: any) => o.status === 'paid');
+      if (fPur.from) list = list.filter((o: any) => new Date(o.createdAt) >= new Date(fPur.from));
+      if (fPur.to) list = list.filter((o: any) => new Date(o.createdAt) <= new Date(`${fPur.to}T23:59:59`));
+      let rows = list.flatMap((o: any) => (o.items || []).map((i: any) => ({
+        date: new Date(o.createdAt).toLocaleString(),
+        name: i.menuItem?.name || 'Item',
+        category: categoryByItemName[i.menuItem?.name] || '—',
+        qty: Number(i.quantity),
+        unit: Number(i.unitPrice ?? i.menuItem?.price ?? 0),
+        order: `#${o.id}`,
+      })));
+      if (fPur.category !== 'all') rows = rows.filter(r => r.category === fPur.category);
+      return {
+        title: 'Items Purchased Report', file: 'items_purchased',
+        head: ['Date', 'Item', 'Type', 'Quantity', 'Unit Price (ETB)', 'Total (ETB)', 'Order'],
+        rows: rows.map(r => [r.date, r.name, r.category, r.qty, r.unit, r.qty * r.unit, r.order]),
+      };
+    }
     if (t === 'Order Board') {
       let list = orders;
       if (fOrder.status !== 'all') list = list.filter(o => o.status === fOrder.status);
@@ -201,7 +248,7 @@ export default function ReportsPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit flex-wrap">
-        {EXPORT_TABS.map(t => (
+        {(isCashier ? CASHIER_TABS : EXPORT_TABS).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={clsx('px-3.5 py-2 rounded-lg text-sm font-medium transition-colors', tab === t ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}>
             {t}
@@ -215,6 +262,36 @@ export default function ReportsPage() {
             <div className="w-9 h-9 bg-teal-50 rounded-lg flex items-center justify-center"><FileText className="text-teal-600" size={18} /></div>
             <h2 className="font-bold text-gray-900">{tab} Report</h2>
           </div>
+
+          {tab === 'Sales' && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              <div><label className="block text-xs font-semibold text-gray-700 mb-1">Payment Type</label>
+                <select value={fSales.method} onChange={e => setFSales(p => ({ ...p, method: e.target.value }))} className="input text-sm">
+                  <option value="all">All types</option>
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="mobile">Wallet</option>
+                </select></div>
+              <div><label className="block text-xs font-semibold text-gray-700 mb-1">From</label>
+                <input type="date" value={fSales.from} onChange={e => setFSales(p => ({ ...p, from: e.target.value }))} className="input text-sm" /></div>
+              <div><label className="block text-xs font-semibold text-gray-700 mb-1">To</label>
+                <input type="date" value={fSales.to} onChange={e => setFSales(p => ({ ...p, to: e.target.value }))} className="input text-sm" /></div>
+            </div>
+          )}
+
+          {tab === 'Items Purchased' && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              <div><label className="block text-xs font-semibold text-gray-700 mb-1">Type (Category)</label>
+                <select value={fPur.category} onChange={e => setFPur(p => ({ ...p, category: e.target.value }))} className="input text-sm">
+                  <option value="all">All types</option>
+                  {menuCats.map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select></div>
+              <div><label className="block text-xs font-semibold text-gray-700 mb-1">From</label>
+                <input type="date" value={fPur.from} onChange={e => setFPur(p => ({ ...p, from: e.target.value }))} className="input text-sm" /></div>
+              <div><label className="block text-xs font-semibold text-gray-700 mb-1">To</label>
+                <input type="date" value={fPur.to} onChange={e => setFPur(p => ({ ...p, to: e.target.value }))} className="input text-sm" /></div>
+            </div>
+          )}
 
           {tab === 'Order Board' && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
