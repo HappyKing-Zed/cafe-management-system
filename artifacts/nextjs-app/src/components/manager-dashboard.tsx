@@ -48,7 +48,10 @@ export default function ManagerDashboard() {
     }
   };
 
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     fetchData();
     const t = setInterval(() => { fetchData().catch(() => { /* ignore */ }); }, 10000);
     return () => clearInterval(t);
@@ -112,6 +115,15 @@ export default function ManagerDashboard() {
   const cancelRate = orders.length > 0 ? (orders.filter(o => o.status === 'cancelled').length / orders.length) * 100 : 0;
 
   const fmt = (n: number) => `ETB ${Math.round(n).toLocaleString()}`;
+
+  // Render only in the browser to avoid server/client date-format mismatches (hydration errors)
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
