@@ -235,7 +235,7 @@ export default function ReportsPage() {
   const rowCount = tab !== 'Overview' ? dataFor(tab).rows.length : 0;
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center">

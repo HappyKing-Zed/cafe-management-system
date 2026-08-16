@@ -118,7 +118,7 @@ export default function NotificationBell() {
   };
 
   return (
-    <div ref={ref} className="fixed top-4 right-6 z-40">
+    <div ref={ref} className="fixed top-2 right-16 lg:top-4 lg:right-6 z-40">
       <button
         onClick={() => setOpen(o => !o)}
         className={clsx(
@@ -139,7 +139,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-96 max-h-[70vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-gray-100">
+        <div className="absolute -right-12 lg:right-0 mt-2 w-96 max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-gray-100">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
             {unread.length > 0 && (

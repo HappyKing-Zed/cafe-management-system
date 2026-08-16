@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { ROLE_LABELS } from '@/lib/auth';
 import clsx from 'clsx';
 import {
   LayoutDashboard, ShoppingCart, ChefHat, Table2, UtensilsCrossed,
-  Package, Users, BarChart3, Building2, LogOut, Coffee, Columns3, Send, PackageOpen
+  Package, Users, BarChart3, Building2, LogOut, Coffee, Columns3, Send, PackageOpen, Menu, X
 } from 'lucide-react';
 
 const navItems = [
@@ -28,6 +29,10 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const [open, setOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes
+  useEffect(() => { setOpen(false); }, [pathname]);
 
   const handleLogout = () => {
     logout();
@@ -36,8 +41,8 @@ export default function Sidebar() {
 
   const visible = navItems.filter((item) => user?.role && item.roles.includes(user.role));
 
-  return (
-    <aside className="w-64 bg-gray-100 text-gray-800 border-r border-gray-200 flex flex-col h-screen sticky top-0">
+  const nav = (
+    <>
       {/* Logo */}
       <div className="p-5 border-b border-gray-200">
         <div className="flex items-center gap-3">
@@ -85,6 +90,40 @@ export default function Sidebar() {
           Sign Out
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile top bar */}
+      <div className="lg:hidden fixed top-0 inset-x-0 z-40 bg-gray-100 border-b border-gray-200 flex items-center justify-between px-4 h-14">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
+            <Coffee size={16} className="text-white" />
+          </div>
+          <span className="font-bold text-sm text-gray-900">Jima Aba Jifar</span>
+        </div>
+        <button onClick={() => setOpen(true)} aria-label="Open menu" className="p-2 text-gray-600 hover:text-gray-900">
+          <Menu size={22} />
+        </button>
+      </div>
+      {/* Mobile drawer */}
+      {open && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <aside className="absolute left-0 top-0 h-full w-72 max-w-[85vw] bg-gray-100 border-r border-gray-200 flex flex-col shadow-2xl">
+            <button onClick={() => setOpen(false)} aria-label="Close menu" className="absolute top-4 right-4 p-1 text-gray-500 hover:text-gray-900">
+              <X size={20} />
+            </button>
+            {nav}
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-64 bg-gray-100 text-gray-800 border-r border-gray-200 flex-col h-screen sticky top-0">
+        {nav}
+      </aside>
+    </>
   );
 }

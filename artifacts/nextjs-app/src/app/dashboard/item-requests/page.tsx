@@ -223,7 +223,7 @@ export default function ItemRequestsPage() {
 
   if (!allowed) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-md mx-auto mt-16 card p-8 text-center">
           <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center mx-auto mb-4">
             <AlertTriangle className="text-red-500" size={24} />
@@ -237,7 +237,7 @@ export default function ItemRequestsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Hero banner (hidden for managers/owners — their list auto-refreshes) */}
       {!canApprove && (
       <div className="bg-gray-50 border border-gray-100 rounded-2xl px-6 py-5 mb-6 flex items-center justify-between gap-4">

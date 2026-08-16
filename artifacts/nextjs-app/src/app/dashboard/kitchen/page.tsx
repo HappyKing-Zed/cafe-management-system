@@ -78,7 +78,7 @@ export default function KitchenPage() {
   const readyOrders = orders.filter(o => o.status === 'ready');
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">

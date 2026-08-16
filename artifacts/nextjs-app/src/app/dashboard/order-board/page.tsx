@@ -84,7 +84,7 @@ export default function OrderBoardPage() {
   }, [fetchData]);
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="rounded-2xl px-6 py-5 mb-6 text-white shadow-lg relative overflow-hidden" style={{ background: 'linear-gradient(120deg, #1E293B 0%, #334155 55%, #E8832A 130%)' }}>
         <div className="absolute -right-8 -top-10 w-44 h-44 rounded-full bg-white/5" />
         <div className="absolute right-16 -bottom-14 w-36 h-36 rounded-full bg-white/5" />

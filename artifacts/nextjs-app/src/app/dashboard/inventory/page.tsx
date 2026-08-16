@@ -313,7 +313,7 @@ export default function InventoryPage() {
     const fulfillReqs = requests.filter((r: any) => r.status === 'approved');
     const inboundPOs = pos.filter(p => ['approved', 'paid', 'ordered'].includes(p.status));
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="flex items-center justify-between gap-3 mb-1 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center"><Warehouse className="text-blue-600" size={22} /></div>
@@ -579,7 +579,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
@@ -631,7 +631,8 @@ export default function InventoryPage() {
                   {items.some(i => !i.category) && <option value="__none__">Uncategorized</option>}
                 </select>
               </div>
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">Item</th><th className="table-header">Category</th><th className="table-header">Unit</th>
                   <th className="table-header">Stock</th><th className="table-header">Min Stock</th><th className="table-header">Unit Cost</th><th className="table-header">Total Price</th><th className="table-header">Expiry</th><th className="table-header">Actions</th>
@@ -671,6 +672,7 @@ export default function InventoryPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -680,7 +682,8 @@ export default function InventoryPage() {
                 <label className="text-xs font-medium text-gray-600">Search:</label>
                 <input value={supSearch} onChange={e => setSupSearch(e.target.value)} placeholder="Supplier name…" className="input text-sm !w-56 !py-1.5" />
               </div>
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">Name</th><th className="table-header">Contact</th><th className="table-header">Email</th><th className="table-header">Phone</th><th className="table-header">Rating</th>
                 </tr></thead>
@@ -696,6 +699,7 @@ export default function InventoryPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -708,7 +712,8 @@ export default function InventoryPage() {
                   {Object.keys(PO_STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">PO #</th><th className="table-header">Supplier</th><th className="table-header">Items</th><th className="table-header">Total</th><th className="table-header">Status</th><th className="table-header">Requested By</th><th className="table-header">Date</th><th className="table-header">Actions</th>
                 </tr></thead>
@@ -738,6 +743,7 @@ export default function InventoryPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -748,7 +754,8 @@ export default function InventoryPage() {
                   <button key={v} onClick={() => setMoveFilter(v)} className={clsx('text-xs px-3 py-1.5 rounded-lg font-medium', moveFilter === v ? 'bg-brand-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-100')}>{l}</button>
                 ))}
               </div>
-              <table className="w-full">
+              <div className="overflow-x-auto">
+                <table className="w-full">
                 <thead className="bg-gray-50 border-b"><tr>
                   <th className="table-header">Date</th><th className="table-header">Item</th><th className="table-header">Type</th><th className="table-header">Quantity</th><th className="table-header">Reason</th><th className="table-header">By</th>
                 </tr></thead>
@@ -771,6 +778,7 @@ export default function InventoryPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -890,7 +898,8 @@ export default function InventoryPage() {
               {(poDetail as any).approvedBy?.name && <p className="text-green-700">Approved by: <span className="font-medium">{(poDetail as any).approvedBy.name}</span></p>}
               {poDetail.notes && <p>Notes: {poDetail.notes}</p>}
             </div>
-            <table className="w-full mb-4">
+            <div className="overflow-x-auto">
+              <table className="w-full mb-4">
               <thead className="bg-gray-50 border-b"><tr>
                 {poDetail.status === 'pending' && canApprovePO && <th className="table-header w-8"></th>}
                 <th className="table-header">Item</th><th className="table-header">Qty</th><th className="table-header">Unit Price</th><th className="table-header">Total</th><th className="table-header">Approval</th>
@@ -916,6 +925,7 @@ export default function InventoryPage() {
                 ))}
               </tbody>
             </table>
+            </div>
             <p className="text-right font-bold text-gray-900 mb-4">Total: ETB {Number(poDetail.totalAmount).toLocaleString()}</p>
             <div className="flex flex-wrap gap-2 justify-end">
               {poDetail.status === 'pending' && canApprovePO && <>

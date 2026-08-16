@@ -217,7 +217,7 @@ export default function OrdersPage() {
   const currentCat = categories.find(c => c.id === selectedCat);
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-brand-100 rounded-xl flex items-center justify-center">

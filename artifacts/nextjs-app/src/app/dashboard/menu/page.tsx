@@ -96,7 +96,7 @@ export default function MenuPage() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
@@ -134,7 +134,8 @@ export default function MenuPage() {
               </div>
               {expanded.includes(cat.id) && (
                 <div className="border-t border-gray-100">
-                  <table className="w-full">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="table-header">Name</th>
@@ -169,6 +170,7 @@ export default function MenuPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
             </div>
