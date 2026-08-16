@@ -22,6 +22,8 @@ export default function ReportsPage() {
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [branchId, setBranchId] = useState<number | undefined>(undefined);
+  const canPickBranch = ['admin', 'owner'].includes(user?.role || '');
   const [tab, setTab] = useState<Tab>('Overview');
   const [exporting, setExporting] = useState(false);
 
@@ -42,9 +44,9 @@ export default function ReportsPage() {
   const fetchData = async () => {
     try {
       const [reportRes, ordersRes, paymentsRes, catRes, invRes, reqRes, staffRes, brRes] = await Promise.all([
-        getDailyReport(selectedDate).catch(() => ({ data: null })),
-        getOrders().catch(() => ({ data: [] })),
-        getPayments().catch(() => ({ data: [] })),
+        getDailyReport(selectedDate, branchId).catch(() => ({ data: null })),
+        getOrders(branchId ? { branchId } : undefined).catch(() => ({ data: [] })),
+        getPayments(branchId).catch(() => ({ data: [] })),
         getMenuCategories().catch(() => ({ data: [] })),
         getInventoryItems().catch(() => ({ data: [] })),
         getItemRequests().catch(() => ({ data: [] })),
@@ -69,7 +71,7 @@ export default function ReportsPage() {
     const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 10000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+  }, [selectedDate, branchId]);
 
   // ── Export data builders ─────────────────────────────────────────────
   const menuItems = menuCats.flatMap((c: any) => (c.items || []).map((i: any) => ({ ...i, categoryName: c.name })));
@@ -242,6 +244,14 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
         </div>
         <div className="flex items-center gap-3">
+          {canPickBranch && branches.length > 0 && (
+            <select value={branchId ?? ''} onChange={e => setBranchId(e.target.value ? +e.target.value : undefined)} className="input w-auto">
+              <option value="">All branches</option>
+              {branches.map((b: any) => (
+                <option key={b.id} value={b.id}>{b.restaurant?.name ? `${b.restaurant.name} — ` : ''}{b.name}</option>
+              ))}
+            </select>
+          )}
           {tab === 'Overview' && <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="input w-auto" />}
         </div>
       </div>

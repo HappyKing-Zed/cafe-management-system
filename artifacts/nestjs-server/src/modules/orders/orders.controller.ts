@@ -6,7 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/roles.enum';
 import { OrdersService } from './orders.service';
 import { OrderStatus } from '../../common/enums/order-status.enum';
-import { branchScope } from '../../common/utils/branch-scope';
+import { branchScope, effectiveBranch } from '../../common/utils/branch-scope';
 
 @ApiTags('orders')
 @ApiBearerAuth()
@@ -16,15 +16,15 @@ export class OrdersController {
   constructor(private service: OrdersService) {}
 
   @Get()
-  findAll(@Req() req: any, @Query('status') status?: OrderStatus, @Query('tableId') tid?: number) {
+  findAll(@Req() req: any, @Query('status') status?: OrderStatus, @Query('tableId') tid?: number, @Query('branchId') branchId?: string) {
     // Waiters only ever see their own orders
     const waiterId = req.user?.role === Role.WAITER ? req.user.id : undefined;
-    return this.service.findAll(status, tid ? +tid : undefined, waiterId, branchScope(req.user));
+    return this.service.findAll(status, tid ? +tid : undefined, waiterId, effectiveBranch(req.user, branchId));
   }
 
   @Get('stats')
-  async getStats(@Req() req: any) {
-    const stats = await this.service.getDashboardStats(branchScope(req.user));
+  async getStats(@Req() req: any, @Query('branchId') branchId?: string) {
+    const stats = await this.service.getDashboardStats(effectiveBranch(req.user, branchId));
     // Revenue figures are only for finance-facing roles
     if (!['admin', 'owner', 'manager', 'cashier'].includes(req.user?.role)) {
       delete (stats as any).todayRevenue;

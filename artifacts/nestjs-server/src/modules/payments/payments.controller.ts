@@ -4,7 +4,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/roles.enum';
-import { branchScope } from '../../common/utils/branch-scope';
+import { branchScope, effectiveBranch } from '../../common/utils/branch-scope';
 import { PaymentsService } from './payments.service';
 
 @ApiTags('payments')
@@ -16,8 +16,8 @@ export class PaymentsController {
   constructor(private service: PaymentsService) {}
 
   @Get()
-  findAll(@Req() req: any, @Query('cashierId') cid?: number) {
-    return this.service.findAll(cid ? +cid : undefined, branchScope(req.user));
+  findAll(@Req() req: any, @Query('cashierId') cid?: number, @Query('branchId') branchId?: string) {
+    return this.service.findAll(cid ? +cid : undefined, effectiveBranch(req.user, branchId));
   }
 
   @Post()
@@ -27,8 +27,8 @@ export class PaymentsController {
   }
 
   @Get('report')
-  report(@Req() req: any, @Query('date') date?: string) {
-    return this.service.getDailyReport(date, branchScope(req.user));
+  report(@Req() req: any, @Query('date') date?: string, @Query('branchId') branchId?: string) {
+    return this.service.getDailyReport(date, effectiveBranch(req.user, branchId));
   }
 
   @Get('shifts')

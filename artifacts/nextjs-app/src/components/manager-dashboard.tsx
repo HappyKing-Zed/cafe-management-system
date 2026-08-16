@@ -4,7 +4,9 @@ import Link from 'next/link';
 import clsx from 'clsx';
 import {
   getOrderStats, getOrders, getPayments, getInventoryItems, getLowStockItems, getStockAdjustments,
+  getRestaurants, getBranches,
 } from '@/lib/api';
+import { useAuthStore } from '@/store/auth';
 import {
   TrendingUp, ShoppingCart, Wallet, Flame, Package, AlertTriangle, Timer, ChefHat, Trophy, X,
 } from 'lucide-react';
@@ -18,6 +20,11 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function ManagerDashboard() {
+  const { user } = useAuthStore();
+  const canPickBranch = ['admin', 'owner'].includes(user?.role || '');
+  const [restaurants, setRestaurants] = useState<any[]>([]);
+  const [allBranches, setAllBranches] = useState<any[]>([]);
+  const [branchId, setBranchId] = useState<number | undefined>(undefined);
   const [stats, setStats] = useState<any>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
@@ -27,12 +34,12 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = async (bid?: number) => {
     try {
       const [st, or, pa, inv, low, mov] = await Promise.all([
-        getOrderStats().catch(() => ({ data: null })),
-        getOrders().catch(() => ({ data: [] })),
-        getPayments().catch(() => ({ data: [] })),
+        getOrderStats(bid).catch(() => ({ data: null })),
+        getOrders(bid ? { branchId: bid } : undefined).catch(() => ({ data: [] })),
+        getPayments(bid).catch(() => ({ data: [] })),
         getInventoryItems().catch(() => ({ data: [] })),
         getLowStockItems().catch(() => ({ data: [] })),
         getStockAdjustments().catch(() => ({ data: [] })),
@@ -52,11 +59,19 @@ export default function ManagerDashboard() {
 
   useEffect(() => {
     setMounted(true);
-    fetchData();
-    const t = setInterval(() => { fetchData().catch(() => { /* ignore */ }); }, 10000);
+    fetchData(branchId);
+    const t = setInterval(() => { fetchData(branchId).catch(() => { /* ignore */ }); }, 10000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [branchId]);
+
+  useEffect(() => {
+    if (!canPickBranch) return;
+    Promise.all([getRestaurants(), getBranches()])
+      .then(([r, b]) => { setRestaurants(r.data || []); setAllBranches(b.data || []); })
+      .catch(() => { /* ignore */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canPickBranch]);
 
   // ── Snapshot numbers ─────────────────────────────────────────────
   const todayStr = new Date().toDateString();
@@ -127,6 +142,26 @@ export default function ManagerDashboard() {
 
   return (
     <div className="space-y-4">
+      {/* Branch picker for owners/admins */}
+      {canPickBranch && allBranches.length > 0 && (
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-sm text-gray-500">Viewing:</span>
+          <select
+            value={branchId ?? ''}
+            onChange={e => setBranchId(e.target.value ? +e.target.value : undefined)}
+            className="input !w-auto text-sm py-1.5"
+          >
+            <option value="">All restaurants & branches</option>
+            {restaurants.map((r: any) => (
+              <optgroup key={r.id} label={r.name}>
+                {allBranches.filter((b: any) => b.restaurantId === r.id).map((b: any) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+      )}
       {/* Row 1: compact stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {[

@@ -38,9 +38,9 @@ export const login = (email: string, password: string) =>
 export const getMe = () => api.get('/auth/me');
 
 // Dashboard
-export const getOrderStats = () => api.get('/orders/stats');
-export const getDailyReport = (date?: string) =>
-  api.get('/payments/report', { params: { date } });
+export const getOrderStats = (branchId?: number) => api.get('/orders/stats', { params: { branchId } });
+export const getDailyReport = (date?: string, branchId?: number) =>
+  api.get('/payments/report', { params: { date, branchId } });
 
 // Restaurants
 export const getRestaurants = () => api.get('/restaurants');
@@ -87,7 +87,7 @@ export const updateTable = (id: number, data: any) => api.patch(`/tables/${id}`,
 export const deleteTable = (id: number) => api.delete(`/tables/${id}`);
 
 // Orders
-export const getOrders = (params?: { status?: string; tableId?: number }) =>
+export const getOrders = (params?: { status?: string; tableId?: number; branchId?: number }) =>
   api.get('/orders', { params });
 export const getOrder = (id: number) => api.get(`/orders/${id}`);
 export const createOrder = (data: any) => api.post('/orders', data);
@@ -111,7 +111,7 @@ export const startPreparing = (id: number) => api.patch(`/kitchen/orders/${id}/p
 export const markReady = (id: number) => api.patch(`/kitchen/orders/${id}/ready`);
 
 // Payments
-export const getPayments = () => api.get('/payments');
+export const getPayments = (branchId?: number) => api.get('/payments', { params: { branchId } });
 export const processPayment = (data: any) => api.post('/payments', data);
 export const getShifts = () => api.get('/payments/shifts');
 export const openShift = (data: any) => api.post('/payments/shifts', data);
