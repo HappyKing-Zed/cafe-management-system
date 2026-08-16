@@ -29,7 +29,7 @@ export class Shift {
   @Column()
   cashierId: number;
 
-  @ManyToOne(() => Branch, { nullable: false })
+  @ManyToOne(() => Branch, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'branchId' })
   branch: Branch;
 

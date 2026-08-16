@@ -22,7 +22,7 @@ export class RestaurantTable {
   @CreateDateColumn()
   createdAt: Date;
 
-  @ManyToOne(() => Branch, (b) => b.tables, { nullable: false })
+  @ManyToOne(() => Branch, (b) => b.tables, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'branchId' })
   branch: Branch;
 

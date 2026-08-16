@@ -53,6 +53,7 @@ export const getBranches = (restaurantId?: number) =>
   api.get('/branches', { params: { restaurantId } });
 export const createBranch = (data: any) => api.post('/branches', data);
 export const updateBranch = (id: number, data: any) => api.patch(`/branches/${id}`, data);
+export const deleteBranch = (id: number) => api.delete(`/branches/${id}`);
 
 // Users
 export const getUsers = (restaurantId?: number) =>

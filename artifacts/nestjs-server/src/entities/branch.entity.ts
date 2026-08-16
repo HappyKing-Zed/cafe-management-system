@@ -26,7 +26,7 @@ export class Branch {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @ManyToOne(() => Restaurant, (r) => r.branches, { nullable: false })
+  @ManyToOne(() => Restaurant, (r) => r.branches, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'restaurantId' })
   restaurant: Restaurant;
 

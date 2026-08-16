@@ -32,14 +32,14 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @ManyToOne(() => Restaurant, { nullable: true })
+  @ManyToOne(() => Restaurant, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'restaurantId' })
   restaurant: Restaurant;
 
   @Column({ nullable: true })
   restaurantId: number;
 
-  @ManyToOne(() => Branch, (b) => b.staff, { nullable: true })
+  @ManyToOne(() => Branch, (b) => b.staff, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'branchId' })
   branch: Branch;
 
