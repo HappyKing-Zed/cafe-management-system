@@ -145,5 +145,13 @@ export const updateItemRequestStatus = (id: number, status: string, quantity?: n
   api.patch(`/inventory/requests/${id}/status`, quantity !== undefined ? { status, quantity } : { status });
 export const getRequestableItems = () => api.get('/inventory/requestable-items');
 
+// Summary (served items & revenue)
+export const getSummary = (params?: { period?: string; waiterId?: number; branchId?: number }) =>
+  api.get('/summary', { params });
+export const getServiceSubmissions = (params?: { waiterId?: number; branchId?: number }) =>
+  api.get('/summary/submissions', { params });
+export const submitDailyService = () => api.post('/summary/submissions');
+export const confirmServiceSubmission = (id: number) => api.patch(`/summary/submissions/${id}/confirm`);
+
 // Seed
 export const seedDatabase = () => api.post('/seed');

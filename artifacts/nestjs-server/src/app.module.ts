@@ -32,6 +32,8 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { Notification } from './entities/notification.entity';
+import { ServiceSubmission } from './entities/service-submission.entity';
+import { SummaryModule } from './modules/summary/summary.module';
 
 @Module({
   imports: [
@@ -42,7 +44,7 @@ import { Notification } from './entities/notification.entity';
       entities: [
         User, Restaurant, Branch, MenuCategory, MenuItem,
         RestaurantTable, Order, OrderItem, Payment, Shift,
-        InventoryItem, Supplier, PurchaseOrder, PurchaseOrderItem, StockAdjustment, ItemRequest, Notification,
+        InventoryItem, Supplier, PurchaseOrder, PurchaseOrderItem, StockAdjustment, ItemRequest, Notification, ServiceSubmission,
       ],
       synchronize: true,
       ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : false,
@@ -56,6 +58,7 @@ import { Notification } from './entities/notification.entity';
     OrdersModule,
     KitchenModule,
     PaymentsModule,
+    SummaryModule,
     InventoryModule,
     SeedModule,
     NotificationsModule,

@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import {
   LayoutDashboard, ShoppingCart, ChefHat, Table2, UtensilsCrossed,
   Package, Users, BarChart3, Building2, LogOut, Coffee, Columns3, Send, PackageOpen, Menu, X,
-  ChevronsLeft, ChevronsRight
+  ChevronsLeft, ChevronsRight, ClipboardList
 } from 'lucide-react';
 
 const navItems = [
@@ -23,6 +23,7 @@ const navItems = [
   { href: '/dashboard/item-requests', label: 'Item Requests', managerLabel: 'Item Requested', icon: PackageOpen, roles: ['admin', 'owner', 'manager', 'coordinator'] },
   { href: '/dashboard/staff', label: 'Staff', icon: Users, roles: ['admin', 'owner', 'manager'] },
   { href: '/dashboard/branches', label: 'Branches and Restaurants', icon: Building2, roles: ['admin', 'owner', 'manager'] },
+  { href: '/dashboard/summary', label: 'Summary', icon: ClipboardList, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'cashier'] },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'owner', 'manager', 'cashier'] },
 ];
 

@@ -69,8 +69,9 @@ export default function KitchenPage() {
   };
 
   const grouped = COLUMNS.reduce((acc, col) => {
+    // Served orders leave the board — Completed only shows orders waiting to be served
     acc[col.key] = col.key === 'completed'
-      ? orders.filter(o => o.status === 'ready' || o.status === 'served')
+      ? orders.filter(o => o.status === 'ready')
       : orders.filter(o => o.status === col.key);
     return acc;
   }, {} as Record<string, Order[]>);
@@ -113,9 +114,16 @@ export default function KitchenPage() {
           <p className="text-green-800 font-semibold">✅ {readyOrders.length} order(s) ready for serving!</p>
           <div className="flex gap-2">
             {readyOrders.map(o => (
+              // Chefs cannot mark orders served — that's the waiter's step
+              isChef ? (
+                <span key={o.id} className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
+                  #{o.id} awaiting waiter
+                </span>
+              ) : (
               <button key={o.id} onClick={() => handleAction(o.id, 'served')} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600">
                 Mark #{o.id} Served
               </button>
+              )
             ))}
           </div>
         </div>
