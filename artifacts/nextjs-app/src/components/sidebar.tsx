@@ -7,7 +7,8 @@ import { ROLE_LABELS } from '@/lib/auth';
 import clsx from 'clsx';
 import {
   LayoutDashboard, ShoppingCart, ChefHat, Table2, UtensilsCrossed,
-  Package, Users, BarChart3, Building2, LogOut, Coffee, Columns3, Send, PackageOpen, Menu, X
+  Package, Users, BarChart3, Building2, LogOut, Coffee, Columns3, Send, PackageOpen, Menu, X,
+  ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 
 const navItems = [
@@ -30,9 +31,23 @@ export default function Sidebar() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   // Close the mobile drawer whenever the route changes
   useEffect(() => { setOpen(false); }, [pathname]);
+
+  // Remember collapsed preference
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('sidebar-collapsed') === '1') {
+      setCollapsed(true);
+    }
+  }, []);
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      localStorage.setItem('sidebar-collapsed', c ? '0' : '1');
+      return !c;
+    });
+  };
 
   const handleLogout = () => {
     logout();
@@ -41,53 +56,64 @@ export default function Sidebar() {
 
   const visible = navItems.filter((item) => user?.role && item.roles.includes(user.role));
 
-  const nav = (
+  const renderNav = (isCollapsed: boolean) => (
     <>
       {/* Logo */}
-      <div className="p-5 border-b border-gray-200">
-        <div className="flex items-center gap-3">
+      <div className={clsx('border-b border-gray-200', isCollapsed ? 'p-3' : 'p-5')}>
+        <div className={clsx('flex items-center gap-3', isCollapsed && 'justify-center')}>
           <div className="w-9 h-9 bg-brand-500 rounded-xl flex items-center justify-center flex-shrink-0">
             <Coffee size={18} className="text-white" />
           </div>
-          <div>
-            <h1 className="font-bold text-sm leading-tight text-gray-900">Jima Aba Jifar</h1>
-            <p className="text-xs text-gray-500">Restaurant System</p>
-          </div>
+          {!isCollapsed && (
+            <div>
+              <h1 className="font-bold text-sm leading-tight text-gray-900">Jima Aba Jifar</h1>
+              <p className="text-xs text-gray-500">Restaurant System</p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+      <nav className={clsx('flex-1 space-y-0.5 overflow-y-auto', isCollapsed ? 'p-2' : 'p-3')}>
         {visible.map((item) => {
           const isActive = item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href);
+          const label = (item as any).managerLabel && user?.role && ['admin', 'owner', 'manager'].includes(user.role) ? (item as any).managerLabel : item.label;
           return (
             <Link
               key={item.href}
               href={item.href}
+              title={isCollapsed ? label : undefined}
               className={clsx(
                 'sidebar-link',
+                isCollapsed && 'justify-center !px-2',
                 isActive ? 'bg-brand-500 text-white' : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
               )}
             >
-              <item.icon size={18} />
-              <span>{(item as any).managerLabel && user?.role && ['admin', 'owner', 'manager'].includes(user.role) ? (item as any).managerLabel : item.label}</span>
+              <item.icon size={18} className="flex-shrink-0" />
+              {!isCollapsed && <span>{label}</span>}
             </Link>
           );
         })}
       </nav>
 
       {/* User */}
-      <div className="p-3 border-t border-gray-200">
-        <div className="bg-white border border-gray-200 rounded-lg p-3 mb-2">
-          <p className="font-medium text-sm truncate text-gray-900">{user?.name}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{user?.role ? ROLE_LABELS[user.role] : ''}</p>
-        </div>
+      <div className={clsx('border-t border-gray-200', isCollapsed ? 'p-2' : 'p-3')}>
+        {!isCollapsed && (
+          <div className="bg-white border border-gray-200 rounded-lg p-3 mb-2">
+            <p className="font-medium text-sm truncate text-gray-900">{user?.name}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{user?.role ? ROLE_LABELS[user.role] : ''}</p>
+          </div>
+        )}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors text-sm"
+          title={isCollapsed ? 'Sign Out' : undefined}
+          className={clsx(
+            'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors text-sm',
+            isCollapsed && 'justify-center px-2'
+          )}
         >
-          <LogOut size={16} />
-          Sign Out
+          <LogOut size={16} className="flex-shrink-0" />
+          {!isCollapsed && 'Sign Out'}
         </button>
       </div>
     </>
@@ -115,14 +141,27 @@ export default function Sidebar() {
             <button onClick={() => setOpen(false)} aria-label="Close menu" className="absolute top-4 right-4 p-1 text-gray-500 hover:text-gray-900">
               <X size={20} />
             </button>
-            {nav}
+            {renderNav(false)}
           </aside>
         </div>
       )}
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex w-64 bg-gray-100 text-gray-800 border-r border-gray-200 flex-col h-screen sticky top-0">
-        {nav}
+      <aside
+        className={clsx(
+          'hidden lg:flex bg-gray-100 text-gray-800 border-r border-gray-200 flex-col h-screen sticky top-0 transition-[width] duration-200',
+          collapsed ? 'w-[68px]' : 'w-64'
+        )}
+      >
+        {renderNav(collapsed)}
+        <button
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? 'Expand menu' : 'Collapse menu'}
+          title={collapsed ? 'Expand menu' : 'Collapse menu'}
+          className="flex items-center justify-center gap-2 py-2.5 border-t border-gray-200 text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors text-sm"
+        >
+          {collapsed ? <ChevronsRight size={18} /> : (<><ChevronsLeft size={18} /> Collapse</>)}
+        </button>
       </aside>
     </>
   );
