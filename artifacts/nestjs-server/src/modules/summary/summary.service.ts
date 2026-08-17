@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, MoreThanOrEqual } from 'typeorm';
+import { Repository, In, MoreThanOrEqual, Between } from 'typeorm';
 import { Order } from '../../entities/order.entity';
 import { ServiceSubmission, SubmissionStatus } from '../../entities/service-submission.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
@@ -8,20 +8,55 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 export type SummaryPeriod = 'daily' | 'weekly' | 'monthly' | 'annual';
 
+// Business timezone: Ethiopia (Africa/Addis Ababa / Nairobi), UTC+3, no DST.
+// All calendar-date boundaries are interpreted in this timezone so results
+// don't depend on the server's own timezone.
+const BUSINESS_TZ_OFFSET = '+03:00';
+const BUSINESS_TZ = 'Africa/Nairobi';
+
+/** Midnight (start of day) of a YYYY-MM-DD calendar date in the business timezone. */
+function dayStart(dateStr: string): Date {
+  return new Date(`${dateStr}T00:00:00${BUSINESS_TZ_OFFSET}`);
+}
+
+/** Exclusive end boundary: midnight of the NEXT day in the business timezone. */
+function nextDayStart(dateStr: string): Date {
+  const d = dayStart(dateStr);
+  d.setDate(d.getDate() + 1);
+  return d;
+}
+
+/** Today's calendar date (YYYY-MM-DD) in the business timezone. */
+function businessToday(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: BUSINESS_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
 function periodStart(period: SummaryPeriod): Date {
-  const now = new Date();
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
+  const today = businessToday();
+  const d = dayStart(today);
   if (period === 'weekly') {
-    // Week starts on Monday
-    const day = (d.getDay() + 6) % 7;
-    d.setDate(d.getDate() - day);
+    // Week starts on Monday (weekday computed from the business-tz calendar date)
+    const [y, m, dd] = today.split('-').map(Number);
+    const local = new Date(Date.UTC(y, m - 1, dd));
+    const localDay = (local.getUTCDay() + 6) % 7;
+    local.setUTCDate(local.getUTCDate() - localDay);
+    return dayStart(local.toISOString().slice(0, 10));
   } else if (period === 'monthly') {
-    d.setDate(1);
+    return dayStart(`${today.slice(0, 7)}-01`);
   } else if (period === 'annual') {
-    d.setMonth(0, 1);
+    return dayStart(`${today.slice(0, 4)}-01-01`);
   }
   return d;
+}
+
+// Stable stringify (sorted keys) — Postgres jsonb does not preserve key order,
+// so a naive JSON.stringify comparison would flag identical reports as changed.
+function stableStringify(v: any): string {
+  if (Array.isArray(v)) return `[${v.map(stableStringify).join(',')}]`;
+  if (v && typeof v === 'object') {
+    return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stableStringify(v[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(v);
 }
 
 // The order workflow is complete once the waiter serves it; paid orders stay counted.
@@ -35,11 +70,22 @@ export class SummaryService {
     private notifications: NotificationsService,
   ) {}
 
-  /** Served-items & revenue summary with per-table detail. */
-  async getSummary(period: SummaryPeriod, waiterId?: number, branchId?: number) {
+  /** Served-items & revenue summary with per-table detail, filtered by a calendar date range. */
+  async getSummary(range: { startDate?: string; endDate?: string; period?: SummaryPeriod }, waiterId?: number, branchId?: number) {
+    let from: Date;
+    let toExclusive: Date | undefined;
+    if (range.startDate && /^\d{4}-\d{2}-\d{2}$/.test(range.startDate)) {
+      from = dayStart(range.startDate);
+      let endStr = range.endDate && /^\d{4}-\d{2}-\d{2}$/.test(range.endDate) ? range.endDate : range.startDate;
+      if (endStr < range.startDate) endStr = range.startDate;
+      toExclusive = nextDayStart(endStr);
+    } else {
+      from = periodStart(range.period || 'daily');
+    }
     const where: any = {
       status: In(DONE_STATUSES),
-      updatedAt: MoreThanOrEqual(periodStart(period)),
+      // Half-open interval [from, toExclusive) in the business timezone
+      updatedAt: toExclusive ? Between(from, new Date(toExclusive.getTime() - 1)) : MoreThanOrEqual(from),
     };
     if (waiterId) where.waiterId = waiterId;
     if (branchId) where.branchId = branchId;
@@ -100,8 +146,8 @@ export class SummaryService {
 
     const round = (n: number) => Math.round(n * 100) / 100;
     return {
-      period,
-      from: periodStart(period),
+      from,
+      to: toExclusive ?? new Date(),
       totals: { ...totals, revenue: round(totals.revenue) },
       byTable: [...byTable.values()]
         .map((t) => ({ ...t, revenue: round(t.revenue), itemDetail: [...t.itemDetail.values()].map((d: any) => ({ ...d, amount: round(d.amount) })).sort((a: any, b: any) => b.quantity - a.quantity) }))
@@ -112,9 +158,8 @@ export class SummaryService {
 
   /** Waiter submits today's service report to the cashier (one per day, resubmit updates until confirmed). */
   async submitDaily(waiter: { id: number; branchId?: number }) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const serviceDate = today.toISOString().slice(0, 10);
+    const serviceDate = businessToday();
+    const today = dayStart(serviceDate);
 
     const whereOrders: any = { waiterId: waiter.id, status: In(DONE_STATUSES), updatedAt: MoreThanOrEqual(today) };
     if (waiter.branchId) whereOrders.branchId = waiter.branchId;
@@ -136,11 +181,32 @@ export class SummaryService {
     const itemsCount = orders.reduce((s, o) => s + (o.items || []).reduce((x, i) => x + i.quantity, 0), 0);
 
     let sub = await this.subRepo.findOne({ where: { waiterId: waiter.id, serviceDate } });
-    if (sub && sub.status === SubmissionStatus.CONFIRMED) {
-      throw new BadRequestException('Today\'s submission was already confirmed by the cashier');
-    }
     if (!sub) {
       sub = this.subRepo.create({ waiterId: waiter.id, serviceDate, branchId: waiter.branchId || undefined });
+    } else {
+      // Resubmission: keep the previous version so it can be compared with the new one
+      const changed = stableStringify(sub.detail) !== stableStringify(detail)
+        || Number(sub.totalRevenue) !== totalRevenue || sub.ordersCount !== orders.length || sub.itemsCount !== itemsCount;
+      if (!changed && sub.status === SubmissionStatus.CONFIRMED) {
+        throw new BadRequestException('Nothing changed since the cashier confirmed this report');
+      }
+      if (changed) {
+        sub.revisions = [
+          ...(Array.isArray(sub.revisions) ? sub.revisions : []),
+          {
+            submittedAt: (sub.updatedAt || sub.createdAt || new Date()).toISOString?.() || sub.updatedAt,
+            ordersCount: sub.ordersCount,
+            itemsCount: sub.itemsCount,
+            totalRevenue: Number(sub.totalRevenue),
+            detail: sub.detail,
+            wasConfirmed: sub.status === SubmissionStatus.CONFIRMED,
+            confirmedAt: sub.confirmedAt || null,
+          },
+        ];
+        // A resubmission after confirmation goes back to the cashier for a fresh confirmation
+        sub.cashierId = null as any;
+        sub.confirmedAt = null as any;
+      }
     }
     sub.ordersCount = orders.length;
     sub.itemsCount = itemsCount;
@@ -154,9 +220,6 @@ export class SummaryService {
       if (e?.code === '23505') {
         const existing = await this.subRepo.findOne({ where: { waiterId: waiter.id, serviceDate } });
         if (!existing) throw e;
-        if (existing.status === SubmissionStatus.CONFIRMED) {
-          throw new BadRequestException('Today\'s submission was already confirmed by the cashier');
-        }
         await this.subRepo.update(existing.id, {
           ordersCount: sub.ordersCount, itemsCount: sub.itemsCount, totalRevenue: sub.totalRevenue,
           detail: sub.detail, status: SubmissionStatus.SUBMITTED,

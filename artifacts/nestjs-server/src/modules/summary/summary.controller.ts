@@ -17,11 +17,18 @@ export class SummaryController {
   @Get()
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CASHIER)
-  getSummary(@Req() req: any, @Query('period') period?: string, @Query('waiterId') waiterId?: string, @Query('branchId') branchId?: string) {
+  getSummary(
+    @Req() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('period') period?: string,
+    @Query('waiterId') waiterId?: string,
+    @Query('branchId') branchId?: string,
+  ) {
     const p: SummaryPeriod = ['daily', 'weekly', 'monthly', 'annual'].includes(period as any) ? (period as SummaryPeriod) : 'daily';
     // Waiters only ever see their own service
     const wid = req.user?.role === Role.WAITER ? req.user.id : (waiterId ? +waiterId : undefined);
-    return this.service.getSummary(p, wid, effectiveBranch(req.user, branchId));
+    return this.service.getSummary({ startDate, endDate, period: p }, wid, effectiveBranch(req.user, branchId));
   }
 
   @Get('submissions')

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, Unique } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
 import { User } from './user.entity';
 
 export enum SubmissionStatus {
@@ -30,6 +30,11 @@ export class ServiceSubmission {
   @Column({ type: 'jsonb', nullable: true })
   detail: any;
 
+  // Earlier versions of this report (kept when the waiter resubmits):
+  // [{ submittedAt, ordersCount, itemsCount, totalRevenue, detail }]
+  @Column({ type: 'jsonb', nullable: true })
+  revisions: any;
+
   @Column({ type: 'enum', enum: SubmissionStatus, default: SubmissionStatus.SUBMITTED })
   status: SubmissionStatus;
 
@@ -55,4 +60,7 @@ export class ServiceSubmission {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
