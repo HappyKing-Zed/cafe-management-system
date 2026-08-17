@@ -4,6 +4,7 @@ import { Repository, In, MoreThanOrEqual } from 'typeorm';
 import { Order } from '../../entities/order.entity';
 import { ServiceSubmission, SubmissionStatus } from '../../entities/service-submission.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export type SummaryPeriod = 'daily' | 'weekly' | 'monthly' | 'annual';
 
@@ -31,6 +32,7 @@ export class SummaryService {
   constructor(
     @InjectRepository(Order) private orderRepo: Repository<Order>,
     @InjectRepository(ServiceSubmission) private subRepo: Repository<ServiceSubmission>,
+    private notifications: NotificationsService,
   ) {}
 
   /** Served-items & revenue summary with per-table detail. */
@@ -164,7 +166,17 @@ export class SummaryService {
         throw e;
       }
     }
-    return this.subRepo.findOne({ where: { id: sub.id }, relations: ['waiter', 'cashier'] });
+    const saved = await this.subRepo.findOne({ where: { id: sub.id }, relations: ['waiter', 'cashier'] });
+
+    // Notify cashiers and managers in the same branch that a report was submitted
+    const waiterName = saved?.waiter?.name || `Waiter #${waiter.id}`;
+    await this.notifications.notify({
+      roles: ['cashier', 'manager'],
+      message: `${waiterName} submitted a daily service report for ${serviceDate}`,
+      branchId: waiter.branchId ?? null,
+    });
+
+    return saved;
   }
 
   async listSubmissions(user: { id: number; role: string; branchId?: number }, waiterId?: number, branchId?: number) {
@@ -191,6 +203,18 @@ export class SummaryService {
     sub.cashierId = cashier.id;
     sub.confirmedAt = new Date();
     await this.subRepo.save(sub);
-    return this.subRepo.findOne({ where: { id }, relations: ['waiter', 'cashier'] });
+    const confirmed = await this.subRepo.findOne({ where: { id }, relations: ['waiter', 'cashier'] });
+
+    // Notify the waiter that their daily report has been confirmed
+    if (sub.waiterId) {
+      const cashierName = confirmed?.cashier?.name || `Cashier #${cashier.id}`;
+      await this.notifications.notify({
+        userId: sub.waiterId,
+        message: `${cashierName} confirmed your daily service report for ${sub.serviceDate}`,
+        branchId: sub.branchId ?? null,
+      });
+    }
+
+    return confirmed;
   }
 }

@@ -89,6 +89,7 @@ export default function NotificationBell() {
     '/dashboard/kitchen': ['admin', 'owner', 'manager', 'coordinator', 'chef'],
     '/dashboard/inventory': ['admin', 'owner', 'manager', 'storekeeper', 'cashier'],
     '/dashboard/item-requests': ['admin', 'owner', 'manager', 'coordinator'],
+    '/dashboard/summary': ['admin', 'owner', 'manager', 'cashier', 'waiter'],
   };
   const allowed = (path: string) => ROUTE_ROLES[path]?.includes(user.role) ?? false;
   // Best order page for this role
@@ -99,6 +100,7 @@ export default function NotificationBell() {
     const m = n.message.toLowerCase();
     let target: string | null = null;
     if (n.orderId) target = orderPage;
+    else if (m.includes('service report') || m.includes('daily report') || m.includes('submission') || m.includes('confirmed your')) target = '/dashboard/summary';
     else if (m.includes('requisition') || m.includes('item request') || m.includes('request')) target = '/dashboard/item-requests';
     else if (m.includes('purchase order') || m.includes('po #') || m.includes('stock') || m.includes('expir') || m.includes('supplier') || m.includes('inventory')) target = '/dashboard/inventory';
     else if (m.includes('order') || m.includes('payment') || m.includes('paid')) target = orderPage;

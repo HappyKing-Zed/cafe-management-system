@@ -4,9 +4,10 @@ import { Order } from '../../entities/order.entity';
 import { ServiceSubmission } from '../../entities/service-submission.entity';
 import { SummaryService } from './summary.service';
 import { SummaryController } from './summary.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order, ServiceSubmission])],
+  imports: [TypeOrmModule.forFeature([Order, ServiceSubmission]), NotificationsModule],
   providers: [SummaryService],
   controllers: [SummaryController],
 })
