@@ -149,36 +149,6 @@ async function exportReportsExcel(subs: any[], range: { start: string; end: stri
   XLSX.writeFile(wb, `service-reports-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}.xlsx`);
 }
 
-async function exportSubmissionPdf(s: any) {
-  const { jsPDF, autoTable } = await loadPdf();
-  const doc = new jsPDF();
-  const { rows, total } = itemRows(s.detail);
-  doc.setFontSize(16);
-  doc.text(`Service Report #${s.id}`, 14, 16);
-  doc.setFontSize(10);
-  doc.text(`Waiter: ${s.waiter?.name || `#${s.waiterId}`}   Date: ${s.serviceDate}`, 14, 23);
-  doc.text(`Orders: ${s.ordersCount}   Items: ${s.itemsCount}   Revenue: ${fmt(s.totalRevenue)}   Status: ${s.status === 'confirmed' ? `Confirmed${s.cashier?.name ? ` by ${s.cashier.name}` : ''}` : 'Awaiting cashier'}`, 14, 29);
-  autoTable(doc, { startY: 34, head: [PDF_HEAD], body: [...toPdfBody(rows), ['', '', '', '', 'TOTAL', total.toFixed(2)]] });
-  doc.save(`service-report-${s.serviceDate}-no${s.id}.pdf`);
-}
-
-async function exportSubmissionExcel(s: any) {
-  const XLSX = await loadXlsx();
-  const wb = XLSX.utils.book_new();
-  const { rows, total } = itemRows(s.detail);
-  const info = [
-    [`Service Report #${s.id}`],
-    ['Waiter', s.waiter?.name || `#${s.waiterId}`],
-    ['Date', s.serviceDate],
-    ['Orders', s.ordersCount], ['Items', s.itemsCount], ['Revenue (ETB)', Number(s.totalRevenue)],
-    ['Status', s.status === 'confirmed' ? `Confirmed${s.cashier?.name ? ` by ${s.cashier.name}` : ''}` : 'Awaiting cashier'],
-  ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(info), 'Report');
-  const aoa = [PDF_HEAD, ...rows.map((r: any) => [r.Order, r.Table, r.Item, r.Qty, r['Unit Price (ETB)'], r['Amount (ETB)']]), ['', '', '', '', 'TOTAL', total]];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Orders');
-  XLSX.writeFile(wb, `service-report-${s.serviceDate}-no${s.id}.xlsx`);
-}
-
 /* ---------- page ---------- */
 
 export default function SummaryPage() {
@@ -244,6 +214,14 @@ export default function SummaryPage() {
       return true;
     });
   }, [submissions, startDate, endDate, statusFilter, waiterFilter, isWaiter]);
+
+  // Pagination for the reports table
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [startDate, endDate, statusFilter, waiterFilter]);
+  const totalPages = Math.max(1, Math.ceil(visibleSubs.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedSubs = useMemo(() => visibleSubs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE), [visibleSubs, safePage]);
 
   // Aggregate totals of the filtered reports
   const aggregate = useMemo(() => visibleSubs.reduce(
@@ -521,7 +499,7 @@ export default function SummaryPage() {
                 <th className="px-4 py-2">Report</th><th className="px-4 py-2">Date</th><th className="px-4 py-2">Waiter</th><th className="px-4 py-2">Orders</th><th className="px-4 py-2">Items</th><th className="px-4 py-2 text-right">Revenue</th><th className="px-4 py-2">Status</th><th className="px-4 py-2" />
               </tr></thead>
               <tbody>
-                {visibleSubs.map((s) => {
+                {pagedSubs.map((s) => {
                   const isOpen = subOpen === s.id;
                   return [
                     <tr key={s.id} onClick={() => setSubOpen(isOpen ? null : s.id)}
@@ -551,22 +529,14 @@ export default function SummaryPage() {
                     isOpen ? (
                       <tr key={`${s.id}-detail`} className="border-b border-gray-50 bg-gray-50/50">
                         <td colSpan={8} className="px-4 py-3">
-                          <div className="flex flex-wrap items-center gap-2 mb-3">
-                            {canConfirm && s.status !== 'confirmed' && (
+                          {canConfirm && s.status !== 'confirmed' && (
+                            <div className="flex flex-wrap items-center gap-2 mb-3">
                               <button onClick={() => handleConfirm(s.id)} disabled={busy}
                                 className="text-xs font-medium bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg">
                                 Confirm received
                               </button>
-                            )}
-                            <button onClick={() => runExport(() => exportSubmissionPdf(s))}
-                              className="flex items-center gap-1.5 text-xs font-medium border border-gray-300 hover:bg-white text-gray-700 px-3 py-1.5 rounded-lg">
-                              <FileDown size={13} /> Download PDF
-                            </button>
-                            <button onClick={() => runExport(() => exportSubmissionExcel(s))}
-                              className="flex items-center gap-1.5 text-xs font-medium border border-gray-300 hover:bg-white text-gray-700 px-3 py-1.5 rounded-lg">
-                              <FileSpreadsheet size={13} /> Download Excel
-                            </button>
-                          </div>
+                            </div>
+                          )}
                           {detailTable(s.detail, Number(s.totalRevenue))}
                         </td>
                       </tr>
@@ -575,6 +545,24 @@ export default function SummaryPage() {
                 })}
               </tbody>
             </table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm">
+                <span className="text-gray-500">
+                  Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, visibleSubs.length)} of {visibleSubs.length} reports
+                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setPage(safePage - 1)} disabled={safePage <= 1}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 disabled:opacity-40 hover:bg-gray-50 text-xs font-medium">
+                    Previous
+                  </button>
+                  <span className="text-gray-600 text-xs">Page {safePage} of {totalPages}</span>
+                  <button onClick={() => setPage(safePage + 1)} disabled={safePage >= totalPages}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 disabled:opacity-40 hover:bg-gray-50 text-xs font-medium">
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
