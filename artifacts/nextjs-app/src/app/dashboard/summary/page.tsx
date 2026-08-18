@@ -184,14 +184,18 @@ async function exportSubmissionExcel(s: any) {
 export default function SummaryPage() {
   const { user } = useAuthStore();
   const isWaiter = user?.role === 'waiter';
+  const isCashier = user?.role === 'cashier';
+  // Waiters and cashiers work with the reports list only (no summary analytics)
+  const reportsOnly = isWaiter || isCashier;
   const canConfirm = ['cashier', 'admin', 'owner'].includes(user?.role || '');
 
   const [startDate, setStartDate] = useState(() => localDateTime(new Date(), 0, 0));
   const [endDate, setEndDate] = useState(() => localDateTime(new Date(), 23, 59));
   const [waiterFilter, setWaiterFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'confirmed'>('all');
   const [waiters, setWaiters] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
-  const [loading, setLoading] = useState(!isWaiter);
+  const [loading, setLoading] = useState(!reportsOnly);
 
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [subOpen, setSubOpen] = useState<number | null>(null);
@@ -200,7 +204,7 @@ export default function SummaryPage() {
   const [error, setError] = useState('');
 
   const fetchSummary = useCallback(async () => {
-    if (isWaiter) return; // waiters only see their reports
+    if (reportsOnly) return; // waiters & cashiers only see the reports list
     setLoading(true);
     try {
       const params: any = { startDate, endDate };
@@ -212,7 +216,7 @@ export default function SummaryPage() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, waiterFilter, isWaiter]);
+  }, [startDate, endDate, waiterFilter, reportsOnly]);
 
   const fetchSubmissions = useCallback(async () => {
     try {
@@ -234,9 +238,18 @@ export default function SummaryPage() {
     to.setMinutes(to.getMinutes() + 1); // inclusive up to the selected minute
     return submissions.filter((x) => {
       const t = x.createdAt ? new Date(x.createdAt) : new Date(`${x.serviceDate}T00:00`);
-      return t >= from && t < to;
+      if (t < from || t >= to) return false;
+      if (statusFilter !== 'all' && x.status !== statusFilter) return false;
+      if (!isWaiter && waiterFilter && String(x.waiterId) !== waiterFilter) return false;
+      return true;
     });
-  }, [submissions, startDate, endDate]);
+  }, [submissions, startDate, endDate, statusFilter, waiterFilter, isWaiter]);
+
+  // Aggregate totals of the filtered reports
+  const aggregate = useMemo(() => visibleSubs.reduce(
+    (a, s) => ({ reports: a.reports + 1, orders: a.orders + (s.ordersCount || 0), items: a.items + (s.itemsCount || 0), revenue: a.revenue + (Number(s.totalRevenue) || 0) }),
+    { reports: 0, orders: 0, items: 0, revenue: 0 },
+  ), [visibleSubs]);
 
   const handleSubmit = async () => {
     setBusy(true); setError(''); setMessage('');
@@ -322,8 +335,8 @@ export default function SummaryPage() {
             <ClipboardList className="text-brand-600" size={22} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{isWaiter ? 'Daily Service Reports' : 'Service Summary'}</h1>
-            <p className="text-gray-500 text-sm">{isWaiter ? 'Send your served orders to the cashier — each report covers only orders not yet sent' : 'Served items and revenue by table'}</p>
+            <h1 className="text-2xl font-bold text-gray-900">{reportsOnly ? 'Daily Service Reports' : 'Service Summary'}</h1>
+            <p className="text-gray-500 text-sm">{isWaiter ? 'Send your served orders to the cashier — each report covers only orders not yet sent' : isCashier ? 'Reports received from waiters — confirm them as you receive the cash' : 'Served items and revenue by table'}</p>
           </div>
         </div>
         {isWaiter && (
@@ -368,23 +381,32 @@ export default function SummaryPage() {
             {waiters.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
         )}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as any)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+        >
+          <option value="all">All statuses</option>
+          <option value="submitted">Pending</option>
+          <option value="confirmed">Confirmed</option>
+        </select>
         <div className="flex gap-2 ml-auto">
           <button
-            onClick={() => runExport(() => isWaiter ? exportReportsPdf(visibleSubs, range, waiterName) : exportSummaryPdf(summary, range, waiterName))}
-            disabled={isWaiter ? visibleSubs.length === 0 : !summary}
+            onClick={() => runExport(() => reportsOnly ? exportReportsPdf(visibleSubs, range, waiterName) : exportSummaryPdf(summary, range, waiterName))}
+            disabled={reportsOnly ? visibleSubs.length === 0 : !summary}
             className="flex items-center gap-1.5 text-xs font-medium border border-gray-300 hover:bg-gray-50 disabled:opacity-40 text-gray-700 px-3 py-2 rounded-lg">
             <FileDown size={14} /> PDF
           </button>
           <button
-            onClick={() => runExport(() => isWaiter ? exportReportsExcel(visibleSubs, range, waiterName) : exportSummaryExcel(summary, range, waiterName))}
-            disabled={isWaiter ? visibleSubs.length === 0 : !summary}
+            onClick={() => runExport(() => reportsOnly ? exportReportsExcel(visibleSubs, range, waiterName) : exportSummaryExcel(summary, range, waiterName))}
+            disabled={reportsOnly ? visibleSubs.length === 0 : !summary}
             className="flex items-center gap-1.5 text-xs font-medium border border-gray-300 hover:bg-gray-50 disabled:opacity-40 text-gray-700 px-3 py-2 rounded-lg">
             <FileSpreadsheet size={14} /> Excel
           </button>
         </div>
       </div>
 
-      {!isWaiter && (loading ? (
+      {!reportsOnly && (loading ? (
         <p className="text-gray-500 text-sm">Loading…</p>
       ) : !summary ? (
         <p className="text-gray-500 text-sm">Could not load the summary.</p>
@@ -471,6 +493,16 @@ export default function SummaryPage() {
           </div>
         </>
       ))}
+
+      {/* Aggregate totals of the filtered reports */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+        {([['Reports', String(aggregate.reports)], ['Orders', String(aggregate.orders)], ['Items', String(aggregate.items)], ['Total Revenue', fmt(aggregate.revenue)]] as const).map(([label, value]) => (
+          <div key={label} className="bg-white border border-gray-200 rounded-xl p-3">
+            <p className="text-xs text-gray-500 uppercase">{label}</p>
+            <p className={`text-xl font-bold mt-0.5 ${label === 'Total Revenue' ? 'text-brand-600' : 'text-gray-900'}`}>{value}</p>
+          </div>
+        ))}
+      </div>
 
       {/* Daily service reports — record list */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
