@@ -123,13 +123,20 @@ export default function InventoryPage() {
   const [poDetail, setPODetail] = useState<PurchaseOrder | null>(null);
   const [poSelected, setPOSelected] = useState<number[]>([]);
   const [poBusy, setPOBusy] = useState(false);
-  const openPODetail = (po: PurchaseOrder) => { setPODetail(po); setPOSelected([]); };
+  const openPODetail = (po: PurchaseOrder) => {
+    setPODetail(po);
+    // Pre-select every pending line so one click on Approve works right away
+    setPOSelected((po.items || []).filter((i: any) => !i.approved).map((i: any) => i.id));
+  };
   const togglePOItem = (id: number) => setPOSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const refreshPODetail = async () => {
     const res = await getPurchaseOrders();
     setPOs(res.data || []);
-    setPODetail(prev => prev ? (res.data || []).find((p: PurchaseOrder) => p.id === prev.id) || null : null);
-    setPOSelected([]);
+    setPODetail(prev => {
+      const fresh = prev ? (res.data || []).find((p: PurchaseOrder) => p.id === prev.id) || null : null;
+      setPOSelected(fresh ? (fresh.items || []).filter((i: any) => !i.approved).map((i: any) => i.id) : []);
+      return fresh;
+    });
   };
   const doApproveItems = async (all: boolean) => {
     if (!poDetail) return;
@@ -901,7 +908,17 @@ export default function InventoryPage() {
             <div className="overflow-x-auto">
               <table className="w-full mb-4">
               <thead className="bg-gray-50 border-b"><tr>
-                {poDetail.status === 'pending' && canApprovePO && <th className="table-header w-8"></th>}
+                {poDetail.status === 'pending' && canApprovePO && (
+                  <th className="table-header w-8">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all items"
+                      className="w-4 h-4 accent-brand-600 align-middle"
+                      checked={(poDetail.items || []).filter((i: any) => !i.approved).length > 0 && (poDetail.items || []).filter((i: any) => !i.approved).every((i: any) => poSelected.includes(i.id))}
+                      onChange={(e) => setPOSelected(e.target.checked ? (poDetail.items || []).filter((i: any) => !i.approved).map((i: any) => i.id) : [])}
+                    />
+                  </th>
+                )}
                 <th className="table-header">Item</th><th className="table-header">Qty</th><th className="table-header">Unit Price</th><th className="table-header">Total</th><th className="table-header">Approval</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
@@ -929,8 +946,7 @@ export default function InventoryPage() {
             <p className="text-right font-bold text-gray-900 mb-4">Total: ETB {Number(poDetail.totalAmount).toLocaleString()}</p>
             <div className="flex flex-wrap gap-2 justify-end">
               {poDetail.status === 'pending' && canApprovePO && <>
-                <button onClick={() => doApproveItems(false)} disabled={poBusy || poSelected.length === 0} className="text-sm px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-medium disabled:opacity-50">Approve Selected ({poSelected.length})</button>
-                <button onClick={() => doApproveItems(true)} disabled={poBusy} className="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50">Approve All</button>
+                <button onClick={() => doApproveItems(false)} disabled={poBusy || poSelected.length === 0} className="text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50">{poBusy ? 'Approving…' : `Approve (${poSelected.length})`}</button>
                 <button onClick={() => doPOStatus('rejected')} disabled={poBusy} className="text-sm px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium disabled:opacity-50">Reject</button>
               </>}
               {['approved', 'paid'].includes(poDetail.status) && canReceivePO && (
