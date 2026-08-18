@@ -19,6 +19,24 @@ function dayStart(dateStr: string): Date {
   return new Date(`${dateStr}T00:00:00${BUSINESS_TZ_OFFSET}`);
 }
 
+// Accepts 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM' (datetime-local)
+const DATE_OR_DATETIME = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
+
+/** Start boundary in business timezone: exact minute if time given, else start of day. */
+function rangeStart(s: string): Date {
+  return s.includes('T') ? new Date(`${s}:00${BUSINESS_TZ_OFFSET}`) : dayStart(s);
+}
+
+/** Exclusive end boundary: next minute if time given, else start of next day. */
+function rangeEndExclusive(s: string): Date {
+  if (s.includes('T')) {
+    const d = new Date(`${s}:00${BUSINESS_TZ_OFFSET}`);
+    d.setMinutes(d.getMinutes() + 1);
+    return d;
+  }
+  return nextDayStart(s);
+}
+
 /** Exclusive end boundary: midnight of the NEXT day in the business timezone. */
 function nextDayStart(dateStr: string): Date {
   const d = dayStart(dateStr);
@@ -49,18 +67,11 @@ function periodStart(period: SummaryPeriod): Date {
   return d;
 }
 
-// Stable stringify (sorted keys) — Postgres jsonb does not preserve key order,
-// so a naive JSON.stringify comparison would flag identical reports as changed.
-function stableStringify(v: any): string {
-  if (Array.isArray(v)) return `[${v.map(stableStringify).join(',')}]`;
-  if (v && typeof v === 'object') {
-    return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stableStringify(v[k])}`).join(',')}}`;
-  }
-  return JSON.stringify(v);
-}
-
 // The order workflow is complete once the waiter serves it; paid orders stay counted.
 const DONE_STATUSES = [OrderStatus.SERVED, OrderStatus.PAID];
+
+// How many days back a report submit looks for served-but-not-yet-reported orders
+const SUBMIT_LOOKBACK_DAYS = 7;
 
 @Injectable()
 export class SummaryService {
@@ -74,11 +85,11 @@ export class SummaryService {
   async getSummary(range: { startDate?: string; endDate?: string; period?: SummaryPeriod }, waiterId?: number, branchId?: number) {
     let from: Date;
     let toExclusive: Date | undefined;
-    if (range.startDate && /^\d{4}-\d{2}-\d{2}$/.test(range.startDate)) {
-      from = dayStart(range.startDate);
-      let endStr = range.endDate && /^\d{4}-\d{2}-\d{2}$/.test(range.endDate) ? range.endDate : range.startDate;
-      if (endStr < range.startDate) endStr = range.startDate;
-      toExclusive = nextDayStart(endStr);
+    if (range.startDate && DATE_OR_DATETIME.test(range.startDate)) {
+      from = rangeStart(range.startDate);
+      let endStr = range.endDate && DATE_OR_DATETIME.test(range.endDate) ? range.endDate : range.startDate;
+      toExclusive = rangeEndExclusive(endStr);
+      if (toExclusive <= from) toExclusive = rangeEndExclusive(range.startDate.slice(0, 10));
     } else {
       from = periodStart(range.period || 'daily');
     }
@@ -156,79 +167,67 @@ export class SummaryService {
     };
   }
 
-  /** Waiter submits today's service report to the cashier (one per day, resubmit updates until confirmed). */
+  /**
+   * Waiter sends a service report to the cashier. A waiter can send several reports per day;
+   * each report includes ONLY the served orders that were not part of an earlier report.
+   * Looks back a few days so orders served just before midnight (but not yet reported)
+   * are still picked up in the next report instead of being lost.
+   */
   async submitDaily(waiter: { id: number; branchId?: number }) {
     const serviceDate = businessToday();
-    const today = dayStart(serviceDate);
+    const lookback = dayStart(serviceDate);
+    lookback.setDate(lookback.getDate() - SUBMIT_LOOKBACK_DAYS);
+    const lookbackDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: BUSINESS_TZ }).format(lookback);
 
-    const whereOrders: any = { waiterId: waiter.id, status: In(DONE_STATUSES), updatedAt: MoreThanOrEqual(today) };
-    if (waiter.branchId) whereOrders.branchId = waiter.branchId;
-    const orders = await this.orderRepo.find({
-      where: whereOrders,
-      relations: ['table', 'items', 'items.menuItem'],
-      order: { updatedAt: 'ASC' },
+    const sub = await this.subRepo.manager.transaction(async (em) => {
+      // Advisory lock per waiter: prevents two concurrent submits from double-reporting the same orders
+      await em.query('SELECT pg_advisory_xact_lock($1, $2)', [811001, waiter.id]);
+
+      const whereOrders: any = { waiterId: waiter.id, status: In(DONE_STATUSES), updatedAt: MoreThanOrEqual(lookback) };
+      if (waiter.branchId) whereOrders.branchId = waiter.branchId;
+      const allOrders = await em.find(Order, {
+        where: whereOrders,
+        relations: ['table', 'items', 'items.menuItem'],
+        order: { updatedAt: 'ASC' },
+      });
+      if (allOrders.length === 0) throw new BadRequestException('No served orders yet — nothing to submit');
+
+      // Exclude orders already included in ANY earlier report within the lookback window
+      const priorSubs = await em.find(ServiceSubmission, {
+        where: { waiterId: waiter.id, serviceDate: MoreThanOrEqual(lookbackDateStr) as any },
+      });
+      const alreadySent = new Set<number>();
+      for (const p of priorSubs) {
+        for (const d of (p.detail as any[]) || []) if (d?.orderId) alreadySent.add(d.orderId);
+      }
+      const orders = allOrders.filter((o) => !alreadySent.has(o.id));
+      if (orders.length === 0) {
+        throw new BadRequestException('All served orders today were already sent to the cashier — serve new orders before sending another report');
+      }
+
+      const detail = orders.map((o) => ({
+        orderId: o.id,
+        table: o.table ? `Table ${o.table.number}` : (o.customerName || 'Walk-in'),
+        status: o.status,
+        amount: Number(o.totalAmount) || 0,
+        items: (o.items || []).map((i) => ({ name: i.menuItem?.name || `Item #${i.menuItemId}`, quantity: i.quantity, unitPrice: Number(i.unitPrice) })),
+      }));
+      const totalRevenue = Math.round(detail.reduce((s, d) => s + d.amount, 0) * 100) / 100;
+      const itemsCount = orders.reduce((s, o) => s + (o.items || []).reduce((x, i) => x + i.quantity, 0), 0);
+
+      // Each send creates a NEW report covering only the not-yet-reported orders
+      const created = em.create(ServiceSubmission, {
+        waiterId: waiter.id,
+        serviceDate,
+        branchId: waiter.branchId || undefined,
+        ordersCount: orders.length,
+        itemsCount,
+        totalRevenue,
+        detail,
+        status: SubmissionStatus.SUBMITTED,
+      });
+      return em.save(created);
     });
-    if (orders.length === 0) throw new BadRequestException('No served orders today — nothing to submit yet');
-
-    const detail = orders.map((o) => ({
-      orderId: o.id,
-      table: o.table ? `Table ${o.table.number}` : (o.customerName || 'Walk-in'),
-      status: o.status,
-      amount: Number(o.totalAmount) || 0,
-      items: (o.items || []).map((i) => ({ name: i.menuItem?.name || `Item #${i.menuItemId}`, quantity: i.quantity, unitPrice: Number(i.unitPrice) })),
-    }));
-    const totalRevenue = Math.round(detail.reduce((s, d) => s + d.amount, 0) * 100) / 100;
-    const itemsCount = orders.reduce((s, o) => s + (o.items || []).reduce((x, i) => x + i.quantity, 0), 0);
-
-    let sub = await this.subRepo.findOne({ where: { waiterId: waiter.id, serviceDate } });
-    if (!sub) {
-      sub = this.subRepo.create({ waiterId: waiter.id, serviceDate, branchId: waiter.branchId || undefined });
-    } else {
-      // Resubmission: keep the previous version so it can be compared with the new one
-      const changed = stableStringify(sub.detail) !== stableStringify(detail)
-        || Number(sub.totalRevenue) !== totalRevenue || sub.ordersCount !== orders.length || sub.itemsCount !== itemsCount;
-      if (!changed && sub.status === SubmissionStatus.CONFIRMED) {
-        throw new BadRequestException('Nothing changed since the cashier confirmed this report');
-      }
-      if (changed) {
-        sub.revisions = [
-          ...(Array.isArray(sub.revisions) ? sub.revisions : []),
-          {
-            submittedAt: (sub.updatedAt || sub.createdAt || new Date()).toISOString?.() || sub.updatedAt,
-            ordersCount: sub.ordersCount,
-            itemsCount: sub.itemsCount,
-            totalRevenue: Number(sub.totalRevenue),
-            detail: sub.detail,
-            wasConfirmed: sub.status === SubmissionStatus.CONFIRMED,
-            confirmedAt: sub.confirmedAt || null,
-          },
-        ];
-        // A resubmission after confirmation goes back to the cashier for a fresh confirmation
-        sub.cashierId = null as any;
-        sub.confirmedAt = null as any;
-      }
-    }
-    sub.ordersCount = orders.length;
-    sub.itemsCount = itemsCount;
-    sub.totalRevenue = totalRevenue;
-    sub.detail = detail;
-    sub.status = SubmissionStatus.SUBMITTED;
-    try {
-      await this.subRepo.save(sub);
-    } catch (e: any) {
-      // Unique (waiterId, serviceDate) hit by a concurrent submit — update the existing row instead
-      if (e?.code === '23505') {
-        const existing = await this.subRepo.findOne({ where: { waiterId: waiter.id, serviceDate } });
-        if (!existing) throw e;
-        await this.subRepo.update(existing.id, {
-          ordersCount: sub.ordersCount, itemsCount: sub.itemsCount, totalRevenue: sub.totalRevenue,
-          detail: sub.detail, status: SubmissionStatus.SUBMITTED,
-        });
-        sub = existing;
-      } else {
-        throw e;
-      }
-    }
     const saved = await this.subRepo.findOne({ where: { id: sub.id }, relations: ['waiter', 'cashier'] });
 
     // Notify cashiers and managers in the same branch that a report was submitted

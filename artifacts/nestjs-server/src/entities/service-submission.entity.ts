@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, Unique } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from './user.entity';
 
 export enum SubmissionStatus {
@@ -6,9 +6,8 @@ export enum SubmissionStatus {
   CONFIRMED = 'confirmed',
 }
 
-/** A waiter's end-of-day service report handed over to the cashier. */
+/** A waiter's service report handed over to the cashier (a waiter may send several per day; each covers only orders not yet reported). */
 @Entity('service_submissions')
-@Unique(['waiterId', 'serviceDate'])
 export class ServiceSubmission {
   @PrimaryGeneratedColumn()
   id: number;
