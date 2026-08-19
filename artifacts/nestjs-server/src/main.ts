@@ -7,8 +7,6 @@ import { SeedService } from './modules/seed/seed.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const accountSetup = await app.get(SeedService).ensureRequiredAccounts();
-  console.log(`✓ Ensured ${accountSetup.count} required staff accounts`);
 
   app.enableCors({ origin: '*' });
   app.setGlobalPrefix('api', { exclude: ['/', 'nestjs-backend'] });
@@ -24,7 +22,15 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 3001;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   console.log(`🚀 NestJS server running on port ${port}`);
+
+  void app.get(SeedService).ensureRequiredAccounts()
+    .then(accountSetup => {
+      console.log(`✓ Ensured ${accountSetup.count} required staff accounts`);
+    })
+    .catch(error => {
+      console.error('Failed to ensure required staff accounts after startup', error);
+    });
 }
 bootstrap();
