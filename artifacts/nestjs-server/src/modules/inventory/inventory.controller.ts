@@ -121,7 +121,7 @@ export class InventoryController {
   }
 
   @Post('adjustments')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
   createAdjustment(@Req() req: any, @Body() body: any) {
     return this.service.createAdjustment(body, req.user, branchScope(req.user));
   }

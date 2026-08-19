@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, approvePOItems, getStockAdjustments, getItemRequests, updateItemRequestStatus } from '@/lib/api';
+import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, approvePOItems, createStockAdjustment, getStockAdjustments, getItemRequests, updateItemRequestStatus } from '@/lib/api';
 import { InventoryItem, Supplier, PurchaseOrder } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
 import { Package, Plus, AlertTriangle, Pencil, RefreshCw, ArrowDownToLine, ArrowUpFromLine, FileText, Trash2, Warehouse } from 'lucide-react';
@@ -59,6 +59,7 @@ export default function InventoryPage() {
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [showPOModal, setShowPOModal] = useState(false);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
+  const [manualStockItemId, setManualStockItemId] = useState('');
   const [itemForm, setItemForm] = useState({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 });
   const [supplierForm, setSupplierForm] = useState({ name: '', contactPerson: '', email: '', phone: '', address: '', restaurantId: 1 });
   const [customCat, setCustomCat] = useState(false);
@@ -98,15 +99,34 @@ export default function InventoryPage() {
 
   const saveItem = async () => {
     setSubmitting(true);
-    const data: any = { ...itemForm, currentStock: parseFloat(itemForm.currentStock), minStock: parseFloat(itemForm.minStock), unitCost: parseFloat(itemForm.unitCost), expiryDate: itemForm.expiryDate || null };
-    if (editItem) {
-      delete data.currentStock; // stock only changes via stock in / stock out records
-      await updateInventoryItem(editItem.id, data);
-    } else await createInventoryItem(data);
-    setShowItemModal(false);
-    setEditItem(null);
-    setSubmitting(false);
-    await fetchData();
+    try {
+      const quantity = parseFloat(itemForm.currentStock);
+      if (!(quantity >= 0)) throw new Error('Enter a valid stock quantity');
+      if (isStorekeeper && !editItem) {
+        if (!manualStockItemId) throw new Error('Select an inventory item');
+        if (!(quantity > 0)) throw new Error('Enter an amount greater than zero to add');
+        await createStockAdjustment({
+          inventoryItemId: Number(manualStockItemId),
+          type: 'addition',
+          quantity,
+          reason: 'Manual stock entry',
+        });
+      } else {
+        const data: any = { ...itemForm, currentStock: quantity, minStock: parseFloat(itemForm.minStock), unitCost: parseFloat(itemForm.unitCost), expiryDate: itemForm.expiryDate || null };
+        if (editItem) {
+          delete data.currentStock; // stock only changes via stock in / stock out records
+          await updateInventoryItem(editItem.id, data);
+        } else await createInventoryItem(data);
+      }
+      setShowItemModal(false);
+      setEditItem(null);
+      setManualStockItemId('');
+      await fetchData();
+    } catch (e: any) {
+      alert(e?.response?.data?.message || e?.message || 'Could not save the inventory item');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const saveSupplier = async () => {
@@ -191,22 +211,26 @@ export default function InventoryPage() {
     setExporting(true);
     try {
       const { title, head, rows } = await reportRows();
-      const XLSX = await import('xlsx');
+      const xlsxModule = await import('xlsx');
+      const XLSX: any = (xlsxModule as any).default || xlsxModule;
       // Guard against spreadsheet formula injection: prefix risky leading chars in text cells
       const safe = (v: string | number) => typeof v === 'string' && /^[=+\-@]/.test(v) ? `'${v}` : v;
       const ws = XLSX.utils.aoa_to_sheet([[`${title} (${rangeLabel()})`], head, ...rows.map(r => r.map(safe))]);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31));
       XLSX.writeFile(wb, `${title.replace(/ /g, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    } catch { alert('Export failed'); } finally { setExporting(false); }
+    } catch (e: any) { alert(`Export failed: ${e?.message || 'unknown error'}`); } finally { setExporting(false); }
   };
 
   const exportPDF = async () => {
     setExporting(true);
     try {
       const { title, head, rows } = await reportRows();
-      const { default: jsPDF } = await import('jspdf');
-      const { default: autoTable } = await import('jspdf-autotable');
+      const jspdfModule: any = await import('jspdf');
+      const autoTableModule: any = await import('jspdf-autotable');
+      const jsPDF = jspdfModule.jsPDF || jspdfModule.default;
+      const autoTable = autoTableModule.autoTable || autoTableModule.default;
+      if (!jsPDF || !autoTable) throw new Error('PDF export library could not load');
       const doc = new jsPDF();
       doc.setFontSize(14);
       doc.text(`Jima Aba Jifar — ${title}`, 14, 16);
@@ -214,7 +238,7 @@ export default function InventoryPage() {
       doc.text(`${rangeLabel()} · generated ${new Date().toLocaleString()}`, 14, 22);
       autoTable(doc, { head: [head], body: rows.map(r => r.map(String)), startY: 27, styles: { fontSize: 8 } });
       doc.save(`${title.replace(/ /g, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}.pdf`);
-    } catch { alert('Export failed'); } finally { setExporting(false); }
+    } catch (e: any) { alert(`Export failed: ${e?.message || 'unknown error'}`); } finally { setExporting(false); }
   };
 
   const savePO = async () => {
@@ -249,6 +273,21 @@ export default function InventoryPage() {
 
   const itemCategories = Array.from(new Set(items.map(i => i.category).filter(c => c && c !== '__none__'))).sort() as string[];
   const itemsForCategory = (cat: string) => cat ? items.filter(i => (cat === '__none__' ? !i.category : i.category === cat)) : items;
+  const isManualStockEntry = isStorekeeper && !editItem;
+  const manualStockItem = items.find(i => String(i.id) === manualStockItemId);
+  const selectManualStockItem = (id: string) => {
+    const item = items.find(i => String(i.id) === id);
+    setManualStockItemId(id);
+    setItemForm(p => ({
+      ...p,
+      name: item?.name || '',
+      unit: item?.unit || '',
+      currentStock: '',
+      minStock: item ? String(item.minStock ?? '') : '',
+      unitCost: item ? String(item.unitCost ?? '') : '',
+      expiryDate: item ? String((item as any).expiryDate || '') : '',
+    }));
+  };
 
   const lowStockItems = items.filter(i => Number(i.currentStock) <= Number(i.minStock));
   const outOfStock = lowStockItems.filter(i => Number(i.currentStock) <= 0);
@@ -258,17 +297,26 @@ export default function InventoryPage() {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-900">{editItem ? 'Edit Item' : 'New Inventory Item'}</h3>
+          <h3 className="font-bold text-gray-900">{editItem ? 'Edit Item' : isManualStockEntry ? 'Manual Stock Entry' : 'New Inventory Item'}</h3>
           <button onClick={() => setShowItemModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
         </div>
         <div className="space-y-3">
           <div><label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
             {!customCat ? (
               <select value={itemForm.category} className="input"
-                onChange={e => { if (e.target.value === '__new__') { setCustomCat(true); setItemForm(p => ({ ...p, category: '' })); } else setItemForm(p => ({ ...p, category: e.target.value })); }}>
+                onChange={e => {
+                  const value = e.target.value;
+                  setManualStockItemId('');
+                  if (value === '__new__') {
+                    setCustomCat(true);
+                    setItemForm(p => ({ ...p, category: '', name: '', unit: '', currentStock: '', minStock: '', unitCost: '', expiryDate: '' }));
+                  } else {
+                    setItemForm(p => ({ ...p, category: value, name: '', unit: '', currentStock: '', minStock: '', unitCost: '', expiryDate: '' }));
+                  }
+                }}>
                 <option value="">Select category...</option>
                 {itemCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="__new__">+ Add new category…</option>
+                {!isManualStockEntry && <option value="__new__">+ Add new category…</option>}
               </select>
             ) : (
               <div className="flex gap-2">
@@ -277,26 +325,58 @@ export default function InventoryPage() {
               </div>
             )}
           </div>
-          {[{ l: 'Name', k: 'name' }, { l: 'Unit (kg, pcs, liters)', k: 'unit' }].map(({ l, k }) => (
-            <div key={k}><label className="block text-sm font-medium text-gray-700 mb-1">{l}</label>
-              <input value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input" /></div>
-          ))}
+          {isManualStockEntry ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <select
+                value={manualStockItemId}
+                onChange={e => selectManualStockItem(e.target.value)}
+                disabled={!itemForm.category}
+                className="input disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                <option value="">{itemForm.category ? 'Select item...' : 'Select a category first...'}</option>
+                {itemsForCategory(itemForm.category).map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <input value={itemForm.name} onChange={e => setItemForm(p => ({ ...p, name: e.target.value }))} className="input" />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Unit (kg, pcs, liters)</label>
+            <input value={itemForm.unit} onChange={e => setItemForm(p => ({ ...p, unit: e.target.value }))} className="input disabled:bg-gray-100 disabled:text-gray-500" disabled={isManualStockEntry} />
+          </div>
           <div className="grid grid-cols-3 gap-2">
-            {[{ l: 'Stock', k: 'currentStock' }, { l: 'Min Stock', k: 'minStock' }, { l: 'Unit Cost', k: 'unitCost' }].map(({ l, k }) => (
+            {[{ l: isManualStockEntry ? 'Amount to Add' : 'Stock', k: 'currentStock' }, { l: 'Min Stock', k: 'minStock' }, { l: 'Unit Cost', k: 'unitCost' }].map(({ l, k }) => (
               <div key={k}><label className="block text-xs font-medium text-gray-700 mb-1">{l}</label>
-                <input type="number" value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input text-sm disabled:bg-gray-100 disabled:text-gray-400" disabled={k === 'currentStock' && !!editItem} title={k === 'currentStock' && editItem ? 'Stock changes only through Stock In / Stock Out records' : undefined} /></div>
+                <input type="number" min="0" value={(itemForm as any)[k]} onChange={e => setItemForm(p => ({ ...p, [k]: e.target.value }))} className="input text-sm disabled:bg-gray-100 disabled:text-gray-400" disabled={(k === 'currentStock' && !!editItem) || (isManualStockEntry && k !== 'currentStock')} title={k === 'currentStock' && editItem ? 'Stock changes only through Stock In / Stock Out records' : undefined} /></div>
             ))}
           </div>
           <div><label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date (optional)</label>
             <input type="date" value={itemForm.expiryDate} onChange={e => setItemForm(p => ({ ...p, expiryDate: e.target.value }))} className="input" /></div>
-          <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2.5">
-            <span className="text-sm font-medium text-gray-600">Total Price (stock × unit cost)</span>
-            <span className="font-bold text-gray-900">ETB {((parseFloat(itemForm.currentStock) || 0) * (parseFloat(itemForm.unitCost) || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-          </div>
+          {isManualStockEntry ? (
+            <div className="grid grid-cols-2 gap-3 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
+              <div>
+                <p className="text-xs text-blue-600">Previous amount</p>
+                <p className="font-bold text-gray-900">{manualStockItem ? Number(manualStockItem.currentStock).toLocaleString() : '—'} {manualStockItem?.unit || ''}</p>
+              </div>
+              <div>
+                <p className="text-xs text-blue-600">New amount after entry</p>
+                <p className="font-bold text-gray-900">{manualStockItem ? (Number(manualStockItem.currentStock) + (parseFloat(itemForm.currentStock) || 0)).toLocaleString() : '—'} {manualStockItem?.unit || ''}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-between items-center bg-gray-50 rounded-lg px-4 py-2.5">
+              <span className="text-sm font-medium text-gray-600">Total Price (stock × unit cost)</span>
+              <span className="font-bold text-gray-900">ETB {((parseFloat(itemForm.currentStock) || 0) * (parseFloat(itemForm.unitCost) || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+            </div>
+          )}
         </div>
         <div className="flex gap-3 mt-5">
           <button onClick={() => setShowItemModal(false)} className="btn-secondary flex-1">Cancel</button>
-          <button onClick={saveItem} disabled={submitting} className="btn-primary flex-1 disabled:opacity-50">Save</button>
+          <button onClick={saveItem} disabled={submitting || (isManualStockEntry && !manualStockItemId)} className="btn-primary flex-1 disabled:opacity-50">{submitting ? 'Saving…' : isManualStockEntry ? 'Add Stock' : 'Save'}</button>
         </div>
       </div>
     </div>
@@ -329,7 +409,7 @@ export default function InventoryPage() {
               <p className="text-sm text-gray-500">Manage inbound shipments and fulfill approved item requests. Stock updates automatically.</p>
             </div>
           </div>
-          <button onClick={() => { setShowItemModal(true); setEditItem(null); setCustomCat(false); setItemForm({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 }); }}
+          <button onClick={() => { setShowItemModal(true); setEditItem(null); setManualStockItemId(''); setCustomCat(false); setItemForm({ name: '', unit: '', currentStock: '', minStock: '', unitCost: '', category: '', expiryDate: '', restaurantId: 1 }); }}
             className="btn-primary flex items-center gap-2 shrink-0"><Plus size={16} /> Manual Entry</button>
         </div>
 
