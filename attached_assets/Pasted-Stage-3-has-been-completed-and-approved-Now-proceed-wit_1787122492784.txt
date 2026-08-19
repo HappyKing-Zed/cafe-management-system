@@ -1,0 +1,282 @@
+Stage 3 has been completed and approved.
+
+Now proceed with Stage 4: PRODUCTION READINESS.
+
+The objective is to make the application stable, secure, maintainable, and ready for deployment.
+
+IMPORTANT:
+
+* Do NOT Dockerize the application.
+* Do NOT introduce Kubernetes.
+* Do NOT introduce microservices.
+* Do NOT introduce unnecessary infrastructure.
+* Do NOT change the application's business requirements.
+* Do NOT rewrite working functionality.
+* Do NOT make destructive database changes.
+* Preserve the existing user experience.
+
+==================================================
+
+1. SECURITY REVIEW
+   ==================================================
+
+Perform a comprehensive security review.
+
+Check:
+
+* authentication
+* authorization
+* role-based access
+* permission enforcement
+* password handling
+* session/token security
+* protected routes
+* API security
+* input validation
+* SQL injection protection
+* XSS risks
+* CSRF considerations where applicable
+* sensitive data exposure
+* error message exposure
+* insecure configuration
+* hard-coded secrets
+* dependency vulnerabilities
+
+Fix reasonable security issues without changing business functionality.
+
+Never expose actual secrets in source code or output.
+
+==================================================
+2. ENVIRONMENT CONFIGURATION
+============================
+
+Review all environment configuration.
+
+Ensure:
+
+* secrets are not hard-coded
+* database credentials use environment variables
+* authentication secrets use environment variables
+* external API credentials use environment variables
+* environment-specific settings are configurable
+
+Create or update:
+
+.env.example
+
+The .env.example file must contain variable names and safe example values only.
+
+==================================================
+3. DATABASE REVIEW
+==================
+
+Review:
+
+* database schema
+* relationships
+* constraints
+* indexes
+* migrations
+* queries
+* transactions
+* connection handling
+* seed data
+* production configuration
+
+Identify obvious performance or integrity problems.
+
+Do not delete existing production data.
+
+Do not make destructive schema changes.
+
+==================================================
+4. API REVIEW
+=============
+
+Review all APIs.
+
+Check:
+
+* authentication
+* authorization
+* validation
+* HTTP methods
+* status codes
+* error handling
+* response consistency
+* request handling
+* duplicate endpoints
+* unnecessary database calls
+
+Improve only where appropriate.
+
+==================================================
+5. FRONTEND REVIEW
+==================
+
+Review the frontend for:
+
+* production build issues
+* unnecessary API requests
+* unnecessary rendering
+* loading states
+* error states
+* form validation
+* responsive behavior
+* accessibility problems
+* unnecessary console logs
+* unused components
+* unused dependencies
+* unnecessary client-side code
+
+Do not redesign the application.
+
+==================================================
+6. BACKEND REVIEW
+=================
+
+Review:
+
+* error handling
+* logging
+* validation
+* authorization
+* configuration
+* database access
+* API performance
+* unnecessary processing
+* duplicate logic
+* unused code
+
+Ensure production errors do not expose sensitive implementation details.
+
+==================================================
+7. PERFORMANCE REVIEW
+=====================
+
+Identify obvious performance bottlenecks.
+
+Check:
+
+* frontend rendering
+* API calls
+* database queries
+* duplicated requests
+* large assets
+* unnecessary dependencies
+* inefficient data processing
+* pagination
+* filtering
+* sorting
+* database indexes
+
+Only make improvements that are justified.
+
+Do not optimize prematurely.
+
+==================================================
+8. CODE QUALITY
+===============
+
+Run:
+
+* build
+* tests
+* type checking
+* linting
+* formatting checks where available
+
+Remove:
+
+* unused imports
+* obvious dead code
+* unnecessary console logs
+* unnecessary dependencies
+
+Do not remove code whose purpose is uncertain.
+
+==================================================
+9. PRODUCTION VERIFICATION
+==========================
+
+Perform a final end-to-end verification.
+
+Test the main application workflows, including where applicable:
+
+* login
+* logout
+* role-based access
+* user management
+* main business workflows
+* forms
+* CRUD operations
+* reports
+* dashboards
+* notifications
+* search
+* filtering
+* file uploads/downloads
+* database operations
+
+Use the application's actual functionality to determine which workflows exist.
+
+==================================================
+10. FINAL ARCHITECTURE CHECK
+============================
+
+Confirm that the architecture now clearly separates:
+
+FRONTEND
+↓
+API
+↓
+BACKEND
+↓
+DATABASE
+
+Confirm that:
+
+* frontend does not directly access the database
+* backend owns business logic
+* backend owns database operations
+* authentication is secure
+* authorization is enforced server-side
+* configuration is environment-based
+* secrets are protected
+* code is modular
+* unnecessary duplication has been removed
+
+==================================================
+FINAL REPORT
+============
+
+Provide a final production-readiness report containing:
+
+1. Architecture summary
+2. Frontend status
+3. Backend status
+4. Database status
+5. Authentication status
+6. Authorization status
+7. Security improvements
+8. Performance improvements
+9. Environment configuration
+10. Tests performed
+11. Build result
+12. Remaining technical debt
+13. Known risks
+14. Recommended next steps
+
+Give each area a status:
+
+READY
+NEEDS ATTENTION
+BLOCKED
+
+If anything is BLOCKED, clearly explain why and what needs to be done.
+
+Do not Dockerize the application.
+
+Do not start any deployment work.
+
+Stop after completing this stage.
