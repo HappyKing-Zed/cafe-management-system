@@ -1,20 +1,21 @@
 # Jima Aba Jifar — Cafe & Restaurant Management System
 
-A full-stack Ethiopian cafe and restaurant management system with role-based access control.
+A full-stack Ethiopian cafe and restaurant management system with role-based access control. The application is a modular monolith: Next.js frontend → HTTP API → NestJS backend → PostgreSQL.
 
 ## Run & Operate
 
-- **NestJS Backend**: workflow "NestJS Backend" (port 3001)
+- **NestJS Backend**: managed workflow `artifacts/habesha: backend` (port 3001)
 - **Next.js Frontend**: managed workflow "artifacts/habesha: web" — runs `pnpm --filter @workspace/nextjs-app run dev` (PORT injected by artifact routing; previewPath `/`)
-- Frontend calls the backend via `/backend/api/*` (NOT `/api`, which is claimed by the unused api-server artifact); Next.js rewrites `/backend/api/:path*` → `localhost:3001/api/:path*`
+- Frontend calls the backend via `/backend/api/*` (not `/api`, which is claimed by the separate API Server artifact); Next.js rewrites `/backend/api/:path*` → `${BACKEND_URL}/api/:path*`
 - The `artifacts/habesha/` directory is a registration shim; the real frontend code is in `artifacts/nextjs-app/`
+- The restaurant backend is `artifacts/nestjs-server/`. `artifacts/api-server/` is not the restaurant application API.
 
 ## Stack
 
 - **Frontend**: Next.js 15, React 19, Tailwind CSS, Zustand
 - **Backend**: NestJS 10, TypeORM, Passport JWT
-- **Database**: PostgreSQL (TypeORM with synchronize: true in dev)
-- **Auth**: JWT bearer tokens, role-based guards
+- **Database**: PostgreSQL through TypeORM
+- **Auth**: JWT bearer tokens, bcrypt password hashing, role and branch guards
 - pnpm workspaces, Node.js, TypeScript
 
 ## Where things live
@@ -27,22 +28,13 @@ A full-stack Ethiopian cafe and restaurant management system with role-based acc
 - `artifacts/nextjs-app/src/lib/api.ts` — API client
 - `artifacts/nextjs-app/src/store/auth.ts` — Zustand auth store
 
-## Roles & Demo Accounts
+## Roles & Accounts
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@habesha.com | admin123 |
-| Owner | owner@habesha.com | owner123 |
-| Manager | manager@habesha.com | manager123 |
-| Coordinator | coordinator@habesha.com | coord123 |
-| Waiter | waiter1@habesha.com | waiter123 |
-| Chef | chef@habesha.com | chef123 |
-| Cashier | cashier@habesha.com | cashier123 |
-| Storekeeper | storekeeper@habesha.com | store123 |
+Supported roles are admin, owner, manager, coordinator, waiter, chef, cashier, and storekeeper. Do not publish passwords or reusable credentials in documentation. Provision and rotate production credentials through a controlled administrative process.
 
 ## Seed Data
 
-Click "Seed Data" on the dashboard to populate with Ethiopian sample data:
+Development seed data can populate Ethiopian sample data:
 - Restaurant: Jima Aba Jifar (Addis Abeba)
 - 2 branches: Bole & Piassa
 - 9 staff with Ethiopian names
@@ -58,8 +50,24 @@ Click "Seed Data" on the dashboard to populate with Ethiopian sample data:
 
 ## Architecture decisions
 
-- TypeORM synchronize:true for dev (auto-creates tables)
-- Next.js rewrites `/api/*` to NestJS backend (no CORS needed from browser)
-- JWT stored in localStorage, injected by axios interceptor
+- Next.js rewrites browser path `/backend/api/*` to backend path `/api/*`.
+- NestJS owns business rules, authorization, validation, and all PostgreSQL access.
+- TypeORM `synchronize:true` is currently enabled and is a production blocker until migrations and rollback procedures are verified.
+- JWT is currently stored in localStorage and injected by the Axios interceptor; treat XSS prevention as a critical security boundary.
 - Role-based sidebar rendering (different nav items per role)
 - Zustand for auth state with localStorage persistence
+
+## Production status
+
+The codebase is **not yet approved for production deployment**. Required gates include:
+
+- Remove the hard-coded JWT fallback and require production secrets.
+- Stop automatic startup password resets and production seeding.
+- Disable TypeORM synchronization in production after a tested migration baseline.
+- Restrict CORS and production API documentation.
+- Add DTO validation and verify branch/restaurant authorization.
+- Add repeatable role, order, payment, inventory, report, and export tests.
+- Resolve or formally accept security scan findings.
+- Verify backup, restore, monitoring, and rollback procedures.
+
+See `docs/12-Production-Readiness-Status.md` for the current evidence matrix.

@@ -20,7 +20,7 @@
 <h1>Software Requirements Specification (SRS)</h1>
 <div class="meta">
 <b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
-<b>Document:</b> SRS v1.0 &nbsp;·&nbsp; <b>Date:</b> August 12, 2026<br>
+<b>Document:</b> SRS v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 19, 2026<br>
 <b>Standard:</b> Structured after IEEE 830
 </div>
 
@@ -40,21 +40,21 @@
 
 <h2>2. Overall Description</h2>
 <h3>2.1 Product Perspective</h3>
-<p>Three-tier architecture: a <b>Next.js 14 (React) frontend</b>, a <b>NestJS REST API backend</b>, and a <b>PostgreSQL database</b> accessed through TypeORM. The frontend calls the backend through a same-origin proxy path (<code>/backend/api/*</code>), so the browser never needs a separate API domain.</p>
+<p>Three-tier logical architecture: a <b>Next.js 15 / React 19 frontend</b>, a <b>NestJS REST API backend</b>, and a <b>PostgreSQL database</b> accessed through TypeORM. The registered <code>artifacts/habesha</code> web artifact runs the actual source in <code>artifacts/nextjs-app</code>. The frontend calls the backend through <code>/backend/api/*</code>; Next.js rewrites requests to the backend's <code>/api/*</code>. The separate <code>artifacts/api-server</code> is not the restaurant API.</p>
 <h3>2.2 User Classes</h3>
 <p>Eight roles: admin, owner, manager, coordinator, waiter, chef, cashier, storekeeper (see FRS §2). Users are non-technical restaurant staff; the UI must remain simple, large-touch-friendly, and in plain language.</p>
 <h3>2.3 Operating Environment</h3>
 <table>
 <tr><th>Layer</th><th>Technology</th></tr>
-<tr><td>Frontend</td><td>Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Zustand (auth store), Recharts, Axios</td></tr>
+<tr><td>Frontend</td><td>Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, Zustand (auth store), Recharts, Axios</td></tr>
 <tr><td>Backend</td><td>NestJS 10, TypeScript, Passport-JWT, bcrypt, TypeORM</td></tr>
 <tr><td>Database</td><td>PostgreSQL 14+ (TypeORM <code>synchronize: true</code> in development)</td></tr>
 <tr><td>Runtime</td><td>Node.js 18+, pnpm monorepo workspaces</td></tr>
 </table>
 <h3>2.4 Constraints</h3>
 <ul>
-<li>All API access requires JWT except login, health, and seeding.</li>
-<li>Schema is auto-synchronized from entities in development; production should switch to migrations.</li>
+<li>Protected API access requires JWT. Login and health are public; seed operations are administrative.</li>
+<li>The current backend still enables TypeORM schema synchronization. Production is blocked until synchronization is disabled there and a tested migration/rollback baseline exists.</li>
 <li>Realtime behavior is implemented by 10-second polling, not WebSockets.</li>
 <li>Currency is Ethiopian Birr (ETB); demo data uses Ethiopian dishes and names.</li>
 </ul>
@@ -91,7 +91,7 @@
 <h3>5.1 User Interface</h3>
 <p>Single-page-app feel with a persistent left sidebar (role-filtered), light gray theme with brand-orange accents (#E8832A), and modal dialogs for POS, payment, order detail, and confirmations.</p>
 <h3>5.2 API Interface</h3>
-<p>REST over HTTPS, JSON bodies, prefix <code>/api</code>. Interactive documentation is exposed by the backend via Swagger at <code>/api/docs</code>. Main resource groups: <code>/auth, /users, /restaurants, /branches, /menus, /tables, /orders, /kitchen, /payments, /inventory, /notifications, /seed</code>.</p>
+<p>REST over HTTPS with JSON bodies. The browser-facing path is <code>/backend/api</code>; the backend's direct prefix is <code>/api</code>. Interactive Swagger documentation exists at backend path <code>/api/docs</code> and must be restricted or disabled in production. Main resource groups are <code>/auth, /users, /restaurants, /branches, /menus, /tables, /orders, /kitchen, /payments, /inventory, /notifications, /summary, /seed</code>.</p>
 <h3>5.3 Database Interface</h3>
 <p>PostgreSQL via TypeORM repositories; connection string in <code>DATABASE_URL</code>; SSL honored when <code>sslmode=require</code> is present.</p>
 
@@ -101,5 +101,7 @@
 <li>Kitchen staff record stock deductions/waste for profitability estimates to be accurate.</li>
 <li>Exports (Excel/PDF) are generated client-side (xlsx, jsPDF) and require a modern browser.</li>
 </ul>
+<h2>7. Acceptance and Production Evidence</h2>
+<p>Architecture assessment is complete, but repository evidence for the full safe-refactoring, separation, automated-regression, security-hardening, migration, backup/restore, and production-verification stages is incomplete. Requirements marked in this SRS are acceptance targets, not automatic claims of production readiness. Refer to document 12 for current READY / NEEDS ATTENTION / BLOCKED status.</p>
 </body>
 </html>

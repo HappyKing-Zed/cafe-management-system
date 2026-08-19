@@ -21,23 +21,25 @@
 <h1>Project Handoff &amp; Deployment Requirements</h1>
 <div class="meta">
 <b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
-<b>Document:</b> Handoff v1.0 &nbsp;·&nbsp; <b>Date:</b> August 12, 2026
+<b>Document:</b> Handoff v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 19, 2026
 </div>
 
 <h2>1. Repository Layout</h2>
 <pre>
 workspace/ (pnpm monorepo)
 ├── artifacts/
-│   ├── nextjs-app/        # Frontend — Next.js 14, App Router, Tailwind
+│   ├── habesha/           # Registered web artifact / routing shim
+│   ├── nextjs-app/        # Real frontend — Next.js 15, React 19
 │   │   ├── src/app/       # Pages: login, dashboard/* (orders, kitchen, reports, ...)
 │   │   ├── src/components # Sidebar, manager-dashboard, shared UI
 │   │   ├── src/lib/api.ts # All REST calls (Axios + JWT header)
 │   │   ├── src/store/     # Zustand auth store
 │   │   └── public/        # Static assets (login-bg.jpg, ...)
-│   └── nestjs-server/     # Backend — NestJS 10 REST API (prefix /api)
+│   ├── nestjs-server/     # Authoritative restaurant API — NestJS 10
 │       └── src/&lt;module&gt;/  # auth, users, orders, kitchen, payments,
 │                          # menus, tables, inventory, branches,
 │                          # restaurants, notifications, seed
+│   └── api-server/        # Separate minimal artifact; not the restaurant API
 ├── docs/                  # This documentation set + screenshots
 └── package.json           # Workspace root
 </pre>
@@ -56,15 +58,16 @@ pnpm --filter @workspace/nestjs-server run dev
 BACKEND_URL=http://localhost:3001 \
 pnpm --filter @workspace/nextjs-app run dev
 </pre>
-<p>Seed demo data with <code>POST /api/seed</code> (Ethiopian menu, staff, tables). Default admin: <code>admin@habesha.com / admin123</code> — <b>change this in production</b>.</p>
+<p>Development seed operations require administrative authentication. Do not publish or reuse development credentials. Production provisioning must be controlled, auditable, and separate from normal application startup.</p>
 
 <h2>3. Environment Variables</h2>
 <table>
 <tr><th>Variable</th><th>Used by</th><th>Purpose</th></tr>
 <tr><td><code>DATABASE_URL</code></td><td>Backend</td><td>PostgreSQL connection string. Append <code>?sslmode=require</code> for managed databases (SSL is honored automatically).</td></tr>
-<tr><td><code>JWT_SECRET</code></td><td>Backend</td><td>Signing key for access tokens. Required in production (a weak dev fallback exists — never rely on it).</td></tr>
+<tr><td><code>JWT_SECRET</code></td><td>Backend</td><td>Signing key for access tokens. Must be supplied as a secret; the current fallback is a production blocker.</td></tr>
 <tr><td><code>PORT</code></td><td>Both</td><td>Listen port (backend defaults to 3001).</td></tr>
 <tr><td><code>BACKEND_URL</code></td><td>Frontend</td><td>Where the Next.js rewrite proxies API calls (e.g. <code>https://api.example.com</code>).</td></tr>
+<tr><td><code>CORS_ORIGIN</code></td><td>Backend</td><td>Allowed production frontend origin after wildcard CORS is removed.</td></tr>
 </table>
 
 <h2>4. Deployment Requirements</h2>
@@ -81,11 +84,14 @@ pnpm --filter @workspace/nextjs-app run dev
 <h2>5. Production Checklist</h2>
 <table>
 <tr><th>✔</th><th>Item</th></tr>
-<tr><td>☐</td><td>Set a strong <code>JWT_SECRET</code>.</td></tr>
-<tr><td>☐</td><td>Change/disable the seeded admin account and remove <code>POST /api/seed</code> exposure (guard or delete the Seed module).</td></tr>
+<tr><td>☐</td><td>Require a strong <code>JWT_SECRET</code> and remove the hard-coded fallback.</td></tr>
+<tr><td>☐</td><td>Stop startup password resets/account reactivation; keep seed and account provisioning controlled and production-gated.</td></tr>
 <tr><td>☐</td><td>Turn off TypeORM <code>synchronize</code> and adopt migrations (<code>typeorm migration:generate</code>) — auto-sync on a live database can drop/alter columns unexpectedly.</td></tr>
 <tr><td>☐</td><td>Enable database backups (daily snapshot is enough initially).</td></tr>
 <tr><td>☐</td><td>Restrict CORS on the backend to the frontend's production origin.</td></tr>
+<tr><td>☐</td><td>Restrict or disable Swagger and seed operations in production.</td></tr>
+<tr><td>☐</td><td>Resolve high security-scan findings or record a reviewed risk acceptance.</td></tr>
+<tr><td>☐</td><td>Run automated role, branch, order, payment, inventory, report, notification, and export checks.</td></tr>
 <tr><td>☐</td><td>Set up log retention / error alerting on both services.</td></tr>
 <tr><td>☐</td><td>Create real staff accounts with strong passwords; deactivate demo users.</td></tr>
 </table>
@@ -110,6 +116,12 @@ pnpm --filter @workspace/nextjs-app run dev
 <tr><td>docs/03-SDD…html</td><td>Architecture, ER, and sequence diagrams; design decisions</td></tr>
 <tr><td>docs/04-User-Manual.html</td><td>Step-by-step guide with screenshots</td></tr>
 <tr><td>docs/06-Deploy-on-Vercel.html</td><td>Vercel-specific deployment walkthrough</td></tr>
+<tr><td>docs/07-Architecture-and-Routing.md</td><td>Canonical artifact, routing, and service ownership</td></tr>
+<tr><td>docs/08-Environment-and-Secrets.md</td><td>Variable ownership and secret-handling rules</td></tr>
+<tr><td>docs/09-API-and-Authorization-Boundary.md</td><td>API paths, authentication, authorization, and error contracts</td></tr>
+<tr><td>docs/10-Database-Safety-Runbook.md</td><td>Migration, backup, restore, seed, and rollback controls</td></tr>
+<tr><td>docs/11-Test-and-Release-Runbook.md</td><td>Required build, test, security, smoke, and rollback gates</td></tr>
+<tr><td>docs/12-Production-Readiness-Status.md</td><td>Current READY / NEEDS ATTENTION / BLOCKED evidence matrix</td></tr>
 </table>
 </body>
 </html>

@@ -21,11 +21,11 @@
 <h1>Software Design Document (SDD)</h1>
 <div class="meta">
 <b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
-<b>Document:</b> SDD v1.0 &nbsp;·&nbsp; <b>Date:</b> August 12, 2026
+<b>Document:</b> SDD v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 19, 2026
 </div>
 
 <h2>1. System Architecture</h2>
-<p>The system is a three-tier web application organized as a pnpm monorepo with two applications: <code>artifacts/nextjs-app</code> (frontend) and <code>artifacts/nestjs-server</code> (backend API).</p>
+<p>The system is a three-tier logical application and modular monolith. <code>artifacts/habesha</code> is the registered web artifact; it runs <code>artifacts/nextjs-app</code> (frontend). <code>artifacts/nestjs-server</code> is the authoritative restaurant backend. <code>artifacts/api-server</code> is a separate minimal artifact and must not be confused with the restaurant API.</p>
 
 <div class="diagram">
 <svg viewBox="0 0 860 300" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial" font-size="13">
@@ -35,7 +35,7 @@
   <text x="110" y="160" text-anchor="middle" fill="#374151">(desktop / tablet)</text>
 
   <rect x="270" y="40" width="240" height="220" rx="12" fill="#FDF3E7" stroke="#E8832A" stroke-width="2"/>
-  <text x="390" y="66" text-anchor="middle" font-weight="bold" fill="#C2611A">Next.js 14 Frontend</text>
+  <text x="390" y="66" text-anchor="middle" font-weight="bold" fill="#C2611A">Next.js 15 / React 19</text>
   <rect x="290" y="80" width="200" height="34" rx="6" fill="#fff" stroke="#E8832A"/>
   <text x="390" y="102" text-anchor="middle" fill="#374151">App Router pages (/dashboard/*)</text>
   <rect x="290" y="122" width="200" height="34" rx="6" fill="#fff" stroke="#E8832A"/>
@@ -65,7 +65,7 @@
 <svg viewBox="0 0 860 110" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica,Arial" font-size="13">
   <rect x="580" y="10" width="240" height="80" rx="12" fill="#EEF2FF" stroke="#6366F1" stroke-width="2"/>
   <text x="700" y="42" text-anchor="middle" font-weight="bold" fill="#4338CA">PostgreSQL</text>
-  <text x="700" y="64" text-anchor="middle" fill="#374151">18 tables via TypeORM</text>
+  <text x="700" y="64" text-anchor="middle" fill="#374151">TypeORM-managed relational data</text>
   <line x1="700" y1="0" x2="700" y2="10" stroke="#6b7280" stroke-width="2"/>
   <text x="740" y="8" fill="#6b7280" font-size="11">SQL (DATABASE_URL)</text>
 </svg>
@@ -79,7 +79,7 @@
 <tr><td><code>src/app/dashboard/page.tsx</code></td><td>Role-aware landing: renders ManagerDashboard for admin/owner/manager; redirects waiter/coordinator/cashier to Orders.</td></tr>
 <tr><td><code>src/app/dashboard/*</code></td><td>Feature pages: orders (POS), order-board, kitchen, tables, menu, inventory, item-requests, requests, staff, branches, reports.</td></tr>
 <tr><td><code>src/components</code></td><td>Shared UI: sidebar (role-filtered nav), manager-dashboard, stat cards, etc.</td></tr>
-<tr><td><code>src/lib/api.ts</code></td><td>Axios client; attaches JWT; all REST calls in one place.</td></tr>
+<tr><td><code>src/lib/api.ts</code></td><td>Browser API facade; attaches JWT and calls the same-origin <code>/backend/api</code> boundary.</td></tr>
 <tr><td><code>src/store/auth.ts</code></td><td>Zustand store: current user, token, login/logout.</td></tr>
 </table>
 <p>Data freshness is achieved with a uniform pattern: each operational page runs <code>fetchData()</code> on mount and every 10 s via <code>setInterval</code>, without toggling loading state (no flicker).</p>
@@ -177,5 +177,14 @@
 <tr><td>Styling</td><td>Tailwind CSS with shared utility classes (<code>.card</code>, <code>.input</code>, <code>.table-cell</code>) in <code>globals.css</code>; brand color #E8832A.</td></tr>
 <tr><td>Profitability</td><td>Food cost estimated from stock deduction/waste movements × item unit cost (documented in User Manual).</td></tr>
 </table>
+<h2>7. Boundary and Readiness Notes</h2>
+<ul>
+<li>The frontend owns presentation, navigation, forms, loading/error states, and API communication. It must never receive database credentials or own authoritative business permissions.</li>
+<li>The NestJS backend owns authentication, authorization, role/branch scope, validation, transactions, business rules, and all database access.</li>
+<li>PostgreSQL owns persistence and relational integrity. TypeORM entities are currently authoritative, but production migration evidence is not yet complete.</li>
+<li>The browser contract remains <code>/backend/api/*</code>; changing it requires coordinated frontend, rewrite, backend, deployment, and documentation updates.</li>
+<li>Current production blockers include schema synchronization, a fallback JWT secret, startup account mutation, wildcard CORS, incomplete DTO validation, and incomplete automated tests.</li>
+</ul>
+<p>Detailed routing, environment, API, database, testing, and readiness rules are maintained in documents 07–12.</p>
 </body>
 </html>

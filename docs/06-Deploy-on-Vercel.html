@@ -20,10 +20,11 @@
 <h1>Deploying on Vercel</h1>
 <div class="meta">
 <b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
-<b>Document:</b> Vercel Deployment Guide v1.0 &nbsp;·&nbsp; <b>Date:</b> August 12, 2026
+<b>Document:</b> Alternative Deployment Guide v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 19, 2026
 </div>
 
 <h2>1. What goes where</h2>
+<div class="warn"><b>Status: BLOCKED.</b> This is an alternative deployment reference, not approval to deploy. Complete all mandatory controls in documents 10–12 before using these instructions. Current blockers include schema synchronization, authentication defaults, startup account mutation, wildcard CORS, and incomplete regression evidence.</div>
 <p>Vercel is built for frontend frameworks. This system has <b>two services</b>, so the recommended split is:</p>
 <table>
 <tr><th>Piece</th><th>Where it runs</th></tr>
@@ -49,8 +50,8 @@ Start:  node dist/main.js</pre></li>
 <pre>DATABASE_URL = postgres://...?sslmode=require
 JWT_SECRET   = &lt;long random string&gt;
 PORT         = 3001   (or leave to platform default)</pre></li>
-<li>Deploy, then note the public URL, e.g. <code>https://habesha-api.up.railway.app</code>. Verify <code>GET /api/docs</code> loads.</li>
-<li>Seed once (then lock it down): <code>curl -X POST https://habesha-api.up.railway.app/api/seed</code></li>
+<li>Deploy only after the release gate is approved. Verify the protected health and API behavior without exposing Swagger publicly.</li>
+<li>Provision initial production accounts through the approved controlled process. Do not call the development seed endpoint against production.</li>
 </ol>
 
 <h2>4. Step 3 — Frontend on Vercel</h2>
@@ -60,7 +61,7 @@ PORT         = 3001   (or leave to platform default)</pre></li>
 <li><b>Install command:</b> <code>pnpm install</code> (Vercel supports pnpm monorepos; enable "Include files outside root directory" if prompted).</li>
 <li><b>Environment variables:</b>
 <pre>BACKEND_URL = https://habesha-api.up.railway.app</pre>
-The frontend's <code>next.config.js</code> rewrite forwards <code>/backend/api/*</code> to this URL — the browser stays on the Vercel domain, so no CORS setup is needed.</li>
+The frontend's <code>next.config.js</code> rewrite forwards <code>/backend/api/*</code> to this URL. Backend CORS must still be restricted as defense in depth and for any direct operational access.</li>
 <li>Click <b>Deploy</b>. Your app is live at <code>https://&lt;project&gt;.vercel.app</code>.</li>
 </ol>
 
@@ -82,7 +83,7 @@ The frontend's <code>next.config.js</code> rewrite forwards <code>/backend/api/*
 <h2>7. Updates</h2>
 <p>Every push to the connected GitHub branch redeploys the frontend automatically on Vercel (and the backend on Railway). Preview deployments are created for pull requests.</p>
 
-<div class="warn"><b>Before going live:</b> complete the production checklist in the Handoff document — strong <code>JWT_SECRET</code>, disable TypeORM synchronize in favor of migrations, remove/guard the seed endpoint, and change the demo admin password.</div>
+<div class="warn"><b>Before going live:</b> complete the production checklist and evidence matrix in documents 05 and 12. Do not deploy while any mandatory item is marked BLOCKED.</div>
 
 <h2>8. Troubleshooting</h2>
 <table>

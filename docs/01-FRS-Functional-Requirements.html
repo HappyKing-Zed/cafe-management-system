@@ -20,12 +20,14 @@
 <h1>Functional Requirements Specification (FRS)</h1>
 <div class="meta">
 <b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
-<b>Document:</b> FRS v1.0 &nbsp;·&nbsp; <b>Date:</b> August 12, 2026<br>
-<b>Related documents:</b> SRS (02), SDD (03), User Manual (04), Handoff &amp; Deployment (05), Vercel Guide (06)
+<b>Document:</b> FRS v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 19, 2026<br>
+<b>Related documents:</b> SRS (02), SDD (03), User Manual (04), Handoff (05), deployment guide (06), and operational runbooks (07–12)
 </div>
 
 <h2>1. Purpose</h2>
 <p>This document defines the functional requirements of the Jima Aba Jifar Restaurant Management System — a full-stack web application that manages the daily operations of a cafe &amp; restaurant: ordering, kitchen workflow, payments, inventory, staff, branches, and reporting.</p>
+<p><b>Verified implementation baseline:</b> the registered web artifact is <code>artifacts/habesha</code>, which runs the real Next.js 15 / React 19 frontend in <code>artifacts/nextjs-app</code>. Browser requests use <code>/backend/api/*</code>, which Next.js rewrites to the NestJS service's <code>/api/*</code>. NestJS and TypeORM own all PostgreSQL access. The separate <code>artifacts/api-server</code> is not the restaurant application API.</p>
+<p><b>Requirements versus evidence:</b> the items below define required behavior. A requirement must not be treated as production-verified unless it appears as passed evidence in document 12.</p>
 
 <h2>2. User Roles</h2>
 <table>
@@ -46,7 +48,7 @@
 <table>
 <tr><th>ID</th><th>Requirement</th></tr>
 <tr><td class="req">FR-A01</td><td>Users log in with e-mail and password; the system returns a JWT access token.</td></tr>
-<tr><td class="req">FR-A02</td><td>Every protected API call requires a valid <code>Authorization: Bearer</code> token.</td></tr>
+<tr><td class="req">FR-A02</td><td>Every protected API call requires a valid <code>Authorization: Bearer</code> token. Login and health endpoints are intentional public exceptions; administrative seed operations must remain protected.</td></tr>
 <tr><td class="req">FR-A03</td><td>Menu entries and pages are restricted per role (role-based access control).</td></tr>
 <tr><td class="req">FR-A04</td><td>Passwords are stored hashed (bcrypt), never in plain text.</td></tr>
 </table>
@@ -127,5 +129,7 @@
 <li>Cancelling is allowed only while an order is pending, confirmed, or preparing.</li>
 <li>Data is scoped by branch where applicable (orders, tables, staff, stock).</li>
 </ul>
+<h2>5. Verification Status</h2>
+<p>Functional development is active and major workflows have been exercised manually. Complete automated regression evidence for every role, branch boundary, order transition, payment, inventory operation, notification, report, and export is not yet recorded. Production release remains blocked until the verification matrix in document 12 is complete.</p>
 </body>
 </html>
