@@ -1,0 +1,228 @@
+I want to improve and prepare the application for long-term maintainability and production use.
+
+IMPORTANT:
+
+Do NOT modify any code during this stage.
+Do NOT refactor anything yet.
+Do NOT delete anything.
+Do NOT add new technologies.
+Do NOT change the database.
+Do NOT change the UI or business logic.
+Do NOT rewrite the application.
+Only inspect and analyze the existing codebase.
+
+Your first task is to perform a complete architecture and codebase assessment.
+
+Analyze the entire project and identify:
+
+1. Technology Stack
+
+Determine:
+
+Frontend framework
+Backend framework
+Programming language(s)
+Database
+ORM/database library
+Authentication mechanism
+API technology
+UI framework/library
+State management
+Styling solution
+Package manager
+Build tools
+Testing tools
+Other important dependencies
+2. Project Structure
+
+Explain the current folder and file structure.
+
+Identify:
+
+Frontend code
+Backend code
+Database-related code
+API routes/controllers
+Services
+Business logic
+Components
+Hooks
+Utilities
+Models/entities
+Authentication
+Authorization
+Configuration
+Tests
+Static/public assets
+3. Architectural Boundaries
+
+Determine whether the application currently has a clear separation between:
+
+Frontend
+↓
+Backend/API
+↓
+Database
+
+Identify any places where these responsibilities are mixed together.
+
+For example:
+
+frontend directly accessing the database
+UI components containing business logic
+API routes containing excessive business logic
+database queries scattered throughout the application
+duplicated business rules
+authentication logic duplicated in multiple places
+4. Code Quality
+
+Identify:
+
+duplicated code
+unnecessarily large files
+overly complex functions
+tightly coupled modules
+unused code
+unused dependencies
+inconsistent naming
+inconsistent coding patterns
+hard-coded configuration
+excessive comments
+poor error handling
+poor validation
+potential type-safety problems
+5. Database Architecture
+
+Analyze:
+
+database schema
+models/entities
+relationships
+queries
+ORM usage
+migrations
+seed data
+indexes
+constraints
+transactions
+database connection management
+
+Identify potential problems but DO NOT modify the database.
+
+6. Authentication and Authorization
+
+Analyze:
+
+login
+logout
+password handling
+sessions/tokens
+roles
+permissions
+protected routes
+backend authorization
+frontend route protection
+
+Identify security weaknesses but DO NOT change them yet.
+
+7. Configuration and Secrets
+
+Identify:
+
+environment variables
+configuration files
+API URLs
+database configuration
+authentication secrets
+hard-coded credentials or secrets
+development-specific configuration
+
+DO NOT expose any actual secret values in your response.
+
+8. Technical Debt
+
+Create a prioritized list of technical debt:
+
+CRITICAL
+HIGH
+MEDIUM
+LOW
+
+Explain why each item matters.
+
+9. Proposed Target Architecture
+
+Based on the existing application, propose a clean architecture.
+
+The desired logical separation should generally be:
+
+USER
+↓
+FRONTEND
+↓
+API
+↓
+BACKEND
+↓
+DATABASE
+
+The frontend should handle presentation and user interaction.
+
+The backend should handle:
+
+business logic
+authentication
+authorization
+validation
+API
+database operations
+
+The database should handle:
+
+persistence
+relationships
+constraints
+indexes
+transactions
+
+However, do not blindly apply this architecture. Adapt it to the existing technology stack.
+
+10. Proposed Folder Structure
+
+Provide a recommended folder structure for the application.
+
+Do not create unnecessary microservices.
+
+Prefer a modular monolith unless there is a clear reason for another architecture.
+
+11. Refactoring Plan
+
+Provide a recommended sequence for refactoring the application safely.
+
+The plan should prioritize:
+
+Critical issues
+Security issues
+Architectural problems
+Code duplication
+Maintainability
+Performance
+Cleanup
+FINAL REQUIREMENT
+
+At the end, provide:
+
+Current architecture summary
+Current folder structure
+Major problems
+Technical debt
+Security concerns
+Database concerns
+Recommended target architecture
+Recommended folder structure
+Step-by-step refactoring plan
+Risks that could break existing functionality
+
+DO NOT IMPLEMENT ANY CHANGES.
+
+Wait for my approval before proceeding to Stage 2.
