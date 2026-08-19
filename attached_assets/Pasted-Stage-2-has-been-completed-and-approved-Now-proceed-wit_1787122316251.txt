@@ -1,0 +1,252 @@
+Stage 2 has been completed and approved.
+
+Now proceed with Stage 3: FRONTEND, BACKEND AND DATABASE SEPARATION.
+
+The objective is to establish clear architectural boundaries while preserving all existing functionality.
+
+The target logical architecture is:
+
+USER
+↓
+FRONTEND
+↓
+HTTP/HTTPS API
+↓
+BACKEND
+↓
+DATABASE
+
+Do NOT introduce microservices.
+
+Use a modular monolith unless the existing application has a compelling reason for another architecture.
+
+==================================================
+FRONTEND RESPONSIBILITIES
+=========================
+
+The frontend should primarily handle:
+
+* UI
+* presentation
+* navigation
+* forms
+* user interaction
+* client-side validation
+* loading states
+* error states
+* appropriate client-side state
+* API communication
+
+The frontend should NOT:
+
+* directly connect to the production database
+* contain database credentials
+* contain server-only secrets
+* contain core business rules that belong on the backend
+* perform sensitive operations directly
+
+Separate API communication from presentation components where appropriate.
+
+For example:
+
+Frontend component
+↓
+Frontend service/API client
+↓
+Backend API
+
+==================================================
+BACKEND RESPONSIBILITIES
+========================
+
+The backend should handle:
+
+* API endpoints
+* business logic
+* authentication
+* authorization
+* validation
+* database operations
+* transactions
+* sensitive operations
+* server-side processing
+* business rules
+
+Organize backend code by logical business modules where appropriate.
+
+For example:
+
+backend/
+├── auth/
+├── users/
+├── projects/
+├── reports/
+├── notifications/
+├── common/
+├── database/
+└── config/
+
+Adapt this structure to the actual application's domains.
+
+Do not blindly create modules that do not exist.
+
+==================================================
+DATABASE RESPONSIBILITIES
+=========================
+
+The database layer should handle:
+
+* persistence
+* relationships
+* constraints
+* indexes
+* transactions
+* migrations
+* seed data
+
+Database access should be centralized and organized.
+
+Avoid scattered database queries throughout unrelated application code.
+
+The frontend must never receive database credentials.
+
+==================================================
+API BOUNDARY
+============
+
+Review all existing API endpoints.
+
+Ensure that:
+
+Frontend
+↓
+API
+↓
+Backend business logic
+↓
+Database
+
+is clear and consistent.
+
+Review:
+
+* endpoint naming
+* HTTP methods
+* validation
+* authentication
+* authorization
+* error handling
+* response structures
+* status codes
+
+Do not change API contracts unnecessarily.
+
+If an API change is required, document the change and update all affected frontend calls.
+
+==================================================
+AUTHENTICATION AND AUTHORIZATION
+================================
+
+Ensure authentication and authorization are handled securely.
+
+Review:
+
+* login
+* logout
+* sessions/tokens
+* protected routes
+* role-based access
+* permission checks
+* frontend route protection
+* backend authorization
+
+Backend authorization must be authoritative.
+
+Do not rely solely on frontend permission checks.
+
+==================================================
+ENVIRONMENT CONFIGURATION
+=========================
+
+Separate environment-specific configuration.
+
+Create or improve:
+
+.env.example
+
+Do not commit actual secrets.
+
+Clearly identify which variables are required for:
+
+* frontend
+* backend
+* database
+* authentication
+* external services
+
+==================================================
+PROJECT STRUCTURE
+=================
+
+If appropriate, organize the project into clear boundaries such as:
+
+project/
+├── frontend/
+├── backend/
+├── database/
+├── docs/
+└── README.md
+
+However, do NOT force this structure if the existing framework has a better convention.
+
+The goal is architectural separation, not simply moving files into folders.
+
+==================================================
+IMPORTANT SAFETY RULES
+======================
+
+* Preserve all existing functionality.
+* Do not change business rules.
+* Do not delete production data.
+* Do not make destructive database changes.
+* Do not introduce microservices.
+* Do not introduce unnecessary technologies.
+* Do not duplicate code.
+* Do not duplicate business logic between frontend and backend.
+* Do not expose secrets.
+* Do not rewrite working modules unnecessarily.
+
+After every major change:
+
+1. Run the application.
+2. Run tests.
+3. Run type checking.
+4. Run linting if available.
+5. Verify frontend functionality.
+6. Verify backend API functionality.
+7. Verify database connectivity.
+
+Fix all errors before continuing.
+
+==================================================
+FINAL REPORT
+============
+
+Provide:
+
+1. Final frontend architecture
+2. Final backend architecture
+3. Database architecture
+4. API architecture
+5. Authentication architecture
+6. Environment configuration
+7. Folder structure
+8. Major files moved or reorganized
+9. API changes, if any
+10. Tests performed
+11. Build status
+12. Remaining issues
+
+STOP after Stage 3.
+
+Do not begin Stage 4 until I explicitly approve it.
