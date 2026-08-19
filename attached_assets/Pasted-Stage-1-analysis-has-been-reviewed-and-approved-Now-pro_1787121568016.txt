@@ -1,0 +1,158 @@
+Stage 1 analysis has been reviewed and approved.
+
+Now proceed with Stage 2: SAFE CODE REFACTORING.
+
+The application is already functional.
+
+The primary objective is:
+
+IMPROVE THE INTERNAL CODE STRUCTURE WITHOUT CHANGING EXISTING FUNCTIONALITY OR BUSINESS RULES.
+
+IMPORTANT:
+
+* Do NOT rewrite the application from scratch.
+* Do NOT change business requirements.
+* Do NOT remove working features.
+* Do NOT redesign the application unnecessarily.
+* Do NOT change the database schema unless absolutely necessary.
+* Do NOT introduce microservices.
+* Do NOT introduce unnecessary technologies.
+* Preserve the existing user experience.
+* Work incrementally.
+* Test after every major change.
+
+### 1. Refactor According to the Approved Architecture
+
+Use the architecture and refactoring plan identified in Stage 1.
+
+Improve separation of:
+
+* Presentation
+* Business logic
+* API
+* Data access
+* Configuration
+* Shared utilities
+
+### 2. Frontend Refactoring
+
+Where appropriate:
+
+* break large components into smaller components
+* create reusable components
+* separate API calls from UI components
+* organize hooks
+* organize types/interfaces
+* organize services
+* remove duplicated UI logic
+* remove unnecessary state
+* improve error and loading handling
+* improve naming consistency
+
+Do NOT change the application's functionality.
+
+### 3. Backend Refactoring
+
+Where appropriate:
+
+* separate controllers/routes from business logic
+* organize modules by business domain
+* extract services
+* organize database access
+* centralize validation where appropriate
+* improve error handling
+* improve authorization logic
+* remove duplicated business logic
+* improve naming and structure
+
+Do NOT change existing business rules.
+
+### 4. Database Code Refactoring
+
+Improve the organization of database-related code.
+
+Where appropriate:
+
+* centralize database access
+* remove duplicated queries
+* improve repository/data-access organization
+* improve transaction handling
+* improve query readability
+* identify inefficient queries
+
+Do NOT make destructive database changes.
+
+Do NOT delete existing tables, columns, or data.
+
+### 5. Configuration
+
+Move configuration values away from hard-coded source code where appropriate.
+
+Use environment variables for:
+
+* database configuration
+* API configuration
+* authentication secrets
+* external service configuration
+* environment-specific settings
+
+Do not expose actual secrets.
+
+### 6. Code Quality
+
+Improve:
+
+* naming
+* types
+* error handling
+* validation
+* duplicated logic
+* unused imports
+* unused code
+* unnecessary dependencies
+* maintainability
+
+### 7. Testing
+
+After every significant refactoring:
+
+1. Run the application.
+2. Run available tests.
+3. Run type checking.
+4. Run linting if available.
+5. Verify affected functionality.
+6. Fix any errors before continuing.
+
+If automated tests do not exist for an important area, identify that area and create appropriate tests where practical.
+
+### 8. Git-Safe Refactoring
+
+Make changes incrementally.
+
+Do not make hundreds of unrelated changes at once.
+
+Keep changes logically grouped so that they can be reviewed and reverted if necessary.
+
+### FINAL REPORT
+
+When Stage 2 is complete, report:
+
+1. Files/modules changed
+2. Components refactored
+3. Backend modules refactored
+4. Database code refactored
+5. Duplicated code removed
+6. Configuration improvements
+7. Security improvements
+8. Tests performed
+9. Build status
+10. Remaining technical debt
+11. Any potential risks
+
+Most importantly:
+
+The application must remain functional.
+
+STOP after Stage 2.
+
+Do not begin Stage 3 until I explicitly approve it.
