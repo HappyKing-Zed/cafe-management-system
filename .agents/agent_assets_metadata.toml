@@ -7,6 +7,7 @@ uri = "file://docs/01-FRS-Functional-Requirements.html"
 type = "text"
 title = "FRS — Functional Requirements"
 description = "What the system does: all features per role and subsystem, with business rules."
+logical_id = "1e10bcbc-1e12-4e81-ae6f-8a2bdd8ecdd4"
 
 [[outputs]]
 id = "Y9XXYw2izeQ2qCx8OUdyp"
@@ -14,6 +15,7 @@ uri = "file://docs/02-SRS-Software-Requirements.html"
 type = "text"
 title = "SRS — Software Requirements"
 description = "Complete requirements spec (IEEE 830 style): scope, environment, functional and non-functional requirements."
+logical_id = "2a5ec098-8577-4766-88ad-2a5921aa4d8d"
 
 [[outputs]]
 id = "LfKJYej4g5KTWjxgX5oak"
@@ -21,6 +23,7 @@ uri = "file://docs/03-SDD-Software-Design.html"
 type = "text"
 title = "SDD — Software Design"
 description = "Architecture, frontend/backend/database structure, ER and sequence diagrams, design decisions."
+logical_id = "8be9774d-88d4-4d75-98c0-beafed58aa5c"
 
 [[outputs]]
 id = "tCL2PmjO1MFEGVHnsjnWt"
@@ -28,6 +31,7 @@ uri = "file://docs/04-User-Manual.html"
 type = "text"
 title = "User Manual (with screenshots)"
 description = "Step-by-step guide for every role, illustrated with real screenshots of the app."
+logical_id = "ae3c57a3-6e2a-4645-89a4-44b3a4257162"
 
 [[outputs]]
 id = "H1jM_szbKiAQmC8VC443p"
@@ -35,6 +39,7 @@ uri = "file://docs/05-Handoff-and-Deployment-Requirements.html"
 type = "text"
 title = "Handoff & Deployment Requirements"
 description = "Repository layout, how to run, environment variables, deployment requirements and production checklist."
+logical_id = "9fa97df1-b3b2-4e6a-9aa0-42b333e00d47"
 
 [[outputs]]
 id = "g7ROfY2PvF-N2RrDW-aHg"
@@ -42,3 +47,18 @@ uri = "file://docs/06-Deploy-on-Vercel.html"
 type = "text"
 title = "Deploy on Vercel — Guide"
 description = "Step-by-step: database, backend host, and Vercel frontend deployment with troubleshooting."
+logical_id = "f86971b6-1be7-4906-8a96-95ba15213c0a"
+
+[[outputs]]
+id = "Wf7AQf3Rn-Sw6EmbG2stJ"
+uri = "file://exports/Jima-Aba-Jifar-Documentation-Pack.pdf"
+type = "pdf"
+title = "Jima Aba Jifar Documentation Pack"
+description = "Combined 37-page PDF containing the Functional Requirements, Software Requirements, Software Design, User Manual, Handoff, and Deployment Guide."
+logical_id = "ca68b7c1-9507-46ae-9595-cb5ec943b619"
+content_hash = "sha256:ae3f40bced4bfcab50c2991644a4207b240217f31da0ef95ce4b768bf731f95a"
+size = 1024246
+mtime_ms = 1787123783357
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/ca68b7c1-9507-46ae-9595-cb5ec943b619/19246132-6106-453d-8678-5cba962d1f09"
+storage_version_token = "1787123790885311"
+content_type = "application/pdf"
