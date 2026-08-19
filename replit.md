@@ -4,10 +4,10 @@ A full-stack Ethiopian cafe and restaurant management system with role-based acc
 
 ## Run & Operate
 
-- **NestJS Backend**: managed workflow `artifacts/habesha: backend` (port 3001)
-- **Next.js Frontend**: managed workflow "artifacts/habesha: web" — runs `pnpm --filter @workspace/nextjs-app run dev` (PORT injected by artifact routing; previewPath `/`)
+- **NestJS Backend**: managed Abajiraf backend service (port 3001)
+- **Next.js Frontend**: managed Abajiraf web service — runs `pnpm --filter @workspace/nextjs-app run dev` (PORT injected by artifact routing; previewPath `/`)
 - Frontend calls the backend via `/backend/api/*` (not `/api`, which is claimed by the separate API Server artifact); Next.js rewrites `/backend/api/:path*` → `${BACKEND_URL}/api/:path*`
-- The `artifacts/habesha/` directory is a registration shim; the real frontend code is in `artifacts/nextjs-app/`
+- The Abajiraf registration shim runs the real frontend code in `artifacts/nextjs-app/`
 - The restaurant backend is `artifacts/nestjs-server/`. `artifacts/api-server/` is not the restaurant application API.
 
 ## Stack

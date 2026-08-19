@@ -14,7 +14,7 @@ NestJS 10 REST API
 PostgreSQL
 ```
 
-- Registered web artifact: `artifacts/habesha`
+- Registered web artifact: Abajiraf
 - Real frontend source: `artifacts/nextjs-app`
 - Authoritative restaurant backend: `artifacts/nestjs-server`
 - Browser API base: `/backend/api`
@@ -25,8 +25,7 @@ PostgreSQL
 
 Use the managed workflows:
 
-- `artifacts/habesha: web`
-- `artifacts/habesha: backend`
+- Registered Abajiraf web and backend services
 
 Do not run a Next.js production build while its development server is running because both processes share `.next`.
 

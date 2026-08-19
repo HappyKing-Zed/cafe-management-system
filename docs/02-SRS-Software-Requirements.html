@@ -40,7 +40,7 @@
 
 <h2>2. Overall Description</h2>
 <h3>2.1 Product Perspective</h3>
-<p>Three-tier logical architecture: a <b>Next.js 15 / React 19 frontend</b>, a <b>NestJS REST API backend</b>, and a <b>PostgreSQL database</b> accessed through TypeORM. The registered <code>artifacts/habesha</code> web artifact runs the actual source in <code>artifacts/nextjs-app</code>. The frontend calls the backend through <code>/backend/api/*</code>; Next.js rewrites requests to the backend's <code>/api/*</code>. The separate <code>artifacts/api-server</code> is not the restaurant API.</p>
+<p>Three-tier logical architecture: a <b>Next.js 15 / React 19 frontend</b>, a <b>NestJS REST API backend</b>, and a <b>PostgreSQL database</b> accessed through TypeORM. The registered Abajiraf web artifact runs the actual source in <code>artifacts/nextjs-app</code>. The frontend calls the backend through <code>/backend/api/*</code>; Next.js rewrites requests to the backend's <code>/api/*</code>. The separate <code>artifacts/api-server</code> is not the restaurant API.</p>
 <h3>2.2 User Classes</h3>
 <p>Eight roles: admin, owner, manager, coordinator, waiter, chef, cashier, storekeeper (see FRS §2). Users are non-technical restaurant staff; the UI must remain simple, large-touch-friendly, and in plain language.</p>
 <h3>2.3 Operating Environment</h3>

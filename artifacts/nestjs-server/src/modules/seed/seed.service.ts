@@ -26,12 +26,62 @@ export class SeedService {
     @InjectRepository(Supplier) private supplierRepo: Repository<Supplier>,
   ) {}
 
+  private async migrateLegacyBranding() {
+    const legacyUsers = await this.userRepo
+      .createQueryBuilder('user')
+      .where('LOWER(user.email) LIKE :domain', { domain: '%@habesha.com' })
+      .getMany();
+
+    for (const user of legacyUsers) {
+      const localPart = user.email.slice(0, user.email.lastIndexOf('@'));
+      let nextEmail = `${localPart}@gmail.com`;
+      const conflict = await this.userRepo.findOne({ where: { email: nextEmail } });
+      if (conflict && conflict.id !== user.id) {
+        nextEmail = `${localPart}.legacy${user.id}@gmail.com`;
+      }
+      user.email = nextEmail;
+      await this.userRepo.save(user);
+    }
+
+    const legacyRestaurants = await this.restaurantRepo
+      .createQueryBuilder('restaurant')
+      .where('LOWER(restaurant.email) LIKE :term', { term: '%habesha%' })
+      .getMany();
+    for (const restaurant of legacyRestaurants) {
+      restaurant.email = restaurant.email.replace(/habesha/gi, 'abajiraf');
+      await this.restaurantRepo.save(restaurant);
+    }
+
+    const legacySuppliers = await this.supplierRepo
+      .createQueryBuilder('supplier')
+      .where('LOWER(supplier.name) LIKE :term OR LOWER(supplier.email) LIKE :term', { term: '%habesha%' })
+      .getMany();
+    for (const supplier of legacySuppliers) {
+      supplier.name = supplier.name.replace(/habesha/gi, 'Abajiraf');
+      supplier.email = supplier.email.replace(/habesha/gi, 'abajiraf');
+      await this.supplierRepo.save(supplier);
+    }
+
+    return {
+      users: legacyUsers.length,
+      restaurants: legacyRestaurants.length,
+      suppliers: legacySuppliers.length,
+    };
+  }
+
   /**
    * Keeps the agreed operational accounts available in both development and
    * production. This is deliberately idempotent: existing accounts are updated
    * in place rather than duplicated, and their requested password stays valid.
    */
   async ensureRequiredAccounts() {
+    const migrated = await this.migrateLegacyBranding();
+    if (migrated.users || migrated.restaurants || migrated.suppliers) {
+      console.log(
+        `✓ Updated legacy branding in ${migrated.users} users, ${migrated.restaurants} restaurants, and ${migrated.suppliers} suppliers`,
+      );
+    }
+
     let restaurant = await this.restaurantRepo.findOne({ where: { name: 'Jima Aba Jifar Restaurant' } });
     if (!restaurant) {
       restaurant = await this.restaurantRepo.findOne({ order: { id: 'ASC' } });
@@ -71,8 +121,8 @@ export class SeedService {
       { name: 'Biruk Mekonnen', email: 'waiter2_agaro_branch@gmail.com', role: Role.WAITER, branchId: agaro.id },
       { name: 'Meseret Girma', email: 'coordinator_awetu_branch@gmail.com', role: Role.COORDINATOR, branchId: awetu.id },
       { name: 'Dawit Worku', email: 'coordinator_agaro_branch@gmail.com', role: Role.COORDINATOR, branchId: agaro.id },
-      { name: 'Mulugeta Bekele', email: 'chef_awetu_branch@gmail.com.com', role: Role.CHEF, branchId: awetu.id },
-      { name: 'Genet Haile', email: 'chef_agaro_branch@gmail.com.com', role: Role.CHEF, branchId: agaro.id },
+      { name: 'Mulugeta Bekele', email: 'chef_awetu_branch@gmail.com', role: Role.CHEF, branchId: awetu.id },
+      { name: 'Genet Haile', email: 'chef_agaro_branch@gmail.com', role: Role.CHEF, branchId: agaro.id },
       { name: 'Getachew Ayele', email: 'manager_awetu_branch@gmail.com', role: Role.MANAGER, branchId: awetu.id },
       { name: 'Tigist Assefa', email: 'manager_agaro_branch@gmail.com', role: Role.MANAGER, branchId: agaro.id },
       { name: 'Tadesse Wolde', email: 'owner@gmail.com', role: Role.OWNER },
@@ -93,7 +143,7 @@ export class SeedService {
   }
 
   async seed() {
-    const existingAdmin = await this.userRepo.findOne({ where: { email: 'admin@habesha.com' } });
+    const existingAdmin = await this.userRepo.findOne({ where: { email: 'admin@gmail.com' } });
     if (existingAdmin) {
       const accounts = await this.ensureRequiredAccounts();
       return { message: 'Already seeded; required accounts ensured', status: 'skipped', accounts: accounts.count };
@@ -104,7 +154,7 @@ export class SeedService {
       name: 'Jima Aba Jifar Restaurant',
       address: 'Bole Road, Addis Abeba, Ethiopia',
       phone: '+251 11 661 2345',
-      email: 'info@habeshakuliner.com',
+      email: 'info@abajirafkuliner.com',
     }));
 
     // ─── Branches ─────────────────────────────────────────────────
@@ -125,15 +175,15 @@ export class SeedService {
     const hash = async (p: string) => bcrypt.hash(p, 10);
 
     await this.userRepo.save([
-      this.userRepo.create({ name: 'Abebe Girma', email: 'admin@habesha.com', password: await hash('admin123'), role: Role.ADMIN, restaurantId: restaurant.id, branchId: branch1.id }),
-      this.userRepo.create({ name: 'Tigist Haile', email: 'owner@habesha.com', password: await hash('owner123'), role: Role.OWNER, restaurantId: restaurant.id, branchId: branch1.id }),
-      this.userRepo.create({ name: 'Dawit Bekele', email: 'manager@habesha.com', password: await hash('manager123'), role: Role.MANAGER, restaurantId: restaurant.id, branchId: branch1.id }),
-      this.userRepo.create({ name: 'Selam Tesfaye', email: 'coordinator@habesha.com', password: await hash('coord123'), role: Role.COORDINATOR, restaurantId: restaurant.id, branchId: branch1.id }),
-      this.userRepo.create({ name: 'Yonas Alemu', email: 'waiter1@habesha.com', password: await hash('waiter123'), role: Role.WAITER, restaurantId: restaurant.id, branchId: branch1.id }),
-      this.userRepo.create({ name: 'Meron Tadesse', email: 'waiter2@habesha.com', password: await hash('waiter123'), role: Role.WAITER, restaurantId: restaurant.id, branchId: branch1.id }),
-      this.userRepo.create({ name: 'Hiwot Lemma', email: 'chef@habesha.com', password: await hash('chef123'), role: Role.CHEF, restaurantId: restaurant.id, branchId: branch1.id }),
-      this.userRepo.create({ name: 'Biruk Mengistu', email: 'cashier@habesha.com', password: await hash('cashier123'), role: Role.CASHIER, restaurantId: restaurant.id, branchId: branch1.id }),
-      this.userRepo.create({ name: 'Selamawit Kebede', email: 'storekeeper@habesha.com', password: await hash('store123'), role: Role.STOREKEEPER, restaurantId: restaurant.id, branchId: branch1.id }),
+      this.userRepo.create({ name: 'Abebe Girma', email: 'admin@gmail.com', password: await hash('admin123'), role: Role.ADMIN, restaurantId: restaurant.id, branchId: branch1.id }),
+      this.userRepo.create({ name: 'Tigist Haile', email: 'owner@gmail.com', password: await hash('owner123'), role: Role.OWNER, restaurantId: restaurant.id, branchId: branch1.id }),
+      this.userRepo.create({ name: 'Dawit Bekele', email: 'manager@gmail.com', password: await hash('manager123'), role: Role.MANAGER, restaurantId: restaurant.id, branchId: branch1.id }),
+      this.userRepo.create({ name: 'Selam Tesfaye', email: 'coordinator@gmail.com', password: await hash('coord123'), role: Role.COORDINATOR, restaurantId: restaurant.id, branchId: branch1.id }),
+      this.userRepo.create({ name: 'Yonas Alemu', email: 'waiter1@gmail.com', password: await hash('waiter123'), role: Role.WAITER, restaurantId: restaurant.id, branchId: branch1.id }),
+      this.userRepo.create({ name: 'Meron Tadesse', email: 'waiter2@gmail.com', password: await hash('waiter123'), role: Role.WAITER, restaurantId: restaurant.id, branchId: branch1.id }),
+      this.userRepo.create({ name: 'Hiwot Lemma', email: 'chef@gmail.com', password: await hash('chef123'), role: Role.CHEF, restaurantId: restaurant.id, branchId: branch1.id }),
+      this.userRepo.create({ name: 'Biruk Mengistu', email: 'cashier@gmail.com', password: await hash('cashier123'), role: Role.CASHIER, restaurantId: restaurant.id, branchId: branch1.id }),
+      this.userRepo.create({ name: 'Selamawit Kebede', email: 'storekeeper@gmail.com', password: await hash('store123'), role: Role.STOREKEEPER, restaurantId: restaurant.id, branchId: branch1.id }),
     ]);
 
     // ─── Menu Categories ──────────────────────────────────────────
@@ -230,7 +280,7 @@ export class SeedService {
     // ─── Suppliers ────────────────────────────────────────────────
     await this.supplierRepo.save([
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Addis Teff Cooperative', contactPerson: 'Mulugeta Worku', email: 'addisteff@gmail.com', phone: '+251 911 223344', address: 'Debre Birhan, Ethiopia', rating: 5 }),
-      this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Habesha Meat Suppliers', contactPerson: 'Tesfaye Girma', email: 'habeshameat@yahoo.com', phone: '+251 912 556677', address: 'Mercato, Addis Abeba', rating: 4 }),
+      this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Abajiraf Meat Suppliers', contactPerson: 'Tesfaye Girma', email: 'abajirafmeat@yahoo.com', phone: '+251 912 556677', address: 'Mercato, Addis Abeba', rating: 4 }),
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Yirgacheffe Coffee PLC', contactPerson: 'Desta Wolde', email: 'yirgacheffe@coffee.et', phone: '+251 913 889900', address: 'Yirgacheffe, SNNPR', rating: 5 }),
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Merkato Spice Market', contactPerson: 'Azeb Assefa', email: 'merkato.spice@gmail.com', phone: '+251 914 112233', address: 'Merkato, Addis Abeba', rating: 4 }),
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Fresh Produce Ethiopia', contactPerson: 'Hana Solomon', email: 'freshproduce@et.com', phone: '+251 915 445566', address: 'Kality, Addis Abeba', rating: 3 }),
