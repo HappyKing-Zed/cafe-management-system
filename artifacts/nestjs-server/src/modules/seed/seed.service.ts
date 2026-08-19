@@ -26,9 +26,78 @@ export class SeedService {
     @InjectRepository(Supplier) private supplierRepo: Repository<Supplier>,
   ) {}
 
+  /**
+   * Keeps the agreed operational accounts available in both development and
+   * production. This is deliberately idempotent: existing accounts are updated
+   * in place rather than duplicated, and their requested password stays valid.
+   */
+  async ensureRequiredAccounts() {
+    let restaurant = await this.restaurantRepo.findOne({ where: { name: 'Jima Aba Jifar Restaurant' } });
+    if (!restaurant) {
+      restaurant = await this.restaurantRepo.findOne({ order: { id: 'ASC' } });
+    }
+    if (!restaurant) {
+      restaurant = await this.restaurantRepo.save(this.restaurantRepo.create({
+        name: 'Jima Aba Jifar Restaurant',
+        address: 'Jimma, Ethiopia',
+        phone: '+251 911 000000',
+        email: 'info@jimaabajifar.com',
+      }));
+    }
+
+    const ensureBranch = async (name: string, address: string) => {
+      let branch = await this.branchRepo.findOne({ where: { restaurantId: restaurant!.id, name } });
+      if (!branch) {
+        branch = await this.branchRepo.save(this.branchRepo.create({
+          restaurantId: restaurant!.id,
+          name,
+          address,
+          phone: '+251 911 000000',
+        }));
+      }
+      return branch;
+    };
+
+    const [awetu, agaro] = await Promise.all([
+      ensureBranch('Awetu Branch', 'Awetu, Jimma, Ethiopia'),
+      ensureBranch('Agaro Branch', 'Agaro, Jimma, Ethiopia'),
+    ]);
+    const password = await bcrypt.hash('123456', 10);
+    const accounts: Array<{ name: string; email: string; role: Role; branchId?: number }> = [
+      { name: 'Abebe Kebede', email: 'admin1@gmail.com', role: Role.ADMIN },
+      { name: 'Selamawit Tesfaye', email: 'waiter1_awetu_branch@gmail.com', role: Role.WAITER, branchId: awetu.id },
+      { name: 'Mikiya Alemu', email: 'waiter2_awetu_branch@gmail.com', role: Role.WAITER, branchId: awetu.id },
+      { name: 'Hiwot Tadesse', email: 'waiter1_agaro_branch@gmail.com', role: Role.WAITER, branchId: agaro.id },
+      { name: 'Biruk Mekonnen', email: 'waiter2_agaro_branch@gmail.com', role: Role.WAITER, branchId: agaro.id },
+      { name: 'Meseret Girma', email: 'coordinator_awetu_branch@gmail.com', role: Role.COORDINATOR, branchId: awetu.id },
+      { name: 'Dawit Worku', email: 'coordinator_agaro_branch@gmail.com', role: Role.COORDINATOR, branchId: agaro.id },
+      { name: 'Mulugeta Bekele', email: 'chef_awetu_branch@gmail.com.com', role: Role.CHEF, branchId: awetu.id },
+      { name: 'Genet Haile', email: 'chef_agaro_branch@gmail.com.com', role: Role.CHEF, branchId: agaro.id },
+      { name: 'Getachew Ayele', email: 'manager_awetu_branch@gmail.com', role: Role.MANAGER, branchId: awetu.id },
+      { name: 'Tigist Assefa', email: 'manager_agaro_branch@gmail.com', role: Role.MANAGER, branchId: agaro.id },
+      { name: 'Tadesse Wolde', email: 'owner@gmail.com', role: Role.OWNER },
+    ];
+
+    await Promise.all(accounts.map(async account => {
+      const existing = await this.userRepo.findOne({ where: { email: account.email } });
+      const data = {
+        ...account,
+        password,
+        isActive: true,
+        restaurantId: restaurant!.id,
+        branchId: account.branchId ?? null,
+      };
+      return this.userRepo.save(existing ? Object.assign(existing, data) : this.userRepo.create(data));
+    }));
+    return { restaurant, branches: { awetu, agaro }, count: accounts.length };
+  }
+
   async seed() {
     const existingAdmin = await this.userRepo.findOne({ where: { email: 'admin@habesha.com' } });
-    if (existingAdmin) return { message: 'Already seeded', status: 'skipped' };
+    if (existingAdmin) {
+      const accounts = await this.ensureRequiredAccounts();
+      return { message: 'Already seeded; required accounts ensured', status: 'skipped', accounts: accounts.count };
+    }
 
     // ─── Restaurant ───────────────────────────────────────────────
     const restaurant = await this.restaurantRepo.save(this.restaurantRepo.create({
@@ -167,10 +236,11 @@ export class SeedService {
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Fresh Produce Ethiopia', contactPerson: 'Hana Solomon', email: 'freshproduce@et.com', phone: '+251 915 445566', address: 'Kality, Addis Abeba', rating: 3 }),
     ]);
 
+    const accounts = await this.ensureRequiredAccounts();
     return {
       message: 'Database seeded successfully with Ethiopian data',
       status: 'success',
-      data: { restaurant: restaurant.name, branches: 2, users: 9, menuCategories: 7, menuItems: 26, tables: 23, inventoryItems: 15, suppliers: 5 },
+      data: { restaurant: restaurant.name, branches: 2, users: 9, requiredAccounts: accounts.count, menuCategories: 7, menuItems: 26, tables: 23, inventoryItems: 15, suppliers: 5 },
     };
   }
 }
