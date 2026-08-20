@@ -21,7 +21,7 @@
 <h1>Project Handoff &amp; Deployment Requirements</h1>
 <div class="meta">
 <b>System:</b> Jima — CARAVAN Lounge Restaurant Management System<br>
-<b>Document:</b> Handoff v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026
+<b>Document:</b> Handoff v1.2 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026
 </div>
 
 <h2>1. Repository Layout</h2>
@@ -92,6 +92,7 @@ pnpm --filter @workspace/nextjs-app run dev
 <tr><td>☐</td><td>Restrict or disable Swagger and seed operations in production.</td></tr>
 <tr><td>☐</td><td>Resolve high security-scan findings or record a reviewed risk acceptance.</td></tr>
 <tr><td>☐</td><td>Run automated role, branch, order, payment, inventory, report, notification, and export checks.</td></tr>
+<tr><td>☐</td><td>Verify the Orders/POS flow at 320 px and 390 px mobile viewports: menu/cart stack cleanly, checkout controls do not overlap, and the final action remains reachable.</td></tr>
 <tr><td>☐</td><td>Set up log retention / error alerting on both services.</td></tr>
 <tr><td>☐</td><td>Create real staff accounts with strong passwords; deactivate demo users.</td></tr>
 </table>
@@ -104,6 +105,7 @@ pnpm --filter @workspace/nextjs-app run dev
 <li><b>Polling:</b> all live pages poll every 10 s; there is no WebSocket layer to maintain.</li>
 <li><b>Exports:</b> Excel/PDF exports happen in the browser (xlsx, jspdf) — no server-side rendering service is needed.</li>
 <li><b>Role logic:</b> sidebar visibility lives in <code>src/components/sidebar.tsx</code>; per-page role behavior is in each page component; backend guards are authoritative.</li>
+<li><b>Mobile POS:</b> the order form changes from two columns to a vertical menu-and-cart layout on phones. Preserve the separate menu/cart scrolling areas and single-column cart fields when changing the POS.</li>
 <li><b>Profitability math:</b> food cost is estimated from stock deduction/waste movements × unit cost; accuracy depends on the store team recording usage.</li>
 <li><b>API reference:</b> Swagger UI is served by the backend at <code>/api/docs</code>.</li>
 </ul>

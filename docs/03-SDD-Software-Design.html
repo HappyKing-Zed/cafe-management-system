@@ -21,7 +21,7 @@
 <h1>Software Design Document (SDD)</h1>
 <div class="meta">
 <b>System:</b> Jima — CARAVAN Lounge Restaurant Management System<br>
-<b>Document:</b> SDD v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026
+<b>Document:</b> SDD v1.2 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026
 </div>
 
 <h2>1. System Architecture</h2>
@@ -32,7 +32,7 @@
   <rect x="20" y="90" width="180" height="120" rx="12" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2"/>
   <text x="110" y="120" text-anchor="middle" font-weight="bold" fill="#1D4ED8">Browser</text>
   <text x="110" y="142" text-anchor="middle" fill="#374151">Staff devices</text>
-  <text x="110" y="160" text-anchor="middle" fill="#374151">(desktop / tablet)</text>
+   <text x="110" y="160" text-anchor="middle" fill="#374151">(desktop / tablet / phone)</text>
 
   <rect x="270" y="40" width="240" height="220" rx="12" fill="#FDF3E7" stroke="#E8832A" stroke-width="2"/>
   <text x="390" y="66" text-anchor="middle" font-weight="bold" fill="#C2611A">Next.js 15 / React 19</text>
@@ -77,7 +77,7 @@
 <tr><th>Path</th><th>Responsibility</th></tr>
 <tr><td><code>src/app/login</code></td><td>Login page (photo hero, credential form).</td></tr>
 <tr><td><code>src/app/dashboard/page.tsx</code></td><td>Role-aware landing: renders ManagerDashboard for admin/owner/manager; redirects waiter/coordinator/cashier to Orders.</td></tr>
-<tr><td><code>src/app/dashboard/*</code></td><td>Feature pages: orders (POS), order-board, kitchen, tables, menu, inventory, item-requests, requests, staff, branches, reports.</td></tr>
+<tr><td><code>src/app/dashboard/*</code></td><td>Feature pages: orders (POS), order-board, kitchen, tables, menu, inventory, item-requests, requests, staff, branches, reports. The order page provides a stacked phone layout for its POS workspace.</td></tr>
 <tr><td><code>src/components</code></td><td>Shared UI: sidebar (role-filtered nav), manager-dashboard, stat cards, etc.</td></tr>
 <tr><td><code>src/lib/api.ts</code></td><td>Browser API facade; attaches JWT and calls the same-origin <code>/backend/api</code> boundary.</td></tr>
 <tr><td><code>src/store/auth.ts</code></td><td>Zustand store: current user, token, login/logout.</td></tr>
@@ -175,6 +175,7 @@
 <tr><td>Schema</td><td>TypeORM <code>synchronize:true</code> for development speed; switch to migrations for production (see Handoff doc).</td></tr>
 <tr><td>Exports</td><td>Client-side generation: <code>xlsx</code> for Excel, <code>jspdf</code> + <code>jspdf-autotable</code> for PDF, loaded dynamically.</td></tr>
 <tr><td>Styling</td><td>Tailwind CSS with shared utility classes (<code>.card</code>, <code>.input</code>, <code>.table-cell</code>) in <code>globals.css</code>; brand color #E8832A.</td></tr>
+<tr><td>Mobile POS layout</td><td>At phone widths the POS shell changes from a side-by-side menu/cart layout to a vertical layout. Menu items and the bounded cart/check-out area scroll independently; cart fields use a single-column layout and long item names wrap instead of forcing horizontal overflow. The desktop two-pane layout remains in place at large widths.</td></tr>
 <tr><td>Profitability</td><td>Food cost estimated from stock deduction/waste movements × item unit cost (documented in User Manual).</td></tr>
 </table>
 <h2>7. Boundary and Readiness Notes</h2>

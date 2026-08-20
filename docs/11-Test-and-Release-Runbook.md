@@ -1,6 +1,6 @@
 # Test and Release Runbook
 
-Updated: August 19, 2026
+Updated: August 20, 2026
 
 ## Required validation
 
@@ -47,7 +47,8 @@ Run package-local build, lint, formatting, and test scripts when present. Absenc
 - Staff and branch management
 - Reports, filters, pagination, Excel, and PDF exports
 - Loading, empty, error, and retry states
-- Desktop and tablet layouts
+- Desktop, tablet, and phone layouts
+- Orders/POS at 320 px and 390 px: no overlapping controls; category tabs scroll horizontally by design; menu, cart, payment fields, and the final action remain reachable without app-owned horizontal overflow
 
 ## Release gate
 
