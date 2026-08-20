@@ -1,0 +1,4 @@
+{
+  "browserApiBasePath": "/backend/api",
+  "backendApiPrefix": "/api"
+}

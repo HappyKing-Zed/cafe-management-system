@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "node dist/main"
+    "start": "node dist/main",
+    "test:database-config": "node --test -r ts-node/register test/database-config.integration.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

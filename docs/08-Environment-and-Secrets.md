@@ -1,12 +1,12 @@
 # Environment and Secrets
 
-Updated: August 19, 2026
+Updated: August 20, 2026
 
 ## Rules
 
 - Store real secrets only in Replit Secrets or the target platform's secret manager.
 - Never commit database passwords, JWT secrets, account passwords, tokens, or production URLs containing credentials.
-- `.env.example` contains names and safe placeholders only.
+- The root and artifact-specific `.env.example` files contain names and safe placeholders only.
 - Runtime-managed PostgreSQL variables must not be manually duplicated.
 - Production must fail safely when a required secret is missing; it must not use a known fallback.
 
@@ -16,12 +16,20 @@ Updated: August 19, 2026
 |---|---|---:|---|
 | `DATABASE_URL` | Backend | Yes | PostgreSQL connection |
 | `JWT_SECRET` | Backend | Yes | JWT signing and verification |
-| `PORT` | Frontend/backend | No | Platform-provided listen port |
+| `PORT` | Frontend/backend | No | Platform-provided listen port for each managed workflow |
 | `BACKEND_URL` | Next.js server | No | Target for `/backend/api` rewrite |
-| `CORS_ORIGIN` | Backend | No | Allowed production frontend origin |
+| `REPLIT_DEV_DOMAIN` | Next.js development server | No | Platform-provided preview host used by `allowedDevOrigins` |
 | `NODE_ENV` | Both | No | Development/production behavior |
 
 Do not expose `DATABASE_URL` or `JWT_SECRET` through variables prefixed with `NEXT_PUBLIC_`.
+
+## Example file ownership
+
+- `artifacts/nextjs-app/.env.example` documents only Next.js server settings. The browser API path is code-owned and is not configurable from client JavaScript.
+- `artifacts/nestjs-server/.env.example` documents only NestJS, authentication, and PostgreSQL settings.
+- The root `.env.example` is a workspace overview for operators, not a shared runtime file for both workflows.
+
+`CORS_ORIGIN` is intentionally not listed as active configuration because the current backend does not read it. CORS policy changes are tracked separately and are outside this boundary refactor.
 
 ## Production requirements
 

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getOrderAlerts, getNotifications, markNotificationsRead } from '@/lib/api';
+import { canAccessDashboardPath } from '@/lib/dashboard-access';
 import { useAuthStore } from '@/store/auth';
 import { Bell, AlertTriangle, Clock, CheckCheck } from 'lucide-react';
 import clsx from 'clsx';
@@ -84,16 +85,7 @@ export default function NotificationBell() {
   const criticalCount = visibleAlerts.filter(a => a.severity === 'critical').length;
   const badgeCount = unread.length + visibleAlerts.length;
 
-  // Routes each role may open (mirrors the sidebar) — never navigate to a page the user can't access
-  const ROUTE_ROLES: Record<string, string[]> = {
-    '/dashboard/orders': ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'cashier'],
-    '/dashboard/order-board': ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'cashier', 'storekeeper'],
-    '/dashboard/kitchen': ['admin', 'owner', 'manager', 'coordinator', 'chef'],
-    '/dashboard/inventory': ['admin', 'owner', 'manager', 'storekeeper', 'cashier'],
-    '/dashboard/item-requests': ['admin', 'owner', 'manager', 'coordinator'],
-    '/dashboard/summary': ['admin', 'owner', 'manager', 'cashier', 'waiter'],
-  };
-  const allowed = (path: string) => ROUTE_ROLES[path]?.includes(user.role) ?? false;
+  const allowed = (path: string) => canAccessDashboardPath(path, user.role);
   // Best order page for this role
   const orderPage = user.role === 'chef' ? '/dashboard/kitchen'
     : allowed('/dashboard/orders') ? '/dashboard/orders' : '/dashboard/order-board';
