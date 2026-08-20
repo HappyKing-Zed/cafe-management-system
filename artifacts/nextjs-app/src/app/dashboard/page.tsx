@@ -93,6 +93,7 @@ export default function DashboardPage() {
   const [inventory, setInventory] = useState<any[]>([]);
   const [lowStock, setLowStock] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState('');
 
@@ -108,15 +109,17 @@ export default function DashboardPage() {
 
   const fetchData = async () => {
     if (!role) return;
+    const failures: string[] = [];
     try {
       const jobs: Promise<any>[] = [];
-      jobs.push((isManager || isKitchen || isCashier || isWaiter) ? getOrderStats().then(r => setStats(r.data)).catch(() => {}) : Promise.resolve());
-      jobs.push((isManager || isCashier) ? getDailyReport().then(r => setReport(r.data)).catch(() => {}) : Promise.resolve());
-      jobs.push((isManager || isCashier || isWaiter) ? getOrders().then(r => setOrders(r.data || [])).catch(() => {}) : Promise.resolve());
-      jobs.push((isManager || isKitchen) ? getKitchenBoard().then(r => setBoard(r.data || [])).catch(() => {}) : Promise.resolve());
-      jobs.push((isManager || isStore) ? getInventoryItems().then(r => setInventory(r.data || [])).catch(() => {}) : Promise.resolve());
-      jobs.push((isManager || isStore) ? getLowStockItems().then(r => setLowStock(r.data || [])).catch(() => {}) : Promise.resolve());
+      jobs.push((isManager || isKitchen || isCashier || isWaiter) ? getOrderStats().then(r => setStats(r.data)).catch(() => { failures.push('order totals'); }) : Promise.resolve());
+      jobs.push((isManager || isCashier) ? getDailyReport().then(r => setReport(r.data)).catch(() => { failures.push('daily report'); }) : Promise.resolve());
+      jobs.push((isManager || isCashier || isWaiter) ? getOrders().then(r => setOrders(Array.isArray(r.data) ? r.data : [])).catch(() => { failures.push('orders'); }) : Promise.resolve());
+      jobs.push((isManager || isKitchen) ? getKitchenBoard().then(r => setBoard(Array.isArray(r.data) ? r.data : [])).catch(() => { failures.push('kitchen'); }) : Promise.resolve());
+      jobs.push((isManager || isStore) ? getInventoryItems().then(r => setInventory(Array.isArray(r.data) ? r.data : [])).catch(() => { failures.push('inventory'); }) : Promise.resolve());
+      jobs.push((isManager || isStore) ? getLowStockItems().then(r => setLowStock(Array.isArray(r.data) ? r.data : [])).catch(() => { failures.push('low stock'); }) : Promise.resolve());
       await Promise.all(jobs);
+      setLoadError(failures.length ? 'Some dashboard information could not be refreshed. Existing values are shown where available.' : '');
     } finally {
       setLoading(false);
     }
@@ -124,8 +127,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
-    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 10000);
-    return () => clearInterval(t);
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void fetchData();
+    };
+    const t = setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('focus', refresh);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
@@ -259,6 +269,14 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      {loadError && (
+        <div role="alert" className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => void fetchData()} className="font-semibold inline-flex items-center gap-1 hover:text-amber-950">
+            <RefreshCw size={14} /> Retry
+          </button>
+        </div>
+      )}
 
       {seedMsg && (
         <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">✓ {seedMsg}</div>

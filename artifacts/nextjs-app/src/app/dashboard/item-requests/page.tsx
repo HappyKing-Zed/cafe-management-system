@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getItemRequests, createItemRequest, updateItemRequestStatus, getRequestableItems, getStaffList, getLowStockItems } from '@/lib/api';
+import { downloadExcelFile } from '@/lib/excel-export';
 import { useAuthStore } from '@/store/auth';
 import { AlertTriangle, Check, ClipboardCheck, FilePlus2, FileText, PackageOpen, Pencil, Plus, RefreshCw, ShoppingCart, X } from 'lucide-react';
 import clsx from 'clsx';
@@ -163,12 +164,10 @@ export default function ItemRequestsPage() {
     setExporting(true);
     try {
       const { title, head, rows } = reportData();
-      const XLSX = await import('xlsx');
-      const safe = (v: string | number) => typeof v === 'string' && /^[=+\-@]/.test(v) ? `'${v}` : v;
-      const ws = XLSX.utils.aoa_to_sheet([[`${title} (${rangeLabel()})`], head, ...rows.map(r => r.map(safe))]);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Item Requests');
-      XLSX.writeFile(wb, `item_requests_${report.type}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      await downloadExcelFile(
+        `item_requests_${report.type}_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        [{ name: 'Item Requests', rows: [[`${title} (${rangeLabel()})`], head, ...rows] }],
+      );
     } catch { alert('Export failed'); } finally { setExporting(false); }
   };
 
@@ -397,6 +396,7 @@ export default function ItemRequestsPage() {
             </div>
 
           </div>
+          {exportCard}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 items-start">

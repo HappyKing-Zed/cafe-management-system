@@ -4,6 +4,7 @@ import { getDailyReport, getOrders, getPayments, getMenuCategories, getInventory
 import { BarChart3, TrendingUp, RefreshCw, FileText, ArrowDownToLine } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '@/store/auth';
+import { downloadExcelFile } from '@/lib/excel-export';
 
 const EXPORT_TABS = ['Overview', 'Order Board', 'Menu', 'Inventory', 'Item Requested', 'Staff', 'Branches'] as const;
 const CASHIER_TABS = ['Sales', 'Items Purchased'] as const;
@@ -21,6 +22,7 @@ export default function ReportsPage() {
   const [staff, setStaff] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [branchId, setBranchId] = useState<number | undefined>(undefined);
   const canPickBranch = ['admin', 'owner'].includes(user?.role || '');
@@ -41,26 +43,30 @@ export default function ReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCashier]);
 
-  const fetchData = async () => {
+  const fetchData = async (background = false) => {
+    if (!background) setLoading(true);
     try {
-      const [reportRes, ordersRes, paymentsRes, catRes, invRes, reqRes, staffRes, brRes] = await Promise.all([
-        getDailyReport(selectedDate, branchId).catch(() => ({ data: null })),
-        getOrders(branchId ? { branchId } : undefined).catch(() => ({ data: [] })),
-        getPayments(branchId).catch(() => ({ data: [] })),
-        getMenuCategories().catch(() => ({ data: [] })),
-        getInventoryItems().catch(() => ({ data: [] })),
-        getItemRequests().catch(() => ({ data: [] })),
-        getStaffList().catch(() => ({ data: [] })),
-        getBranches().catch(() => ({ data: [] })),
+      const [reportRes, ordersRes, paymentsRes, catRes, invRes, reqRes, staffRes, brRes] = await Promise.allSettled([
+        getDailyReport(selectedDate, branchId),
+        getOrders(branchId ? { branchId } : undefined),
+        getPayments(branchId),
+        getMenuCategories(),
+        getInventoryItems(),
+        getItemRequests(),
+        getStaffList(),
+        getBranches(),
       ]);
-      setReport(reportRes.data);
-      setOrders(ordersRes.data || []);
-      setPayments(paymentsRes.data || []);
-      setMenuCats(catRes.data || []);
-      setInvItems(invRes.data || []);
-      setRequests(reqRes.data || []);
-      setStaff(staffRes.data || []);
-      setBranches(brRes.data || []);
+      if (reportRes.status === 'fulfilled') setReport(reportRes.value.data);
+      if (ordersRes.status === 'fulfilled') setOrders(Array.isArray(ordersRes.value.data) ? ordersRes.value.data : []);
+      if (paymentsRes.status === 'fulfilled') setPayments(Array.isArray(paymentsRes.value.data) ? paymentsRes.value.data : []);
+      if (catRes.status === 'fulfilled') setMenuCats(Array.isArray(catRes.value.data) ? catRes.value.data : []);
+      if (invRes.status === 'fulfilled') setInvItems(Array.isArray(invRes.value.data) ? invRes.value.data : []);
+      if (reqRes.status === 'fulfilled') setRequests(Array.isArray(reqRes.value.data) ? reqRes.value.data : []);
+      if (staffRes.status === 'fulfilled') setStaff(Array.isArray(staffRes.value.data) ? staffRes.value.data : []);
+      if (brRes.status === 'fulfilled') setBranches(Array.isArray(brRes.value.data) ? brRes.value.data : []);
+      const failures = [reportRes, ordersRes, paymentsRes, catRes, invRes, reqRes, staffRes, brRes]
+        .filter((result) => result.status === 'rejected').length;
+      setError(failures ? 'Some report data could not be loaded. Retry before exporting to make sure the report is complete.' : '');
     } finally {
       setLoading(false);
     }
@@ -68,8 +74,6 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchData();
-    const t = setInterval(() => { fetchData().catch(() => { /* ignore polling errors */ }); }, 10000);
-    return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, branchId]);
 
@@ -199,12 +203,10 @@ export default function ReportsPage() {
     setExporting(true);
     try {
       const { title, file, head, rows } = dataFor(tab);
-      const XLSX = await import('xlsx');
-      const safe = (v: string | number) => typeof v === 'string' && /^[=+\-@]/.test(v) ? `'${v}` : v;
-      const ws = XLSX.utils.aoa_to_sheet([[title], head, ...rows.map(r => r.map(safe))]);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 30));
-      XLSX.writeFile(wb, `${file}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      await downloadExcelFile(
+        `${file}_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        [{ name: title, rows: [[title], head, ...rows] }],
+      );
     } catch { alert('Export failed'); } finally { setExporting(false); }
   };
 
@@ -253,8 +255,17 @@ export default function ReportsPage() {
             </select>
           )}
           {tab === 'Overview' && <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="input w-auto" />}
+          <button type="button" onClick={() => void fetchData()} disabled={loading} aria-label="Refresh reports"
+            className="btn-secondary inline-flex items-center gap-2 disabled:opacity-50">
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
         </div>
       </div>
+      {error && (
+        <div role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {error}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit flex-wrap">

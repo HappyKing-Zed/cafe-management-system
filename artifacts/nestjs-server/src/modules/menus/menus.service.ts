@@ -3,6 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MenuCategory } from '../../entities/menu-category.entity';
 import { MenuItem } from '../../entities/menu-item.entity';
+import { assignDefined } from '../../common/utils/assign-defined';
+
+const CATEGORY_FIELDS: readonly (keyof MenuCategory)[] = ['name', 'description', 'sortOrder', 'isActive', 'restaurantId'];
+const ITEM_FIELDS: readonly (keyof MenuItem)[] = ['name', 'description', 'price', 'imageUrl', 'isAvailable', 'preparationTime', 'categoryId'];
 
 @Injectable()
 export class MenusService {
@@ -24,11 +28,13 @@ export class MenusService {
     return c;
   }
 
-  createCategory(data: Partial<MenuCategory>) { return this.catRepo.save(this.catRepo.create(data)); }
+  createCategory(data: Partial<MenuCategory>) {
+    return this.catRepo.save(assignDefined(this.catRepo.create(), data, CATEGORY_FIELDS));
+  }
 
   async updateCategory(id: number, data: Partial<MenuCategory>) {
     const c = await this.findOneCategory(id);
-    Object.assign(c, data);
+    assignDefined(c, data, CATEGORY_FIELDS);
     return this.catRepo.save(c);
   }
 
@@ -50,11 +56,13 @@ export class MenusService {
     return i;
   }
 
-  createItem(data: Partial<MenuItem>) { return this.itemRepo.save(this.itemRepo.create(data)); }
+  createItem(data: Partial<MenuItem>) {
+    return this.itemRepo.save(assignDefined(this.itemRepo.create(), data, ITEM_FIELDS));
+  }
 
   async updateItem(id: number, data: Partial<MenuItem>) {
     const i = await this.findOneItem(id);
-    Object.assign(i, data);
+    assignDefined(i, data, ITEM_FIELDS);
     return this.itemRepo.save(i);
   }
 

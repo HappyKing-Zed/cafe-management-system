@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { ROLE_LABELS } from '@/lib/auth';
+import { DASHBOARD_ROUTE_ROLES } from '@/lib/dashboard-access';
 import clsx from 'clsx';
 import {
   LayoutDashboard, ShoppingCart, ChefHat, Table2, UtensilsCrossed,
@@ -12,19 +13,19 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'owner', 'manager', 'chef', 'storekeeper'] },
-  { href: '/dashboard/orders', label: 'Orders / POS', icon: ShoppingCart, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'cashier'] },
-  { href: '/dashboard/order-board', label: 'Order Board', icon: Columns3, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'cashier', 'storekeeper'] },
-  { href: '/dashboard/requests', label: 'Requests', icon: Send, roles: ['admin', 'chef'] },
-  { href: '/dashboard/kitchen', label: 'Kitchen Board', icon: ChefHat, roles: ['admin', 'owner', 'manager', 'coordinator', 'chef'] },
-  { href: '/dashboard/tables', label: 'Tables', icon: Table2, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter'] },
-  { href: '/dashboard/menu', label: 'Menu', icon: UtensilsCrossed, roles: ['admin', 'owner', 'manager'] },
-  { href: '/dashboard/inventory', label: 'Inventory', icon: Package, roles: ['admin', 'owner', 'manager', 'storekeeper', 'cashier'] },
-  { href: '/dashboard/item-requests', label: 'Item Requests', managerLabel: 'Item Requested', icon: PackageOpen, roles: ['admin', 'owner', 'manager', 'coordinator'] },
-  { href: '/dashboard/staff', label: 'Staff', icon: Users, roles: ['admin', 'owner', 'manager'] },
-  { href: '/dashboard/branches', label: 'Branches and Restaurants', icon: Building2, roles: ['admin', 'owner', 'manager'] },
-  { href: '/dashboard/summary', label: 'Summary', icon: ClipboardList, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'cashier'] },
-  { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: ['admin', 'owner', 'manager', 'cashier'] },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: DASHBOARD_ROUTE_ROLES['/dashboard'] },
+  { href: '/dashboard/orders', label: 'Orders / POS', icon: ShoppingCart, roles: DASHBOARD_ROUTE_ROLES['/dashboard/orders'] },
+  { href: '/dashboard/order-board', label: 'Order Board', icon: Columns3, roles: DASHBOARD_ROUTE_ROLES['/dashboard/order-board'] },
+  { href: '/dashboard/requests', label: 'Requests', icon: Send, roles: DASHBOARD_ROUTE_ROLES['/dashboard/requests'] },
+  { href: '/dashboard/kitchen', label: 'Kitchen Board', icon: ChefHat, roles: DASHBOARD_ROUTE_ROLES['/dashboard/kitchen'] },
+  { href: '/dashboard/tables', label: 'Tables', icon: Table2, roles: DASHBOARD_ROUTE_ROLES['/dashboard/tables'] },
+  { href: '/dashboard/menu', label: 'Menu', icon: UtensilsCrossed, roles: DASHBOARD_ROUTE_ROLES['/dashboard/menu'] },
+  { href: '/dashboard/inventory', label: 'Inventory', icon: Package, roles: DASHBOARD_ROUTE_ROLES['/dashboard/inventory'] },
+  { href: '/dashboard/item-requests', label: 'Item Requests', managerLabel: 'Item Requested', icon: PackageOpen, roles: DASHBOARD_ROUTE_ROLES['/dashboard/item-requests'] },
+  { href: '/dashboard/staff', label: 'Staff', icon: Users, roles: DASHBOARD_ROUTE_ROLES['/dashboard/staff'] },
+  { href: '/dashboard/branches', label: 'Branches and Restaurants', icon: Building2, roles: DASHBOARD_ROUTE_ROLES['/dashboard/branches'] },
+  { href: '/dashboard/summary', label: 'Summary', icon: ClipboardList, roles: DASHBOARD_ROUTE_ROLES['/dashboard/summary'] },
+  { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: DASHBOARD_ROUTE_ROLES['/dashboard/reports'] },
 ];
 
 export default function Sidebar() {

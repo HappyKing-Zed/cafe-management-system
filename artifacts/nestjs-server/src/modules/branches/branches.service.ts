@@ -2,6 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Branch } from '../../entities/branch.entity';
+import { assignDefined } from '../../common/utils/assign-defined';
+
+const BRANCH_FIELDS: readonly (keyof Branch)[] = ['name', 'address', 'phone', 'isActive', 'restaurantId'];
 
 @Injectable()
 export class BranchesService {
@@ -19,11 +22,13 @@ export class BranchesService {
     return b;
   }
 
-  create(data: Partial<Branch>) { return this.repo.save(this.repo.create(data)); }
+  create(data: Partial<Branch>) {
+    return this.repo.save(assignDefined(this.repo.create(), data, BRANCH_FIELDS));
+  }
 
   async update(id: number, data: Partial<Branch>) {
     const b = await this.findOne(id);
-    Object.assign(b, data);
+    assignDefined(b, data, BRANCH_FIELDS);
     return this.repo.save(b);
   }
 

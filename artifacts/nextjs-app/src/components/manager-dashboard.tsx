@@ -8,7 +8,7 @@ import {
 } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import {
-  TrendingUp, ShoppingCart, Wallet, Flame, Package, AlertTriangle, Timer, ChefHat, Trophy, X,
+  TrendingUp, ShoppingCart, Wallet, Flame, Package, AlertTriangle, Timer, ChefHat, Trophy, X, RefreshCw,
 } from 'lucide-react';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Cell,
@@ -32,24 +32,28 @@ export default function ManagerDashboard() {
   const [lowStock, setLowStock] = useState<any[]>([]);
   const [movements, setMovements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [detail, setDetail] = useState<string | null>(null);
 
-  const fetchData = async (bid?: number) => {
+  const fetchData = async (bid?: number, background = false) => {
+    if (!background) setLoading(true);
     try {
-      const [st, or, pa, inv, low, mov] = await Promise.all([
-        getOrderStats(bid).catch(() => ({ data: null })),
-        getOrders(bid ? { branchId: bid } : undefined).catch(() => ({ data: [] })),
-        getPayments(bid).catch(() => ({ data: [] })),
-        getInventoryItems().catch(() => ({ data: [] })),
-        getLowStockItems().catch(() => ({ data: [] })),
-        getStockAdjustments().catch(() => ({ data: [] })),
+      const [st, or, pa, inv, low, mov] = await Promise.allSettled([
+        getOrderStats(bid),
+        getOrders(bid ? { branchId: bid } : undefined),
+        getPayments(bid),
+        getInventoryItems(),
+        getLowStockItems(),
+        getStockAdjustments(),
       ]);
-      setStats(st.data);
-      setOrders(or.data || []);
-      setPayments(pa.data || []);
-      setInventory(inv.data || []);
-      setLowStock(low.data || []);
-      setMovements(mov.data || []);
+      if (st.status === 'fulfilled') setStats(st.value.data);
+      if (or.status === 'fulfilled') setOrders(Array.isArray(or.value.data) ? or.value.data : []);
+      if (pa.status === 'fulfilled') setPayments(Array.isArray(pa.value.data) ? pa.value.data : []);
+      if (inv.status === 'fulfilled') setInventory(Array.isArray(inv.value.data) ? inv.value.data : []);
+      if (low.status === 'fulfilled') setLowStock(Array.isArray(low.value.data) ? low.value.data : []);
+      if (mov.status === 'fulfilled') setMovements(Array.isArray(mov.value.data) ? mov.value.data : []);
+      const failures = [st, or, pa, inv, low, mov].filter((result) => result.status === 'rejected').length;
+      setError(failures ? 'Some dashboard information could not be refreshed. Existing values are shown where available.' : '');
     } finally {
       setLoading(false);
     }
@@ -60,16 +64,28 @@ export default function ManagerDashboard() {
   useEffect(() => {
     setMounted(true);
     fetchData(branchId);
-    const t = setInterval(() => { fetchData(branchId).catch(() => { /* ignore */ }); }, 10000);
-    return () => clearInterval(t);
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void fetchData(branchId, true);
+    };
+    const t = setInterval(refresh, 60000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('focus', refresh);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchId]);
 
   useEffect(() => {
     if (!canPickBranch) return;
-    Promise.all([getRestaurants(), getBranches()])
-      .then(([r, b]) => { setRestaurants(r.data || []); setAllBranches(b.data || []); })
-      .catch(() => { /* ignore */ });
+    Promise.allSettled([getRestaurants(), getBranches()])
+      .then(([r, b]) => {
+        if (r.status === 'fulfilled') setRestaurants(Array.isArray(r.value.data) ? r.value.data : []);
+        if (b.status === 'fulfilled') setAllBranches(Array.isArray(b.value.data) ? b.value.data : []);
+        if (r.status === 'rejected' || b.status === 'rejected') {
+          setError('Branch options could not be loaded. Dashboard totals are still available.');
+        }
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canPickBranch]);
 
@@ -142,6 +158,14 @@ export default function ManagerDashboard() {
 
   return (
     <div className="space-y-4">
+      {error && (
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span>{error}</span>
+          <button type="button" onClick={() => void fetchData(branchId)} className="font-semibold inline-flex items-center gap-1 hover:text-amber-950">
+            <RefreshCw size={14} /> Retry
+          </button>
+        </div>
+      )}
       {/* Branch picker for owners/admins */}
       {canPickBranch && allBranches.length > 0 && (
         <div className="flex items-center justify-end gap-2">
@@ -357,7 +381,7 @@ export default function ManagerDashboard() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b">
               <h3 className="font-bold text-gray-900">{detail}</h3>
-              <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+              <button type="button" onClick={() => setDetail(null)} aria-label="Close details" className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
             <div className="p-5 overflow-y-auto text-sm">
               {detail === "Today's Sales" && (

@@ -38,6 +38,7 @@ export default function NotificationBell() {
   const router = useRouter();
   const [alerts, setAlerts] = useState<OrderAlert[]>([]);
   const [notifs, setNotifs] = useState<AppNotification[]>([]);
+  const [loadError, setLoadError] = useState('');
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -52,19 +53,20 @@ export default function NotificationBell() {
     if (!user) return;
     let mounted = true;
     const load = async () => {
-      try {
-        const [alertsRes, notifsRes] = await Promise.all([
-          seesAlerts ? getOrderAlerts() : Promise.resolve({ data: [] }),
-          getNotifications(),
-        ]);
-        if (mounted) {
-          setAlerts(alertsRes.data || []);
-          setNotifs(notifsRes.data || []);
-        }
-      } catch { /* ignore polling errors */ }
+      if (document.visibilityState !== 'visible') return;
+      const [alertsRes, notifsRes] = await Promise.allSettled([
+        seesAlerts ? getOrderAlerts() : Promise.resolve({ data: [] }),
+        getNotifications(),
+      ]);
+      if (!mounted) return;
+      if (alertsRes.status === 'fulfilled') setAlerts(Array.isArray(alertsRes.value.data) ? alertsRes.value.data : []);
+      if (notifsRes.status === 'fulfilled') setNotifs(Array.isArray(notifsRes.value.data) ? notifsRes.value.data : []);
+      setLoadError(alertsRes.status === 'rejected' || notifsRes.status === 'rejected'
+        ? 'Notifications could not be refreshed.'
+        : '');
     };
     load();
-    const t = setInterval(load, 15000);
+    const t = setInterval(load, 30000);
     return () => { mounted = false; clearInterval(t); };
   }, [user, seesAlerts]);
 
@@ -116,7 +118,10 @@ export default function NotificationBell() {
     try {
       await markNotificationsRead();
       setNotifs(prev => prev.map(n => ({ ...n, isRead: true })));
-    } catch { /* ignore */ }
+      setLoadError('');
+    } catch {
+      setLoadError('Notifications could not be marked as read.');
+    }
   };
 
   return (
@@ -150,6 +155,7 @@ export default function NotificationBell() {
               </button>
             )}
           </div>
+          {loadError && <p role="alert" className="px-4 py-2 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">{loadError}</p>}
 
           {/* Delayed-order alerts */}
           {visibleAlerts.length > 0 && (

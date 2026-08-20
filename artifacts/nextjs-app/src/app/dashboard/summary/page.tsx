@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuthStore } from '@/store/auth';
 import { getSummary, getServiceSubmissions, submitDailyService, confirmServiceSubmission, getWaiters } from '@/lib/api';
 import { ClipboardList, ChevronDown, ChevronUp, Send, CheckCircle2, Clock, FileDown, FileSpreadsheet } from 'lucide-react';
+import { downloadExcelFile } from '@/lib/excel-export';
 
 const fmt = (n: number) => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`;
 // Local calendar date/time (never toISOString — that shifts to UTC and can be off by a day)
@@ -19,11 +20,6 @@ async function loadPdf() {
   const autoTable = at.autoTable ?? at.default;
   return { jsPDF, autoTable };
 }
-async function loadXlsx() {
-  const m: any = await import('xlsx');
-  return m.default?.utils ? m.default : m;
-}
-
 // One spreadsheet-style row per item, plus a TOTAL row
 function itemRows(detail: any[]) {
   const rows: any[] = [];
@@ -75,8 +71,6 @@ async function exportSummaryPdf(summary: any, range: { start: string; end: strin
 }
 
 async function exportSummaryExcel(summary: any, range: { start: string; end: string }, waiterName?: string) {
-  const XLSX = await loadXlsx();
-  const wb = XLSX.utils.book_new();
   const totals = [
     ['Service Summary'],
     ['Period', prettyRange(range.start, range.end)],
@@ -86,18 +80,25 @@ async function exportSummaryExcel(summary: any, range: { start: string; end: str
     ['Items', summary.totals.items],
     ['Revenue (ETB)', Number(summary.totals.revenue)],
   ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(totals), 'Totals');
+  const sheets: Array<{ name: string; rows: any[][] }> = [{ name: 'Totals', rows: totals }];
   if (summary.byWaiter?.length) {
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary.byWaiter.map((w: any) => ({
-      Waiter: w.name, Orders: w.orders, Items: w.items, 'Revenue (ETB)': Number(w.revenue),
-    }))), 'By Waiter');
+    sheets.push({
+      name: 'By Waiter',
+      rows: [
+        ['Waiter', 'Orders', 'Items', 'Revenue (ETB)'],
+        ...summary.byWaiter.map((w: any) => [w.name, w.orders, w.items, Number(w.revenue)]),
+      ],
+    });
   }
-  const rows: any[] = [];
+  const rows: any[][] = [['Table', 'Item', 'Qty', 'Amount (ETB)']];
   for (const t of summary.byTable || []) {
-    for (const d of t.itemDetail || []) rows.push({ Table: t.label, Item: d.name, Qty: d.quantity, 'Amount (ETB)': Number(d.amount) });
+    for (const d of t.itemDetail || []) rows.push([t.label, d.name, d.quantity, Number(d.amount)]);
   }
-  XLSX.utils.book_append_sheet(wb, rows.length ? XLSX.utils.json_to_sheet(rows) : XLSX.utils.aoa_to_sheet([['No data']]), 'Table Detail');
-  XLSX.writeFile(wb, `service-summary-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}.xlsx`);
+  sheets.push({ name: 'Table Detail', rows: rows.length > 1 ? rows : [['No data']] });
+  await downloadExcelFile(
+    `service-summary-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}.xlsx`,
+    sheets,
+  );
 }
 
 // Export several reports (waiter view, filtered by date) into one document
@@ -126,8 +127,6 @@ async function exportReportsPdf(subs: any[], range: { start: string; end: string
 }
 
 async function exportReportsExcel(subs: any[], range: { start: string; end: string }, waiterName?: string) {
-  const XLSX = await loadXlsx();
-  const wb = XLSX.utils.book_new();
   const aoa: any[] = [
     ['Daily Service Reports'],
     ['Period', prettyRange(range.start, range.end)],
@@ -145,8 +144,10 @@ async function exportReportsExcel(subs: any[], range: { start: string; end: stri
     aoa.push([]);
   }
   aoa.push(['', '', '', '', 'GRAND TOTAL', Math.round(grand * 100) / 100]);
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), 'Reports');
-  XLSX.writeFile(wb, `service-reports-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}.xlsx`);
+  await downloadExcelFile(
+    `service-reports-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}.xlsx`,
+    [{ name: 'Reports', rows: aoa }],
+  );
 }
 
 /* ---------- page ---------- */

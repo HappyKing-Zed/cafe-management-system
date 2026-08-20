@@ -137,7 +137,7 @@ export class SeedService {
         restaurantId: restaurant!.id,
         branchId: account.branchId ?? null,
       };
-      return this.userRepo.save(existing ? Object.assign(existing, data) : this.userRepo.create(data));
+      return this.userRepo.save(existing ? this.userRepo.merge(existing, data) : this.userRepo.create(data));
     }));
     return { restaurant, branches: { awetu, agaro }, count: accounts.length };
   }

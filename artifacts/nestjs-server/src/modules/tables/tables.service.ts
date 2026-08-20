@@ -3,6 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RestaurantTable } from '../../entities/table.entity';
 import { TableStatus } from '../../common/enums/table-status.enum';
+import { assignDefined } from '../../common/utils/assign-defined';
+
+const TABLE_FIELDS: readonly (keyof RestaurantTable)[] = ['number', 'capacity', 'status', 'section', 'branchId'];
 
 @Injectable()
 export class TablesService {
@@ -20,11 +23,13 @@ export class TablesService {
     return t;
   }
 
-  create(data: Partial<RestaurantTable>) { return this.repo.save(this.repo.create(data)); }
+  create(data: Partial<RestaurantTable>) {
+    return this.repo.save(assignDefined(this.repo.create(), data, TABLE_FIELDS));
+  }
 
   async update(id: number, data: Partial<RestaurantTable>) {
     const t = await this.findOne(id);
-    Object.assign(t, data);
+    assignDefined(t, data, TABLE_FIELDS);
     return this.repo.save(t);
   }
 

@@ -8,7 +8,14 @@ export const getStoredToken = (): string | null => {
 export const getStoredUser = (): User | null => {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem('user');
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as User;
+  } catch {
+    localStorage.removeItem('user');
+    localStorage.removeItem('access_token');
+    return null;
+  }
 };
 
 export const storeAuth = (token: string, user: User) => {

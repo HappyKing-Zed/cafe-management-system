@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, approvePOItems, createStockAdjustment, getStockAdjustments, getItemRequests, updateItemRequestStatus } from '@/lib/api';
 import { InventoryItem, Supplier, PurchaseOrder } from '@/lib/types';
+import { downloadExcelFile } from '@/lib/excel-export';
 import { useAuthStore } from '@/store/auth';
 import { Package, Plus, AlertTriangle, Pencil, RefreshCw, ArrowDownToLine, ArrowUpFromLine, FileText, Trash2, Warehouse } from 'lucide-react';
 import clsx from 'clsx';
@@ -16,7 +17,7 @@ interface StockMovement {
   createdBy?: { name: string };
 }
 
-const TABS = ['Items', 'Purchase Orders', 'Stock Movements', 'Suppliers', 'Alerts'];
+const TABS = ['Items', 'Purchase Orders', 'Stock Movements', 'Suppliers', 'Alerts', 'Reports'];
 
 const PO_STATUS_COLORS: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-700',
@@ -211,14 +212,10 @@ export default function InventoryPage() {
     setExporting(true);
     try {
       const { title, head, rows } = await reportRows();
-      const xlsxModule = await import('xlsx');
-      const XLSX: any = (xlsxModule as any).default || xlsxModule;
-      // Guard against spreadsheet formula injection: prefix risky leading chars in text cells
-      const safe = (v: string | number) => typeof v === 'string' && /^[=+\-@]/.test(v) ? `'${v}` : v;
-      const ws = XLSX.utils.aoa_to_sheet([[`${title} (${rangeLabel()})`], head, ...rows.map(r => r.map(safe))]);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31));
-      XLSX.writeFile(wb, `${title.replace(/ /g, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      await downloadExcelFile(
+        `${title.replace(/ /g, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        [{ name: title, rows: [[`${title} (${rangeLabel()})`], head, ...rows] }],
+      );
     } catch (e: any) { alert(`Export failed: ${e?.message || 'unknown error'}`); } finally { setExporting(false); }
   };
 

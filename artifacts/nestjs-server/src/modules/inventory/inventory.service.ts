@@ -9,6 +9,19 @@ import { StockAdjustment, AdjustmentType } from '../../entities/stock-adjustment
 import { ItemRequest, ItemRequestStatus } from '../../entities/item-request.entity';
 import { User } from '../../entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { assignDefined } from '../../common/utils/assign-defined';
+
+const INVENTORY_CREATE_FIELDS: readonly (keyof InventoryItem)[] = [
+  'name', 'unit', 'currentStock', 'minStock', 'reorderPoint', 'unitCost', 'category',
+  'expiryDate', 'restaurantId', 'branchId',
+];
+const INVENTORY_UPDATE_FIELDS: readonly (keyof InventoryItem)[] = [
+  'name', 'unit', 'minStock', 'reorderPoint', 'unitCost', 'category',
+  'expiryDate', 'restaurantId', 'branchId',
+];
+const SUPPLIER_FIELDS: readonly (keyof Supplier)[] = [
+  'name', 'contactPerson', 'email', 'phone', 'address', 'isActive', 'rating', 'restaurantId',
+];
 
 // Department is derived from the staff member's role (server-owned mapping)
 const ROLE_DEPARTMENT: Record<string, string> = {
@@ -53,15 +66,14 @@ export class InventoryService {
 
   createItem(data: Partial<InventoryItem>, branchId?: number) {
     if (branchId) data.branchId = branchId;
-    return this.itemRepo.save(this.itemRepo.create(data));
+    return this.itemRepo.save(assignDefined(this.itemRepo.create(), data, INVENTORY_CREATE_FIELDS));
   }
 
   async updateItem(id: number, data: Partial<InventoryItem>, branchId?: number) {
     const i = await this.findOneItem(id, branchId);
     // Stock level is server-controlled: it only changes via PO receipt (stock in)
     // or item-request issuing (stock out), so movements always have an audit record.
-    const { currentStock, ...rest } = data as any;
-    Object.assign(i, rest);
+    assignDefined(i, data, INVENTORY_UPDATE_FIELDS);
     return this.itemRepo.save(i);
   }
 
@@ -94,11 +106,13 @@ export class InventoryService {
     return s;
   }
 
-  createSupplier(data: Partial<Supplier>) { return this.supplierRepo.save(this.supplierRepo.create(data)); }
+  createSupplier(data: Partial<Supplier>) {
+    return this.supplierRepo.save(assignDefined(this.supplierRepo.create(), data, SUPPLIER_FIELDS));
+  }
 
   async updateSupplier(id: number, data: Partial<Supplier>) {
     const s = await this.findOneSupplier(id);
-    Object.assign(s, data);
+    assignDefined(s, data, SUPPLIER_FIELDS);
     return this.supplierRepo.save(s);
   }
 

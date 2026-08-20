@@ -2,6 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Restaurant } from '../../entities/restaurant.entity';
+import { assignDefined } from '../../common/utils/assign-defined';
+
+const RESTAURANT_FIELDS: readonly (keyof Restaurant)[] = ['name', 'address', 'phone', 'email', 'logo', 'isActive'];
 
 @Injectable()
 export class RestaurantsService {
@@ -21,12 +24,12 @@ export class RestaurantsService {
   }
 
   create(data: Partial<Restaurant>) {
-    return this.repo.save(this.repo.create(data));
+    return this.repo.save(assignDefined(this.repo.create(), data, RESTAURANT_FIELDS));
   }
 
   async update(id: number, data: Partial<Restaurant>) {
     const r = await this.findOne(id);
-    Object.assign(r, data);
+    assignDefined(r, data, RESTAURANT_FIELDS);
     return this.repo.save(r);
   }
 

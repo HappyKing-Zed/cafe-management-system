@@ -3,6 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../entities/user.entity';
+import { assignDefined } from '../../common/utils/assign-defined';
+
+const USER_FIELDS: readonly (keyof User)[] = ['name', 'email', 'role', 'isActive', 'phone', 'restaurantId', 'branchId'];
 
 @Injectable()
 export class UsersService {
@@ -56,7 +59,8 @@ export class UsersService {
     const exists = await this.repo.findOne({ where: { email: data.email } });
     if (exists) throw new ConflictException('Email already in use');
     const hashed = await bcrypt.hash(data.password, 10);
-    const user = this.repo.create({ ...data, password: hashed });
+    const user = assignDefined(this.repo.create(), data, USER_FIELDS);
+    user.password = hashed;
     return this.repo.save(user);
   }
 
@@ -65,7 +69,8 @@ export class UsersService {
     if (data.password) {
       data.password = await bcrypt.hash(data.password, 10);
     }
-    Object.assign(user, data);
+    assignDefined(user, data, USER_FIELDS);
+    if (data.password) user.password = data.password;
     return this.repo.save(user);
   }
 
