@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../entities/user.entity';
 import { Restaurant } from '../../entities/restaurant.entity';
@@ -24,46 +24,64 @@ export class SeedService {
     @InjectRepository(RestaurantTable) private tableRepo: Repository<RestaurantTable>,
     @InjectRepository(InventoryItem) private inventoryRepo: Repository<InventoryItem>,
     @InjectRepository(Supplier) private supplierRepo: Repository<Supplier>,
+    private dataSource: DataSource,
   ) {}
 
   private async migrateLegacyBranding() {
-    const legacyUsers = await this.userRepo
-      .createQueryBuilder('user')
-      .where('LOWER(user.email) LIKE :domain', { domain: '%@habesha.com' })
-      .getMany();
-
-    for (const user of legacyUsers) {
-      const localPart = user.email.slice(0, user.email.lastIndexOf('@'));
-      let nextEmail = `${localPart}@gmail.com`;
-      const conflict = await this.userRepo.findOne({ where: { email: nextEmail } });
-      if (conflict && conflict.id !== user.id) {
-        nextEmail = `${localPart}.legacy${user.id}@gmail.com`;
-      }
-      user.email = nextEmail;
-      await this.userRepo.save(user);
-    }
+    const migratedUsers = await this.migrateLegacyUserEmails();
 
     const legacyRestaurants = await this.restaurantRepo
       .createQueryBuilder('restaurant')
-      .where('LOWER(restaurant.email) LIKE :term', { term: '%habesha%' })
+      .where(
+        `LOWER(TRIM(restaurant.name)) IN (:...legacyNames)
+          OR LOWER(TRIM(restaurant.email)) IN (:...legacyEmails)`,
+        {
+          legacyNames: [
+            'jima aba jifar',
+            'jima aba jifar restaurant',
+            'abajiraf',
+            'abajiraf restaurant',
+          ],
+          legacyEmails: [
+            'info@habesha.com',
+            'info@abajiraf.com',
+          ],
+        },
+      )
       .getMany();
     for (const restaurant of legacyRestaurants) {
-      restaurant.email = restaurant.email.replace(/habesha/gi, 'abajiraf');
+      restaurant.name = 'CARAVAN Lounge';
+      restaurant.email = 'info@caravanlounge.com';
       await this.restaurantRepo.save(restaurant);
     }
 
     const legacySuppliers = await this.supplierRepo
       .createQueryBuilder('supplier')
-      .where('LOWER(supplier.name) LIKE :term OR LOWER(supplier.email) LIKE :term', { term: '%habesha%' })
+      .where(
+        `LOWER(TRIM(supplier.name)) IN (:...legacyNames)
+          OR LOWER(TRIM(supplier.email)) IN (:...legacyEmails)`,
+        {
+          legacyNames: [
+            'habesha meat suppliers',
+            'abajiraf meat suppliers',
+          ],
+          legacyEmails: [
+            'habesha.meat@gmail.com',
+            'abajiraf.meat@gmail.com',
+          ],
+        },
+      )
       .getMany();
     for (const supplier of legacySuppliers) {
-      supplier.name = supplier.name.replace(/habesha/gi, 'Abajiraf');
-      supplier.email = supplier.email.replace(/habesha/gi, 'abajiraf');
+      supplier.name = 'Abajifar Meat Suppliers';
+      supplier.email = 'abajifar.meat@gmail.com';
       await this.supplierRepo.save(supplier);
     }
 
     return {
-      users: legacyUsers.length,
+      users: migratedUsers.migrated,
+      consolidatedUsers: migratedUsers.consolidated,
+      aliasedUsers: migratedUsers.aliased,
       restaurants: legacyRestaurants.length,
       suppliers: legacySuppliers.length,
     };
@@ -78,20 +96,20 @@ export class SeedService {
     const migrated = await this.migrateLegacyBranding();
     if (migrated.users || migrated.restaurants || migrated.suppliers) {
       console.log(
-        `✓ Updated legacy branding in ${migrated.users} users, ${migrated.restaurants} restaurants, and ${migrated.suppliers} suppliers`,
+        `✓ Updated legacy branding in ${migrated.users} users (${migrated.consolidatedUsers} consolidated, ${migrated.aliasedUsers} safely aliased), ${migrated.restaurants} restaurants, and ${migrated.suppliers} suppliers`,
       );
     }
 
-    let restaurant = await this.restaurantRepo.findOne({ where: { name: 'Jima Aba Jifar Restaurant' } });
+    let restaurant = await this.restaurantRepo.findOne({ where: { name: 'CARAVAN Lounge' } });
     if (!restaurant) {
       restaurant = await this.restaurantRepo.findOne({ order: { id: 'ASC' } });
     }
     if (!restaurant) {
       restaurant = await this.restaurantRepo.save(this.restaurantRepo.create({
-        name: 'Jima Aba Jifar Restaurant',
+        name: 'CARAVAN Lounge',
         address: 'Jimma, Ethiopia',
         phone: '+251 911 000000',
-        email: 'info@jimaabajifar.com',
+        email: 'info@caravanlounge.com',
       }));
     }
 
@@ -112,7 +130,7 @@ export class SeedService {
       ensureBranch('Awetu Branch', 'Awetu, Jimma, Ethiopia'),
       ensureBranch('Agaro Branch', 'Agaro, Jimma, Ethiopia'),
     ]);
-    const password = await bcrypt.hash('123456', 10);
+    const password = await bcrypt.hash(REQUIRED_ACCOUNT_PASSWORD, 10);
     const accounts: Array<{ name: string; email: string; role: Role; branchId?: number }> = [
       { name: 'Abebe Kebede', email: 'admin1@gmail.com', role: Role.ADMIN },
       { name: 'Selamawit Tesfaye', email: 'waiter1_awetu_branch@gmail.com', role: Role.WAITER, branchId: awetu.id },
@@ -130,14 +148,14 @@ export class SeedService {
 
     await Promise.all(accounts.map(async account => {
       const existing = await this.userRepo.findOne({ where: { email: account.email } });
-      const data = {
+      if (existing) return existing;
+      return this.userRepo.save(this.userRepo.create({
         ...account,
         password,
         isActive: true,
         restaurantId: restaurant!.id,
         branchId: account.branchId ?? null,
-      };
-      return this.userRepo.save(existing ? this.userRepo.merge(existing, data) : this.userRepo.create(data));
+      }));
     }));
     return { restaurant, branches: { awetu, agaro }, count: accounts.length };
   }
@@ -151,10 +169,10 @@ export class SeedService {
 
     // ─── Restaurant ───────────────────────────────────────────────
     const restaurant = await this.restaurantRepo.save(this.restaurantRepo.create({
-      name: 'Jima Aba Jifar Restaurant',
+      name: 'CARAVAN Lounge',
       address: 'Bole Road, Addis Abeba, Ethiopia',
       phone: '+251 11 661 2345',
-      email: 'info@abajirafkuliner.com',
+      email: 'info@caravanlounge.com',
     }));
 
     // ─── Branches ─────────────────────────────────────────────────
@@ -280,7 +298,7 @@ export class SeedService {
     // ─── Suppliers ────────────────────────────────────────────────
     await this.supplierRepo.save([
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Addis Teff Cooperative', contactPerson: 'Mulugeta Worku', email: 'addisteff@gmail.com', phone: '+251 911 223344', address: 'Debre Birhan, Ethiopia', rating: 5 }),
-      this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Abajiraf Meat Suppliers', contactPerson: 'Tesfaye Girma', email: 'abajirafmeat@yahoo.com', phone: '+251 912 556677', address: 'Mercato, Addis Abeba', rating: 4 }),
+      this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Abajifar Meat Suppliers', contactPerson: 'Tesfaye Girma', email: 'abajifar.meat@gmail.com', phone: '+251 912 556677', address: 'Mercato, Addis Abeba', rating: 4 }),
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Yirgacheffe Coffee PLC', contactPerson: 'Desta Wolde', email: 'yirgacheffe@coffee.et', phone: '+251 913 889900', address: 'Yirgacheffe, SNNPR', rating: 5 }),
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Merkato Spice Market', contactPerson: 'Azeb Assefa', email: 'merkato.spice@gmail.com', phone: '+251 914 112233', address: 'Merkato, Addis Abeba', rating: 4 }),
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Fresh Produce Ethiopia', contactPerson: 'Hana Solomon', email: 'freshproduce@et.com', phone: '+251 915 445566', address: 'Kality, Addis Abeba', rating: 3 }),
@@ -293,4 +311,139 @@ export class SeedService {
       data: { restaurant: restaurant.name, branches: 2, users: 9, requiredAccounts: accounts.count, menuCategories: 7, menuItems: 26, tables: 23, inventoryItems: 15, suppliers: 5 },
     };
   }
+
+  private async moveUserReferences(
+    manager: EntityManager,
+    duplicateUserId: number,
+    canonicalUserId: number,
+  ) {
+    const userMetadata = manager.connection.getMetadata(User);
+
+    for (const entityMetadata of manager.connection.entityMetadatas) {
+      const userRelations = entityMetadata.relations.filter(
+        relation =>
+          relation.isOwning &&
+          relation.inverseEntityMetadata === userMetadata &&
+          relation.joinColumns.length === 1,
+      );
+
+      for (const relation of userRelations) {
+        const joinColumn = relation.joinColumns[0];
+        const idColumn = entityMetadata.columns.find(
+          column => column.databaseName === joinColumn.databaseName,
+        );
+        if (!idColumn) {
+          throw new Error(
+            `Cannot migrate duplicate user reference ${entityMetadata.tableName}.${joinColumn.databaseName}`,
+          );
+        }
+
+        await manager
+          .createQueryBuilder()
+          .update(entityMetadata.target)
+          .set({ [idColumn.propertyName]: canonicalUserId })
+          .where(`${manager.connection.driver.escape(joinColumn.databaseName)} = :duplicateUserId`, {
+            duplicateUserId,
+          })
+          .execute();
+      }
+    }
+  }
+
+  private hasMatchingStaffIdentity(legacyUser: User, gmailUser: User) {
+    return (
+      legacyUser.name.trim().toLocaleLowerCase() === gmailUser.name.trim().toLocaleLowerCase() &&
+      legacyUser.role === gmailUser.role &&
+      legacyUser.isActive === gmailUser.isActive &&
+      legacyUser.restaurantId === gmailUser.restaurantId &&
+      legacyUser.branchId === gmailUser.branchId &&
+      (legacyUser.phone ?? null) === (gmailUser.phone ?? null)
+    );
+  }
+
+  private async findAvailableGmailAddress(
+    userRepo: Repository<User>,
+    localPart: string,
+    userId: number,
+  ) {
+    const base = `${localPart}+legacy-${userId}`;
+    let suffix = 0;
+
+    while (true) {
+      const email = `${base}${suffix ? `-${suffix}` : ''}@gmail.com`;
+      const existing = await userRepo
+        .createQueryBuilder('user')
+        .where('LOWER(user.email) = :email', { email })
+        .getOne();
+      if (!existing || existing.id === userId) return email;
+      suffix += 1;
+    }
+  }
+
+  private async migrateLegacyUserEmails() {
+    return this.dataSource.transaction(async manager => {
+      const userRepo = manager.getRepository(User);
+      const legacyUsers = await userRepo
+        .createQueryBuilder('user')
+        .where('LOWER(user.email) LIKE :domain', { domain: '%@habesha.com' })
+        .orderBy('user.id', 'ASC')
+        .getMany();
+
+      let consolidated = 0;
+      let aliased = 0;
+
+      for (const user of legacyUsers) {
+        const localPart = user.email.slice(0, user.email.lastIndexOf('@')).trim().toLowerCase();
+        let nextEmail = `${localPart}@gmail.com`;
+        const conflict = await userRepo
+          .createQueryBuilder('user')
+          .addSelect('user.password')
+          .where('LOWER(user.email) = :email', { email: nextEmail })
+          .andWhere('user.id != :userId', { userId: user.id })
+          .getOne();
+
+        const isGeneratedDuplicate = Boolean(
+          conflict &&
+          REQUIRED_ACCOUNT_EMAILS.has(nextEmail) &&
+          conflict.createdAt > user.createdAt &&
+          this.hasMatchingStaffIdentity(user, conflict) &&
+          await bcrypt.compare(REQUIRED_ACCOUNT_PASSWORD, conflict.password),
+        );
+
+        // A later bootstrap account is disposable only when every identity and
+        // assignment field matches. The pre-existing legacy user is authoritative,
+        // so their password and permissions survive the email rename.
+        if (conflict && isGeneratedDuplicate) {
+          await this.moveUserReferences(manager, conflict.id, user.id);
+          await userRepo.delete(conflict.id);
+          consolidated += 1;
+        } else if (conflict) {
+          nextEmail = await this.findAvailableGmailAddress(userRepo, localPart, user.id);
+          aliased += 1;
+        }
+
+        user.email = nextEmail;
+        await userRepo.save(user);
+      }
+
+      return { migrated: legacyUsers.length, consolidated, aliased };
+    });
+  }
 }
+
+const REQUIRED_ACCOUNT_PASSWORD = '123456';
+
+const REQUIRED_ACCOUNT_EMAILS = new Set([
+  'admin1@gmail.com',
+  'waiter1_awetu_branch@gmail.com',
+  'waiter2_awetu_branch@gmail.com',
+  'waiter1_agaro_branch@gmail.com',
+  'waiter2_agaro_branch@gmail.com',
+  'coordinator_awetu_branch@gmail.com',
+  'coordinator_agaro_branch@gmail.com',
+  'chef_awetu_branch@gmail.com',
+  'chef_agaro_branch@gmail.com',
+  'manager_awetu_branch@gmail.com',
+  'manager_agaro_branch@gmail.com',
+  'owner@gmail.com',
+]);

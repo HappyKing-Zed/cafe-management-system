@@ -76,3 +76,31 @@ mtime_ms = 1787125318322
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/e76fc5c3-cf89-49ad-8708-cae8a25488a4/a26dcb6e-91bd-4275-b223-058dbf9667cd"
 storage_version_token = "1787125415564178"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "CYnDfIvSQK6_oCPjcwI7P"
+uri = "file://exports/Abajiraf-Documentation-Pack.pdf"
+type = "pdf"
+title = "Abajiraf Documentation Pack"
+description = "Combined 36-page pack containing the six regenerated Abajiraf requirements, design, user, handoff, and deployment PDFs."
+logical_id = "24a18816-dd9d-4d0f-9536-27a3abd08214"
+content_hash = "sha256:cfba555c74204b844dfcbfebdd1201160da80659f70be85bca5de71dc93b5c7f"
+size = 1037070
+mtime_ms = 1787162030140
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/24a18816-dd9d-4d0f-9536-27a3abd08214/7528e2e5-bba6-4b91-a07d-c86389981093"
+storage_version_token = "1787162618727252"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "7mWfAZ8JEK8579E61pi4v"
+uri = "file://exports/Abajifar-Documentation-Pack.pdf"
+type = "pdf"
+title = "Abajifar Documentation Pack"
+description = "The regenerated 38-page FRS, SRS, design, user manual, handoff, and Vercel deployment pack for CARAVAN Lounge."
+logical_id = "4f84c855-fa9d-490f-adae-c23f7109493e"
+content_hash = "sha256:603f75010ffbc9acb61c5bf78a5ed6f8f3ce2cc36a8ba631392608c2e110053c"
+size = 1578382
+mtime_ms = 1787204450084
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/4f84c855-fa9d-490f-adae-c23f7109493e/aab51a26-16c0-4b91-a2f5-16a746dbb199"
+storage_version_token = "1787204595688809"
+content_type = "application/pdf"

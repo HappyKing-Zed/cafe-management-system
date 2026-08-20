@@ -265,7 +265,7 @@ export default function ManagerDashboard() {
             <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1.5"><AlertTriangle size={15} className="text-red-500" /> Low Stock Items</h2>
             <Link href="/dashboard/inventory" className="text-xs text-brand-600 hover:text-brand-700 font-medium">Inventory →</Link>
           </div>
-          {lowStock.length === 0 ? <p className="text-gray-400 text-xs py-6 text-center">All stock levels are healthy 🎉</p> : (
+          {lowStock.length === 0 ? <p className="text-gray-400 text-xs py-6 text-center">All stock levels are healthy </p> : (
             <div>
               {lowStock.slice(0, 4).map((i: any) => {
                 const pct = Number(i.minStock) > 0 ? Math.min(100, (Number(i.currentStock) / Number(i.minStock)) * 100) : 0;
@@ -435,7 +435,7 @@ export default function ManagerDashboard() {
                 )
               )}
               {detail === 'Low Stock' && (
-                lowStock.length === 0 ? <p className="text-gray-400 text-center py-6">All stock levels are healthy 🎉</p> : (
+                lowStock.length === 0 ? <p className="text-gray-400 text-center py-6">All stock levels are healthy </p> : (
                   <div className="space-y-2">
                     {lowStock.map((i: any) => (
                       <div key={i.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">

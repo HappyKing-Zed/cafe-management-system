@@ -494,7 +494,7 @@ export default function OrdersPage() {
                     {(['cash', 'card', 'mobile'] as const).map((m) => (
                       <button key={m} onClick={() => setPosPayMethod(m)}
                         className={clsx('py-1.5 rounded-lg text-[11px] font-medium border transition-colors', posPayMethod === m ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
-                        {m === 'cash' ? '💵 Cash' : m === 'card' ? '💳 Card' : '📱 Wallet'}
+                        {m === 'cash' ? ' Cash' : m === 'card' ? ' Card' : ' Wallet'}
                       </button>
                     ))}
                   </div>
@@ -629,7 +629,7 @@ export default function OrdersPage() {
                 <div key={item.id} className="flex justify-between items-center px-3 py-2 text-sm">
                   <div>
                     <p className="text-gray-800">{item.menuItem?.name || `Item ${item.menuItemId}`}</p>
-                    {item.notes && <p className="text-xs text-amber-700">📝 {item.notes}</p>}
+                    {item.notes && <p className="text-xs text-amber-700"> {item.notes}</p>}
                   </div>
                   <div className="text-right">
                     <p className="font-medium">×{item.quantity}</p>
@@ -638,7 +638,7 @@ export default function OrdersPage() {
                 </div>
               ))}
             </div>
-            {detailOrder.notes && <p className="text-xs text-amber-700 bg-amber-50 rounded p-2 mb-4">📝 {detailOrder.notes}</p>}
+            {detailOrder.notes && <p className="text-xs text-amber-700 bg-amber-50 rounded p-2 mb-4"> {detailOrder.notes}</p>}
             {(detailOrder as any).payments?.length > 0 && (
               <div className="bg-green-50 rounded-lg p-3 mb-4 text-sm">
                 <p className="text-xs text-green-700 font-semibold mb-1">Payment</p>
@@ -673,7 +673,7 @@ export default function OrdersPage() {
                   {(['cash', 'card', 'mobile'] as const).map((m) => (
                     <button key={m} onClick={() => setPayMethod(m)}
                       className={clsx('py-2 rounded-lg text-sm font-medium border-2 transition-colors', payMethod === m ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
-                      {m === 'cash' ? '💵' : m === 'card' ? '💳' : '📱'} {m.charAt(0).toUpperCase() + m.slice(1)}
+                      {m === 'cash' ? '' : m === 'card' ? '' : ''} {m.charAt(0).toUpperCase() + m.slice(1)}
                     </button>
                   ))}
                 </div>

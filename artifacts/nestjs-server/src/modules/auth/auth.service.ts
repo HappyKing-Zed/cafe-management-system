@@ -15,8 +15,9 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
+    const email = dto.email.trim().toLowerCase();
     const user = await this.usersRepo.findOne({
-      where: { email: dto.email },
+      where: { email },
       select: ['id', 'name', 'email', 'password', 'role', 'isActive', 'restaurantId', 'branchId'],
     });
     if (!user) throw new UnauthorizedException('Invalid credentials');

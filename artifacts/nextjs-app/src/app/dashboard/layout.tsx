@@ -34,11 +34,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-cream-50">
       <Sidebar />
       <NotificationBell />
-      <main className="flex-1 overflow-auto bg-gray-50 pt-14 lg:pt-0">
-        {children}
+      <main className="flex-1 overflow-auto pt-16 lg:pt-0 relative">
+        <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-cream-100 to-transparent pointer-events-none -z-10" />
+        <div className="h-full w-full">
+          {children}
+        </div>
       </main>
     </div>
   );

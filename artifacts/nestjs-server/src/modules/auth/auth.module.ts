@@ -7,12 +7,17 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 
+const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+if (!jwtSecret) {
+  throw new Error('JWT_SECRET or SESSION_SECRET is required');
+}
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'abajiraf-secret-key-2024',
+      secret: jwtSecret,
       signOptions: { expiresIn: '24h' },
     }),
   ],

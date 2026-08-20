@@ -2,19 +2,16 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Jima Aba Jifar | Restaurant Management',
-  description: 'Ethiopian Cafe & Restaurant Management System',
+  title: 'Abajifar | CARAVAN Lounge Operations',
+  description: 'Premium hospitality management workspace for CARAVAN Lounge, powered by Abajifar.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-      </head>
-      <body>{children}</body>
+      <body className="font-sans antialiased bg-cream-100 text-coffee-800 selection:bg-teal-200 selection:text-teal-900">
+        {children}
+      </body>
     </html>
   );
 }

@@ -7,10 +7,10 @@ import { useAuthStore } from '@/store/auth';
 import clsx from 'clsx';
 
 const COLUMNS = [
-  { key: 'pending', label: '🔴 New Orders', color: 'border-red-400 bg-red-50', badge: 'bg-red-500' },
-  { key: 'confirmed', label: '🟡 Accepted', color: 'border-yellow-400 bg-yellow-50', badge: 'bg-yellow-500' },
-  { key: 'preparing', label: '🟠 Preparing', color: 'border-orange-400 bg-orange-50', badge: 'bg-orange-500' },
-  { key: 'completed', label: '🟢 Completed', color: 'border-green-400 bg-green-50', badge: 'bg-green-500' },
+  { key: 'pending', label: ' New Orders', color: 'border-red-400 bg-red-50', badge: 'bg-red-500' },
+  { key: 'confirmed', label: ' Accepted', color: 'border-yellow-400 bg-yellow-50', badge: 'bg-yellow-500' },
+  { key: 'preparing', label: ' Preparing', color: 'border-orange-400 bg-orange-50', badge: 'bg-orange-500' },
+  { key: 'completed', label: ' Completed', color: 'border-green-400 bg-green-50', badge: 'bg-green-500' },
 ];
 
 function elapsed(dateStr: string) {
@@ -102,7 +102,7 @@ export default function KitchenPage() {
           {chefTabs.map(c => (
             <button key={c.id} onClick={() => setChefTab(String(c.id))}
               className={clsx('text-xs font-medium px-3 py-1.5 rounded-lg border', chefTab === String(c.id) ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50')}>
-              👨‍🍳 {c.name}
+              ‍ {c.name}
             </button>
           ))}
         </div>
@@ -152,8 +152,8 @@ export default function KitchenPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="font-bold text-gray-900 text-sm">#{order.id}</span>
-                          {order.table && <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full shrink-0">🪑 {order.table.number}</span>}
-                          {order.waiter?.name && <span className="text-[10px] text-gray-400 truncate">👤 {order.waiter.name}</span>}
+                          {order.table && <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full shrink-0"> {order.table.number}</span>}
+                          {order.waiter?.name && <span className="text-[10px] text-gray-400 truncate"> {order.waiter.name}</span>}
                         </div>
                         <span className="flex items-center gap-1 text-[10px] text-gray-400 shrink-0">
                           <Clock size={10} /> {elapsed(order.createdAt)}
@@ -163,7 +163,7 @@ export default function KitchenPage() {
                         {order.items?.map((item) => `${item.quantity}× ${item.menuItem?.name || 'Item'}`).join(', ')}
                       </p>
                       {order.notes && (
-                        <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-1 mt-1">📝 {order.notes}</p>
+                        <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-1 mt-1"> {order.notes}</p>
                       )}
                       <div className="flex gap-2 mt-1.5">
                         {col.key === 'pending' && (

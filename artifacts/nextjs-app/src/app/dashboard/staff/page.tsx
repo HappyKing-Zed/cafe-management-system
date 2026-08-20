@@ -123,8 +123,8 @@ export default function StaffPage() {
               </div>
               {(user.branch || user.phone) && (
                 <div className="mt-3 pt-3 border-t border-gray-50 text-xs text-gray-400 space-y-0.5">
-                  {user.branch && <p>📍 {user.branch.name}</p>}
-                  {user.phone && <p>📞 {user.phone}</p>}
+                  {user.branch && <p> {user.branch.name}</p>}
+                  {user.phone && <p> {user.phone}</p>}
                 </div>
               )}
             </div>

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
 import { getOrderStats, getDailyReport, getOrders, getKitchenBoard, getInventoryItems, getLowStockItems, seedDatabase } from '@/lib/api';
-import { ShoppingCart, TrendingUp, Clock, CheckCircle, RefreshCw, ChefHat, Package, HandPlatter, Wallet } from 'lucide-react';
+import { ShoppingCart, TrendingUp, Clock, CheckCircle, RefreshCw, ChefHat, Package, HandPlatter, Wallet, Send, ClipboardList, Table2, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 import ManagerDashboard from '@/components/manager-dashboard';
 
@@ -202,35 +202,35 @@ export default function DashboardPage() {
 
   const quickActions = isWaiter
     ? [
-        { href: '/dashboard/orders', icon: '🛒', label: 'New Order' },
-        { href: '/dashboard/requests', icon: '📨', label: 'My Requests' },
-        { href: '/dashboard/order-board', icon: '📋', label: 'Order Board' },
-        { href: '/dashboard/tables', icon: '🪑', label: 'Tables' },
+        { href: '/dashboard/orders', icon: ShoppingCart, label: 'New Order' },
+        { href: '/dashboard/requests', icon: Send, label: 'My Requests' },
+        { href: '/dashboard/order-board', icon: ClipboardList, label: 'Order Board' },
+        { href: '/dashboard/tables', icon: Table2, label: 'Tables' },
       ]
     : isKitchen
     ? [
-        { href: '/dashboard/kitchen', icon: '👨‍🍳', label: 'Kitchen Board' },
-        { href: '/dashboard/order-board', icon: '📋', label: 'Order Board' },
-        { href: '/dashboard/requests', icon: '📨', label: 'Waiter Requests' },
-        { href: '/dashboard/orders', icon: '🛒', label: 'Orders' },
+        { href: '/dashboard/kitchen', icon: ChefHat, label: 'Kitchen Board' },
+        { href: '/dashboard/order-board', icon: ClipboardList, label: 'Order Board' },
+        { href: '/dashboard/requests', icon: Send, label: 'Waiter Requests' },
+        { href: '/dashboard/orders', icon: ShoppingCart, label: 'Orders' },
       ]
     : isCashier
     ? [
-        { href: '/dashboard/payments', icon: '💵', label: 'Payments' },
-        { href: '/dashboard/orders', icon: '🛒', label: 'Orders' },
-        { href: '/dashboard/order-board', icon: '📋', label: 'Order Board' },
-        { href: '/dashboard/tables', icon: '🪑', label: 'Tables' },
+        { href: '/dashboard/payments', icon: CreditCard, label: 'Payments' },
+        { href: '/dashboard/orders', icon: ShoppingCart, label: 'Orders' },
+        { href: '/dashboard/order-board', icon: ClipboardList, label: 'Order Board' },
+        { href: '/dashboard/tables', icon: Table2, label: 'Tables' },
       ]
     : isStore
     ? [
-        { href: '/dashboard/inventory', icon: '📦', label: 'Inventory' },
-        { href: '/dashboard/order-board', icon: '📋', label: 'Order Board' },
+        { href: '/dashboard/inventory', icon: Package, label: 'Inventory' },
+        { href: '/dashboard/order-board', icon: ClipboardList, label: 'Order Board' },
       ]
     : [
-        { href: '/dashboard/orders', icon: '🛒', label: 'New Order' },
-        { href: '/dashboard/kitchen', icon: '👨‍🍳', label: 'Kitchen Board' },
-        { href: '/dashboard/tables', icon: '🪑', label: 'Table Status' },
-        { href: '/dashboard/inventory', icon: '📦', label: 'Low Stock Alert' },
+        { href: '/dashboard/orders', icon: ShoppingCart, label: 'New Order' },
+        { href: '/dashboard/kitchen', icon: ChefHat, label: 'Kitchen Board' },
+        { href: '/dashboard/tables', icon: Table2, label: 'Table Status' },
+        { href: '/dashboard/inventory', icon: Package, label: 'Low Stock Alert' },
       ];
 
   if (isManager) {
@@ -238,8 +238,8 @@ export default function DashboardPage() {
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Selam, {user?.name?.split(' ')[0]}! 👋</h1>
-            <p className="text-gray-500 mt-1">Here's what's happening at Jima Aba Jifar today</p>
+            <h1 className="text-2xl font-bold text-gray-900">Selam, {user?.name?.split(' ')[0]}</h1>
+            <p className="text-coffee-500 mt-1">Here's what's happening at CARAVAN Lounge today</p>
           </div>
         </div>
         <ManagerDashboard />
@@ -252,19 +252,19 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Selam, {user?.name?.split(' ')[0]}! 👋</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Selam, {user?.name?.split(' ')[0]}</h1>
           <p className="text-gray-500 mt-1">
             {isWaiter ? 'Here is how your orders are doing' :
              isKitchen ? "Here is what's happening in the kitchen" :
              isCashier ? "Here is today's money flow" :
              isStore ? 'Here is your stock at a glance' :
-             "Here's what's happening at Jima Aba Jifar today"}
+             "Here's what's happening at CARAVAN Lounge today"}
           </p>
         </div>
         <div className="flex gap-3">
           {['admin', 'owner'].includes(role) && (
             <button onClick={handleSeed} disabled={seeding} className="btn-primary flex items-center gap-2">
-              {seeding ? '⏳ Seeding...' : '🌱 Seed Data'}
+              {seeding ? 'Seeding...' : 'Seed Data'}
             </button>
           )}
         </div>
@@ -294,7 +294,7 @@ export default function DashboardPage() {
                 {Object.entries(report.byMethod).map(([method, amount]: any) => (
                   <div key={method} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">{method === 'cash' ? '💵' : method === 'card' ? '💳' : '📱'}</span>
+                      <span className="text-lg"></span>
                       <span className="text-sm text-gray-600 capitalize">{method}</span>
                     </div>
                     <span className="font-semibold text-gray-900">ETB {Number(amount).toLocaleString()}</span>
@@ -315,7 +315,7 @@ export default function DashboardPage() {
           <div className="card">
             <h2 className="font-semibold text-gray-900 mb-4">Kitchen Queue</h2>
             {board.length === 0 ? (
-              <p className="text-gray-400 text-sm">Kitchen is clear 🎉</p>
+              <p className="text-gray-400 text-sm">Kitchen is clear</p>
             ) : (
               <div className="space-y-3">
                 {board.filter(o => !['ready', 'served'].includes(o.status)).slice(0, 6).map((o) => (
@@ -408,7 +408,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {quickActions.map((a) => (
             <Link key={a.href} href={a.href} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors text-center">
-              <span className="text-2xl">{a.icon}</span>
+              <a.icon size={24} strokeWidth={1.5} className="text-teal-700" />
               <span className="text-sm font-medium text-gray-700">{a.label}</span>
             </Link>
           ))}

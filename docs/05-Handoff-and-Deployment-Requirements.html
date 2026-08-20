@@ -2,33 +2,33 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Handoff &amp; Deployment Requirements — Jima Aba Jifar</title>
+<title>Handoff &amp; Deployment Requirements — Abajifar</title>
 <style>
-  body{font-family:Georgia,'Times New Roman',serif;color:#1f2937;max-width:900px;margin:0 auto;padding:48px 32px;line-height:1.6}
-  h1{font-size:28px;border-bottom:3px solid #E8832A;padding-bottom:10px}
-  h2{font-size:20px;color:#C2611A;margin-top:36px;border-bottom:1px solid #eee;padding-bottom:6px}
+  body{font-family:Georgia,'Times New Roman',serif;color:#4A3B32;background:#FDF7EE;max-width:900px;margin:0 auto;padding:48px 32px;line-height:1.6}
+  h1{font-size:28px;color:#1A2D2D;border-bottom:3px solid #D4AA64;padding-bottom:10px}
+  h2{font-size:20px;color:#274444;margin-top:36px;border-bottom:1px solid #EAD1B0;padding-bottom:6px}
   h3{font-size:16px;margin-top:24px}
   table{border-collapse:collapse;width:100%;font-size:14px;margin:12px 0}
-  th{background:#FDF3E7;text-align:left;padding:8px 10px;border:1px solid #e5e7eb}
-  td{padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top}
-  .meta{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 18px;font-size:14px}
-  code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:13px}
-  pre{background:#111827;color:#e5e7eb;padding:14px 16px;border-radius:8px;font-size:13px;overflow-x:auto}
+  th{background:#F9EEDD;text-align:left;padding:8px 10px;border:1px solid #EAD1B0}
+  td{padding:8px 10px;border:1px solid #EAD1B0;vertical-align:top}
+  .meta{background:#FFFCF8;border:1px solid #EAD1B0;border-radius:8px;padding:14px 18px;font-size:14px}
+  code{background:#F9EEDD;padding:1px 5px;border-radius:4px;font-size:13px}
+  pre{background:#1A2D2D;color:#FDF7EE;padding:14px 16px;border-radius:8px;font-size:13px;overflow-x:auto}
   .warn{background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px 16px;font-size:14px}
 </style>
 </head>
 <body>
 <h1>Project Handoff &amp; Deployment Requirements</h1>
 <div class="meta">
-<b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
-<b>Document:</b> Handoff v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 19, 2026
+<b>System:</b> Abajifar — CARAVAN Lounge Restaurant Management System<br>
+<b>Document:</b> Handoff v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026
 </div>
 
 <h2>1. Repository Layout</h2>
 <pre>
 workspace/ (pnpm monorepo)
 ├── artifacts/
-│   ├── abajiraf/          # Registered Abajiraf web artifact / routing shim
+│   ├── habesha/           # Registered Abajifar web artifact / routing shim
 │   ├── nextjs-app/        # Real frontend — Next.js 15, React 19
 │   │   ├── src/app/       # Pages: login, dashboard/* (orders, kitchen, reports, ...)
 │   │   ├── src/components # Sidebar, manager-dashboard, shared UI

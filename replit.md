@@ -1,13 +1,13 @@
-# Jima Aba Jifar — Cafe & Restaurant Management System
+# Abajifar — Cafe & Restaurant Management System
 
 A full-stack Ethiopian cafe and restaurant management system with role-based access control. The application is a modular monolith: Next.js frontend → HTTP API → NestJS backend → PostgreSQL.
 
 ## Run & Operate
 
-- **NestJS Backend**: managed Abajiraf backend service (port 3001)
-- **Next.js Frontend**: managed Abajiraf web service — runs `pnpm --filter @workspace/nextjs-app run dev` (PORT injected by artifact routing; previewPath `/`)
+- **NestJS Backend**: managed Abajifar backend service (port 3001)
+- **Next.js Frontend**: managed Abajifar web service — runs `pnpm --filter @workspace/nextjs-app run dev` (PORT injected by artifact routing; previewPath `/`)
 - Frontend calls the backend via `/backend/api/*` (not `/api`, which is claimed by the separate API Server artifact); Next.js rewrites `/backend/api/:path*` → `${BACKEND_URL}/api/:path*`
-- The Abajiraf registration shim runs the real frontend code in `artifacts/nextjs-app/`
+- The Abajifar registration shim runs the real frontend code in `artifacts/nextjs-app/`
 - The restaurant backend is `artifacts/nestjs-server/`. `artifacts/api-server/` is not the restaurant application API.
 
 ## Stack
@@ -35,7 +35,7 @@ Supported roles are admin, owner, manager, coordinator, waiter, chef, cashier, a
 ## Seed Data
 
 Development seed data can populate Ethiopian sample data:
-- Restaurant: Jima Aba Jifar (Addis Abeba)
+- Restaurant: CARAVAN Lounge (Addis Abeba)
 - 2 branches: Bole & Piassa
 - 9 staff with Ethiopian names
 - 7 menu categories, 26 Ethiopian dishes

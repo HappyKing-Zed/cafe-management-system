@@ -44,7 +44,6 @@ export default function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
 
   const seesAlerts = !!user && ALERT_ROLES.includes(user.role);
-  // Waiters see waiter-side alerts; chefs see kitchen-side; coordinators/managers see both
   const visibleAlerts = alerts.filter(a =>
     user?.role === 'waiter' ? a.side === 'waiter' :
     user?.role === 'chef' ? a.side === 'kitchen' : true
@@ -60,11 +59,17 @@ export default function NotificationBell() {
         getNotifications(),
       ]);
       if (!mounted) return;
-      if (alertsRes.status === 'fulfilled') setAlerts(Array.isArray(alertsRes.value.data) ? alertsRes.value.data : []);
-      if (notifsRes.status === 'fulfilled') setNotifs(Array.isArray(notifsRes.value.data) ? notifsRes.value.data : []);
-      setLoadError(alertsRes.status === 'rejected' || notifsRes.status === 'rejected'
-        ? 'Notifications could not be refreshed.'
-        : '');
+      if (alertsRes.status === 'fulfilled') {
+        setAlerts(Array.isArray(alertsRes.value.data) ? alertsRes.value.data : []);
+      }
+      if (notifsRes.status === 'fulfilled') {
+        setNotifs(Array.isArray(notifsRes.value.data) ? notifsRes.value.data : []);
+      }
+      setLoadError(
+        alertsRes.status === 'rejected' || notifsRes.status === 'rejected'
+          ? 'Notifications could not be refreshed.'
+          : '',
+      );
     };
     load();
     const t = setInterval(load, 30000);
@@ -86,10 +91,9 @@ export default function NotificationBell() {
   const badgeCount = unread.length + visibleAlerts.length;
 
   const allowed = (path: string) => canAccessDashboardPath(path, user.role);
-  // Best order page for this role
   const orderPage = user.role === 'chef' ? '/dashboard/kitchen'
     : allowed('/dashboard/orders') ? '/dashboard/orders' : '/dashboard/order-board';
-  // Where a notification should take the user, inferred from its content (null = not clickable)
+
   const notifTarget = (n: AppNotification): string | null => {
     const m = n.message.toLowerCase();
     let target: string | null = null;
@@ -121,16 +125,18 @@ export default function NotificationBell() {
       <button
         onClick={() => setOpen(o => !o)}
         className={clsx(
-          'relative w-11 h-11 rounded-full shadow-md border flex items-center justify-center transition-colors',
-          criticalCount > 0 ? 'bg-red-50 border-red-200 hover:bg-red-100' : 'bg-white border-gray-200 hover:bg-gray-50'
+          'relative w-11 h-11 rounded-full shadow-md shadow-teal-900/5 flex items-center justify-center transition-all duration-300 active:scale-95',
+          criticalCount > 0
+            ? 'bg-red-50 border border-red-200 hover:bg-red-100 hover:shadow-red-900/10'
+            : 'bg-white/80 backdrop-blur-md border border-cream-200 hover:bg-white hover:border-cream-300'
         )}
         aria-label="Notifications"
       >
-        <Bell size={20} className={criticalCount > 0 ? 'text-red-600' : 'text-gray-600'} />
+        <Bell size={20} strokeWidth={1.5} className={criticalCount > 0 ? 'text-red-600' : 'text-teal-900'} />
         {badgeCount > 0 && (
           <span className={clsx(
-            'absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full text-[11px] font-bold text-white flex items-center justify-center',
-            criticalCount > 0 ? 'bg-red-500' : 'bg-amber-500'
+            'absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold text-white flex items-center justify-center shadow-sm',
+            criticalCount > 0 ? 'bg-red-500' : 'bg-gold-500'
           )}>
             {badgeCount}
           </span>
@@ -138,34 +144,38 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute -right-12 lg:right-0 mt-2 w-96 max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-gray-100">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-bold text-gray-900 text-sm">Notifications</h3>
+        <div className="absolute -right-12 lg:right-0 mt-3 w-96 max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-y-auto bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl shadow-teal-900/10 border border-cream-200 origin-top-right animate-in fade-in zoom-in-95 duration-200">
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl px-5 py-4 border-b border-cream-100 flex items-center justify-between">
+            <h3 className="font-display font-medium text-teal-900 text-base">Notifications</h3>
             {unread.length > 0 && (
-              <button onClick={handleMarkRead} className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1">
-                <CheckCheck size={14} /> Mark all read
+              <button onClick={handleMarkRead} className="text-xs text-teal-600 hover:text-teal-800 font-medium flex items-center gap-1.5 transition-colors">
+                <CheckCheck size={14} strokeWidth={2} /> Mark all read
               </button>
             )}
           </div>
-          {loadError && <p role="alert" className="px-4 py-2 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">{loadError}</p>}
+          {loadError && (
+            <p role="alert" className="px-5 py-2.5 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">
+              {loadError}
+            </p>
+          )}
 
           {/* Delayed-order alerts */}
           {visibleAlerts.length > 0 && (
-            <ul className="divide-y divide-gray-50 border-b border-gray-100">
+            <ul className="divide-y divide-cream-100/50 border-b border-cream-100">
               {visibleAlerts.map((a) => (
                 <li key={`alert-${a.orderId}-${a.status}`} onClick={() => goTo(a.side === 'kitchen' && allowed('/dashboard/kitchen') ? '/dashboard/kitchen' : orderPage)}
-                  className="px-4 py-3 flex gap-3 items-start hover:bg-gray-50 cursor-pointer">
+                  className="px-5 py-4 flex gap-4 items-start hover:bg-cream-50/50 transition-colors cursor-pointer group">
                   <div className={clsx(
-                    'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
-                    a.severity === 'critical' ? 'bg-red-100' : 'bg-amber-100'
+                    'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 shadow-sm transition-transform group-hover:scale-105',
+                    a.severity === 'critical' ? 'bg-red-50 border border-red-100 text-red-600' : 'bg-gold-50 border border-gold-100 text-gold-600'
                   )}>
                     {a.severity === 'critical'
-                      ? <AlertTriangle size={16} className="text-red-600" />
-                      : <Clock size={16} className="text-amber-600" />}
+                      ? <AlertTriangle size={18} strokeWidth={2} />
+                      : <Clock size={18} strokeWidth={2} />}
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm text-gray-800">{a.message}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Delayed · {a.status}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-coffee-800 leading-snug group-hover:text-teal-900 transition-colors">{a.message}</p>
+                    <p className="text-xs text-coffee-400 mt-1 uppercase tracking-wider font-medium">Delayed · {a.status}</p>
                   </div>
                 </li>
               ))}
@@ -174,19 +184,28 @@ export default function NotificationBell() {
 
           {/* Step-by-step notifications */}
           {notifs.length === 0 && visibleAlerts.length === 0 ? (
-            <div className="p-8 text-center text-gray-400 text-sm">
-              <Bell size={28} className="mx-auto mb-2 opacity-30" />
-              No notifications yet
+            <div className="p-10 text-center flex flex-col items-center justify-center">
+              <div className="w-12 h-12 bg-cream-100 rounded-full flex items-center justify-center mb-3">
+                <Bell size={24} strokeWidth={1.5} className="text-cream-300" />
+              </div>
+              <p className="text-coffee-400 text-sm font-medium">All caught up</p>
             </div>
           ) : (
-            <ul className="divide-y divide-gray-50">
+            <ul className="divide-y divide-cream-100/50">
               {notifs.map((n) => (
                 <li key={n.id} onClick={() => goTo(notifTarget(n))}
-                  className={clsx('px-4 py-3 flex gap-3 items-start hover:bg-gray-50', notifTarget(n) && 'cursor-pointer', !n.isRead && 'bg-brand-50/40')}>
-                  <div className={clsx('w-2 h-2 rounded-full shrink-0 mt-2', n.isRead ? 'bg-gray-200' : 'bg-brand-500')} />
-                  <div className="min-w-0">
-                    <p className={clsx('text-sm', n.isRead ? 'text-gray-500' : 'text-gray-800 font-medium')}>{n.message}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{timeAgo(n.createdAt)}</p>
+                  className={clsx(
+                    'px-5 py-4 flex gap-4 items-start transition-colors group',
+                    notifTarget(n) && 'cursor-pointer hover:bg-cream-50/50',
+                    !n.isRead ? 'bg-teal-50/30' : 'opacity-70 hover:opacity-100'
+                  )}>
+                  <div className={clsx('w-2 h-2 rounded-full shrink-0 mt-2 transition-colors', n.isRead ? 'bg-cream-300' : 'bg-teal-600')} />
+                  <div className="min-w-0 flex-1">
+                    <p className={clsx(
+                      'text-sm leading-snug transition-colors',
+                      n.isRead ? 'text-coffee-600 group-hover:text-coffee-800' : 'text-teal-950 font-medium'
+                    )}>{n.message}</p>
+                    <p className="text-xs text-coffee-400 mt-1.5 font-medium">{timeAgo(n.createdAt)}</p>
                   </div>
                 </li>
               ))}

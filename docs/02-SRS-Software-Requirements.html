@@ -2,31 +2,31 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SRS — Jima Aba Jifar Restaurant Management System</title>
+<title>SRS — Abajifar Restaurant Management System</title>
 <style>
-  body{font-family:Georgia,'Times New Roman',serif;color:#1f2937;max-width:900px;margin:0 auto;padding:48px 32px;line-height:1.6}
-  h1{font-size:28px;border-bottom:3px solid #E8832A;padding-bottom:10px}
-  h2{font-size:20px;color:#C2611A;margin-top:36px;border-bottom:1px solid #eee;padding-bottom:6px}
+  body{font-family:Georgia,'Times New Roman',serif;color:#4A3B32;background:#FDF7EE;max-width:900px;margin:0 auto;padding:48px 32px;line-height:1.6}
+  h1{font-size:28px;color:#1A2D2D;border-bottom:3px solid #D4AA64;padding-bottom:10px}
+  h2{font-size:20px;color:#274444;margin-top:36px;border-bottom:1px solid #EAD1B0;padding-bottom:6px}
   h3{font-size:16px;margin-top:24px}
   table{border-collapse:collapse;width:100%;font-size:14px;margin:12px 0}
-  th{background:#FDF3E7;text-align:left;padding:8px 10px;border:1px solid #e5e7eb}
-  td{padding:8px 10px;border:1px solid #e5e7eb;vertical-align:top}
-  .meta{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px 18px;font-size:14px}
-  code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:13px}
+  th{background:#F9EEDD;text-align:left;padding:8px 10px;border:1px solid #EAD1B0}
+  td{padding:8px 10px;border:1px solid #EAD1B0;vertical-align:top}
+  .meta{background:#FFFCF8;border:1px solid #EAD1B0;border-radius:8px;padding:14px 18px;font-size:14px}
+  code{background:#F9EEDD;padding:1px 5px;border-radius:4px;font-size:13px}
   .req{font-weight:bold;white-space:nowrap}
 </style>
 </head>
 <body>
 <h1>Software Requirements Specification (SRS)</h1>
 <div class="meta">
-<b>System:</b> Jima Aba Jifar — Cafe &amp; Restaurant Management System<br>
-<b>Document:</b> SRS v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 19, 2026<br>
+<b>System:</b> Abajifar — CARAVAN Lounge Restaurant Management System<br>
+<b>Document:</b> SRS v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026<br>
 <b>Standard:</b> Structured after IEEE 830
 </div>
 
 <h2>1. Introduction</h2>
 <h3>1.1 Purpose</h3>
-<p>This SRS specifies the complete requirements — functional and non-functional — for the Jima Aba Jifar Restaurant Management System. It is intended for developers, testers, and stakeholders taking over or extending the system.</p>
+<p>This SRS specifies the complete requirements — functional and non-functional — for the Abajifar Restaurant Management System serving CARAVAN Lounge. It is intended for developers, testers, and stakeholders taking over or extending the system.</p>
 <h3>1.2 Scope</h3>
 <p>The system digitizes end-to-end restaurant operations: table-side ordering (POS), kitchen workflow, cashiering, inventory and procurement, staff and branch administration, and management analytics. It is a web application accessed from browsers on desktops and tablets.</p>
 <h3>1.3 Definitions</h3>
@@ -40,7 +40,7 @@
 
 <h2>2. Overall Description</h2>
 <h3>2.1 Product Perspective</h3>
-<p>Three-tier logical architecture: a <b>Next.js 15 / React 19 frontend</b>, a <b>NestJS REST API backend</b>, and a <b>PostgreSQL database</b> accessed through TypeORM. The registered Abajiraf web artifact runs the actual source in <code>artifacts/nextjs-app</code>. The frontend calls the backend through <code>/backend/api/*</code>; Next.js rewrites requests to the backend's <code>/api/*</code>. The separate <code>artifacts/api-server</code> is not the restaurant API.</p>
+<p>Three-tier logical architecture: a <b>Next.js 15 / React 19 frontend</b>, a <b>NestJS REST API backend</b>, and a <b>PostgreSQL database</b> accessed through TypeORM. The registered Abajifar web artifact runs the actual source in <code>artifacts/nextjs-app</code>. The frontend calls the backend through <code>/backend/api/*</code>; Next.js rewrites requests to the backend's <code>/api/*</code>. The separate <code>artifacts/api-server</code> is not the restaurant API.</p>
 <h3>2.2 User Classes</h3>
 <p>Eight roles: admin, owner, manager, coordinator, waiter, chef, cashier, storekeeper (see FRS §2). Users are non-technical restaurant staff; the UI must remain simple, large-touch-friendly, and in plain language.</p>
 <h3>2.3 Operating Environment</h3>

@@ -218,7 +218,7 @@ export default function ReportsPage() {
       const { default: autoTable } = await import('jspdf-autotable');
       const doc = new jsPDF();
       doc.setFontSize(14);
-      doc.text(`Jima Aba Jifar — ${title}`, 14, 16);
+      doc.text(`Abajifar · CARAVAN Lounge — ${title}`, 14, 16);
       doc.setFontSize(10);
       doc.text(`generated ${new Date().toLocaleString()}`, 14, 22);
       autoTable(doc, { head: [head], body: rows.map(r => r.map(String)), startY: 27, styles: { fontSize: 8 } });
@@ -429,7 +429,7 @@ export default function ReportsPage() {
               {report.byMethod && Object.entries(report.byMethod).map(([method, amount]: any) => (
                 <div key={method} className="flex justify-between py-2">
                   <span className="text-gray-500 capitalize flex items-center gap-2">
-                    <span>{method === 'cash' ? '💵' : method === 'card' ? '💳' : '📱'}</span> {method}
+                    <span>{method === 'cash' ? '' : method === 'card' ? '' : ''}</span> {method}
                   </span>
                   <span className="font-medium">ETB {Number(amount).toLocaleString()}</span>
                 </div>
@@ -453,7 +453,7 @@ export default function ReportsPage() {
                   <div key={method}>
                     <div className="flex justify-between mb-1">
                       <span className="text-sm capitalize font-medium text-gray-700">
-                        {method === 'cash' ? '💵' : method === 'card' ? '💳' : '📱'} {method}
+                        {method === 'cash' ? '' : method === 'card' ? '' : ''} {method}
                       </span>
                       <span className="text-sm font-bold">ETB {Number(amount).toLocaleString()} ({pct.toFixed(0)}%)</span>
                     </div>
@@ -514,7 +514,7 @@ export default function ReportsPage() {
                   <td className="table-cell text-gray-500">#{p.id}</td>
                   <td className="table-cell font-medium">Order #{p.orderId}</td>
                   <td className="table-cell capitalize">
-                    {p.method === 'cash' ? '💵' : p.method === 'card' ? '💳' : '📱'} {p.method}
+                    {p.method === 'cash' ? '' : p.method === 'card' ? '' : ''} {p.method}
                   </td>
                   <td className="table-cell font-semibold text-brand-600">ETB {Number(p.amount).toLocaleString()}</td>
                   <td className="table-cell text-gray-400">{Number(p.changeGiven) > 0 ? `ETB ${Number(p.changeGiven).toLocaleString()}` : '—'}</td>

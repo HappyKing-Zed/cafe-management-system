@@ -13,7 +13,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   const config = new DocumentBuilder()
-    .setTitle('Abajiraf Restaurant API')
+    .setTitle('Abajifar Restaurant API')
     .setDescription('Cafe & Restaurant Management System API')
     .setVersion('1.0')
     .addBearerAuth()

@@ -11,10 +11,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     @InjectRepository(User)
     private usersRepo: Repository<User>,
   ) {
+    const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+    if (!jwtSecret) {
+      throw new Error('JWT_SECRET or SESSION_SECRET is required');
+    }
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'abajiraf-secret-key-2024',
+      secretOrKey: jwtSecret,
     });
   }
 
