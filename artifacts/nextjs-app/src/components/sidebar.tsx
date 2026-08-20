@@ -38,6 +38,16 @@ export default function Sidebar() {
   // Close the mobile drawer whenever the route changes
   useEffect(() => { setOpen(false); }, [pathname]);
 
+  // Keep the drawer dismissible from the keyboard as well as its visible controls.
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [open]);
+
   // Remember collapsed preference
   useEffect(() => {
     if (typeof window !== 'undefined' && localStorage.getItem('sidebar-collapsed') === '1') {
@@ -69,7 +79,7 @@ export default function Sidebar() {
           </div>
           {!isCollapsed && (
             <div className="flex flex-col">
-              <h1 className="font-display font-medium text-lg leading-tight text-cream-50 tracking-wide">Abajifar</h1>
+              <h1 className="font-display font-medium text-lg leading-tight text-cream-50 tracking-wide">Jima</h1>
               <p className="text-[10px] uppercase tracking-widest text-gold-400 font-semibold">CARAVAN Lounge</p>
             </div>
           )}
@@ -153,7 +163,7 @@ export default function Sidebar() {
             <Wine size={16} className="text-teal-950" strokeWidth={1.5} />
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="font-display font-medium text-lg text-cream-50 tracking-wide">Abajifar</span>
+            <span className="font-display font-medium text-lg text-cream-50 tracking-wide">Jima</span>
             <span className="text-[9px] uppercase tracking-widest text-gold-400 font-semibold">CARAVAN Lounge</span>
           </div>
         </div>
@@ -162,27 +172,28 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Mobile drawer overlay */}
-      <div
-        className={clsx(
-          "lg:hidden fixed inset-0 z-50 bg-teal-950/80 backdrop-blur-sm transition-opacity duration-300",
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        )}
-        onClick={() => setOpen(false)}
-      />
+      {open && (
+        <>
+          {/* Mobile drawer overlay */}
+          <div
+            className="lg:hidden fixed inset-0 z-[60] bg-teal-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+            onPointerDown={() => setOpen(false)}
+          />
 
-      {/* Mobile drawer panel */}
-      <aside
-        className={clsx(
-          "lg:hidden fixed left-0 top-0 h-full w-[280px] bg-teal-950 flex flex-col shadow-2xl z-50 transition-transform duration-300 ease-out",
-          open ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <button onClick={() => setOpen(false)} aria-label="Close menu" className="absolute top-5 right-4 p-2 text-teal-100/50 hover:text-cream-50 transition-colors rounded-full hover:bg-teal-800/50">
-          <X size={20} strokeWidth={1.5} />
-        </button>
-        {renderNav(false)}
-      </aside>
+          {/* Mobile drawer panel */}
+          <aside className="lg:hidden fixed left-0 top-0 h-full w-[280px] bg-teal-950 flex flex-col shadow-2xl z-[60] animate-in slide-in-from-left duration-200">
+            <button
+              type="button"
+              onPointerDown={() => setOpen(false)}
+              aria-label="Close menu"
+              className="absolute top-5 right-4 z-10 p-2 text-teal-100/50 hover:text-cream-50 transition-colors rounded-full hover:bg-teal-800/50"
+            >
+              <X size={20} strokeWidth={1.5} />
+            </button>
+            {renderNav(false)}
+          </aside>
+        </>
+      )}
 
       {/* Desktop sidebar */}
       <aside

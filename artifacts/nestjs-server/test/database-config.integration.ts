@@ -14,7 +14,7 @@ import {
 const DATABASE_OPTIONS = Symbol('DATABASE_OPTIONS');
 
 test('loads database options after a fixture .env file is initialized', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'abajiraf-database-config-'));
+  const directory = await mkdtemp(join(tmpdir(), 'jima-database-config-'));
   const envFilePath = join(directory, '.env');
   const fixtureUrl =
     'postgresql://fixture-host:5432/fixture-database?sslmode=require';

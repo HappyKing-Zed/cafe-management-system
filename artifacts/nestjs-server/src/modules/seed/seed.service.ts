@@ -64,17 +64,19 @@ export class SeedService {
           legacyNames: [
             'habesha meat suppliers',
             'abajiraf meat suppliers',
+            'abajifar meat suppliers',
           ],
           legacyEmails: [
             'habesha.meat@gmail.com',
             'abajiraf.meat@gmail.com',
+            'abajifar.meat@gmail.com',
           ],
         },
       )
       .getMany();
     for (const supplier of legacySuppliers) {
-      supplier.name = 'Abajifar Meat Suppliers';
-      supplier.email = 'abajifar.meat@gmail.com';
+      supplier.name = 'Jima Meat Suppliers';
+      supplier.email = 'jima.meat@gmail.com';
       await this.supplierRepo.save(supplier);
     }
 
@@ -298,7 +300,7 @@ export class SeedService {
     // ─── Suppliers ────────────────────────────────────────────────
     await this.supplierRepo.save([
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Addis Teff Cooperative', contactPerson: 'Mulugeta Worku', email: 'addisteff@gmail.com', phone: '+251 911 223344', address: 'Debre Birhan, Ethiopia', rating: 5 }),
-      this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Abajifar Meat Suppliers', contactPerson: 'Tesfaye Girma', email: 'abajifar.meat@gmail.com', phone: '+251 912 556677', address: 'Mercato, Addis Abeba', rating: 4 }),
+      this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Jima Meat Suppliers', contactPerson: 'Tesfaye Girma', email: 'jima.meat@gmail.com', phone: '+251 912 556677', address: 'Mercato, Addis Abeba', rating: 4 }),
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Yirgacheffe Coffee PLC', contactPerson: 'Desta Wolde', email: 'yirgacheffe@coffee.et', phone: '+251 913 889900', address: 'Yirgacheffe, SNNPR', rating: 5 }),
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Merkato Spice Market', contactPerson: 'Azeb Assefa', email: 'merkato.spice@gmail.com', phone: '+251 914 112233', address: 'Merkato, Addis Abeba', rating: 4 }),
       this.supplierRepo.create({ restaurantId: restaurant.id, name: 'Fresh Produce Ethiopia', contactPerson: 'Hana Solomon', email: 'freshproduce@et.com', phone: '+251 915 445566', address: 'Kality, Addis Abeba', rating: 3 }),

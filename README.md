@@ -1,6 +1,6 @@
-# Abajifar
+# Jima
 
-Abajifar is an Ethiopian cafe and restaurant management system built as a modular monolith for CARAVAN Lounge.
+Jima is an Ethiopian cafe and restaurant management system built as a modular monolith for CARAVAN Lounge, powered by Idata Technologies.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ NestJS 10 REST API
 PostgreSQL
 ```
 
-- Registered web artifact: Abajifar
+- Registered web artifact: Jima
 - Real frontend source: `artifacts/nextjs-app`
 - Authoritative restaurant backend: `artifacts/nestjs-server`
 - Browser API base: `/backend/api`
@@ -25,7 +25,7 @@ PostgreSQL
 
 Use the managed workflows:
 
-- Registered Abajifar web and backend services
+- Registered Jima web and backend services
 
 Do not run a Next.js production build while its development server is running because both processes share `.next`.
 

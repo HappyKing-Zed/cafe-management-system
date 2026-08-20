@@ -230,7 +230,7 @@ export default function InventoryPage() {
       if (!jsPDF || !autoTable) throw new Error('PDF export library could not load');
       const doc = new jsPDF();
       doc.setFontSize(14);
-      doc.text(`Abajifar · CARAVAN Lounge — ${title}`, 14, 16);
+      doc.text(`Jima · CARAVAN Lounge — ${title}`, 14, 16);
       doc.setFontSize(10);
       doc.text(`${rangeLabel()} · generated ${new Date().toLocaleString()}`, 14, 22);
       autoTable(doc, { head: [head], body: rows.map(r => r.map(String)), startY: 27, styles: { fontSize: 8 } });

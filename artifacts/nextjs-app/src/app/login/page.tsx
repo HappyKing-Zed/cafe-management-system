@@ -72,7 +72,7 @@ export default function LoginPage() {
 
         <div className="relative z-10 flex items-center gap-2 text-cream-100/50 text-sm mt-12">
           <span>Powered by</span>
-          <span className="font-semibold text-cream-100/70 tracking-wider uppercase text-xs">Abajifar</span>
+          <span className="font-semibold text-cream-100/70 tracking-wider uppercase text-xs">Idata Technologies</span>
         </div>
       </div>
 

@@ -1,13 +1,13 @@
-# Abajifar — Cafe & Restaurant Management System
+# Jima — Cafe & Restaurant Management System
 
 A full-stack Ethiopian cafe and restaurant management system with role-based access control. The application is a modular monolith: Next.js frontend → HTTP API → NestJS backend → PostgreSQL.
 
 ## Run & Operate
 
-- **NestJS Backend**: managed Abajifar backend service (port 3001)
-- **Next.js Frontend**: managed Abajifar web service — runs `pnpm --filter @workspace/nextjs-app run dev` (PORT injected by artifact routing; previewPath `/`)
+- **NestJS Backend**: managed Jima backend service (port 3001)
+- **Next.js Frontend**: managed Jima web service — runs `pnpm --filter @workspace/nextjs-app run dev` (PORT injected by artifact routing; previewPath `/`)
 - Frontend calls the backend via `/backend/api/*` (not `/api`, which is claimed by the separate API Server artifact); Next.js rewrites `/backend/api/:path*` → `${BACKEND_URL}/api/:path*`
-- The Abajifar registration shim runs the real frontend code in `artifacts/nextjs-app/`
+- The Jima registration shim runs the real frontend code in `artifacts/nextjs-app/`
 - The restaurant backend is `artifacts/nestjs-server/`. `artifacts/api-server/` is not the restaurant application API.
 
 ## Stack

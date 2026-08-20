@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Deploying on Vercel — Abajifar</title>
+<title>Deploying on Vercel — Jima</title>
 <style>
   body{font-family:Georgia,'Times New Roman',serif;color:#4A3B32;background:#FDF7EE;max-width:900px;margin:0 auto;padding:48px 32px;line-height:1.6}
   h1{font-size:28px;color:#1A2D2D;border-bottom:3px solid #D4AA64;padding-bottom:10px}
@@ -19,7 +19,7 @@
 <body>
 <h1>Deploying on Vercel</h1>
 <div class="meta">
-<b>System:</b> Abajifar — CARAVAN Lounge Restaurant Management System<br>
+<b>System:</b> Jima — CARAVAN Lounge Restaurant Management System<br>
 <b>Document:</b> Alternative Deployment Guide v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026
 </div>
 
@@ -60,7 +60,7 @@ PORT         = 3001   (or leave to platform default)</pre></li>
 <li><b>Root Directory:</b> set to <code>artifacts/nextjs-app</code> (Vercel detects Next.js automatically).</li>
 <li><b>Install command:</b> <code>pnpm install</code> (Vercel supports pnpm monorepos; enable "Include files outside root directory" if prompted).</li>
 <li><b>Environment variables:</b>
-<pre>BACKEND_URL = https://abajifar-api.up.railway.app</pre>
+<pre>BACKEND_URL = https://jima-api.up.railway.app</pre>
 The frontend's <code>next.config.js</code> rewrite forwards <code>/backend/api/*</code> to this URL. Backend CORS must still be restricted as defense in depth and for any direct operational access.</li>
 <li>Click <b>Deploy</b>. Your app is live at <code>https://&lt;project&gt;.vercel.app</code>.</li>
 </ol>

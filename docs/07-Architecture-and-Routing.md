@@ -4,7 +4,7 @@ Updated: August 20, 2026
 
 ## Canonical architecture
 
-Abajifar is a modular monolith with three logical tiers:
+Jima is a modular monolith with three logical tiers:
 
 ```text
 Browser
@@ -22,7 +22,7 @@ The frontend never connects to PostgreSQL. NestJS owns business rules, authentic
 
 | Area | Canonical location | Notes |
 |---|---|---|
-| Registered web artifact | Abajifar web artifact | Routing/registration shim |
+| Registered web artifact | Jima web artifact | Routing/registration shim |
 | Frontend source | `artifacts/nextjs-app` | Next.js 15, React 19 |
 | Restaurant API | `artifacts/nestjs-server` | NestJS 10 modular monolith |
 | Database entities | `artifacts/nestjs-server/src/entities` | TypeORM entities |

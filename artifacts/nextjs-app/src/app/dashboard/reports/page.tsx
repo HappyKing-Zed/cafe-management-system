@@ -218,7 +218,7 @@ export default function ReportsPage() {
       const { default: autoTable } = await import('jspdf-autotable');
       const doc = new jsPDF();
       doc.setFontSize(14);
-      doc.text(`Abajifar · CARAVAN Lounge — ${title}`, 14, 16);
+      doc.text(`Jima · CARAVAN Lounge — ${title}`, 14, 16);
       doc.setFontSize(10);
       doc.text(`generated ${new Date().toLocaleString()}`, 14, 22);
       autoTable(doc, { head: [head], body: rows.map(r => r.map(String)), startY: 27, styles: { fontSize: 8 } });

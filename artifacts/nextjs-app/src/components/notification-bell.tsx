@@ -121,7 +121,7 @@ export default function NotificationBell() {
   };
 
   return (
-    <div ref={ref} className="fixed top-2 right-16 lg:top-4 lg:right-6 z-40">
+    <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
         className={clsx(
@@ -144,7 +144,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute -right-12 lg:right-0 mt-3 w-96 max-w-[calc(100vw-1.5rem)] max-h-[70vh] overflow-y-auto bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl shadow-teal-900/10 border border-cream-200 origin-top-right animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed left-3 right-3 top-16 lg:absolute lg:left-auto lg:right-0 lg:top-auto mt-3 w-auto lg:w-96 max-h-[70vh] overflow-y-auto bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl shadow-teal-900/10 border border-cream-200 origin-top-right animate-in fade-in zoom-in-95 duration-200">
           <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl px-5 py-4 border-b border-cream-100 flex items-center justify-between">
             <h3 className="font-display font-medium text-teal-900 text-base">Notifications</h3>
             {unread.length > 0 && (

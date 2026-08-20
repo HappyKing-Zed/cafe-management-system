@@ -50,25 +50,11 @@ description = "Step-by-step: database, backend host, and Vercel frontend deploym
 logical_id = "f86971b6-1be7-4906-8a96-95ba15213c0a"
 
 [[outputs]]
-id = "Wf7AQf3Rn-Sw6EmbG2stJ"
-uri = "file://exports/Jima-Aba-Jifar-Documentation-Pack.pdf"
-type = "pdf"
-title = "Updated Jima Aba Jifar Documentation Pack"
-description = "Regenerated 36-page combined PDF with Abajiraf branding throughout."
-logical_id = "ca68b7c1-9507-46ae-9595-cb5ec943b619"
-content_hash = "sha256:1117b8ada9b584742556d350fc607f111362e5ff6f8770614cd18c487784b94b"
-size = 1023436
-mtime_ms = 1787125318730
-storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/ca68b7c1-9507-46ae-9595-cb5ec943b619/cded316d-b966-4242-8e0e-8ac13bf9f38d"
-storage_version_token = "1787125416205715"
-content_type = "application/pdf"
-
-[[outputs]]
 id = "iMrV8FhtmRaqkeADck1PN"
 uri = "file://exports/pdf/05-Handoff-and-Deployment-Requirements.pdf"
 type = "pdf"
 title = "Corrected Handoff and Deployment Requirements"
-description = "Updated PDF with Abajiraf in the repository layout and no legacy brand references."
+description = "Updated PDF with Jima in the repository layout and no legacy brand references."
 logical_id = "e76fc5c3-cf89-49ad-8708-cae8a25488a4"
 content_hash = "sha256:dcbfe7bb5b3f63f560e107d1b878e5c070b4561ed4d989732b06c895c15a5f68"
 size = 36059
@@ -78,29 +64,15 @@ storage_version_token = "1787125415564178"
 content_type = "application/pdf"
 
 [[outputs]]
-id = "CYnDfIvSQK6_oCPjcwI7P"
-uri = "file://exports/Abajiraf-Documentation-Pack.pdf"
+id = "gyZ3XoEAcATzBgdJCkoTI"
+uri = "file://exports/Jima-Documentation-Pack.pdf"
 type = "pdf"
-title = "Abajiraf Documentation Pack"
-description = "Combined 36-page pack containing the six regenerated Abajiraf requirements, design, user, handoff, and deployment PDFs."
-logical_id = "24a18816-dd9d-4d0f-9536-27a3abd08214"
-content_hash = "sha256:cfba555c74204b844dfcbfebdd1201160da80659f70be85bca5de71dc93b5c7f"
-size = 1037070
-mtime_ms = 1787162030140
-storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/24a18816-dd9d-4d0f-9536-27a3abd08214/7528e2e5-bba6-4b91-a07d-c86389981093"
-storage_version_token = "1787162618727252"
-content_type = "application/pdf"
-
-[[outputs]]
-id = "7mWfAZ8JEK8579E61pi4v"
-uri = "file://exports/Abajifar-Documentation-Pack.pdf"
-type = "pdf"
-title = "Abajifar Documentation Pack"
-description = "The regenerated 38-page FRS, SRS, design, user manual, handoff, and Vercel deployment pack for CARAVAN Lounge."
-logical_id = "4f84c855-fa9d-490f-adae-c23f7109493e"
-content_hash = "sha256:603f75010ffbc9acb61c5bf78a5ed6f8f3ce2cc36a8ba631392608c2e110053c"
-size = 1578382
-mtime_ms = 1787204450084
-storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/4f84c855-fa9d-490f-adae-c23f7109493e/aab51a26-16c0-4b91-a2f5-16a746dbb199"
-storage_version_token = "1787204595688809"
+title = "Jima Documentation Pack"
+description = "Updated 38-page requirements, design, user, handoff, and deployment documentation for Jima and CARAVAN Lounge."
+logical_id = "fa1dccfe-8829-458d-828d-81336e62c639"
+content_hash = "sha256:c6eebd262c0cac997154142829a5f2c2b345a503155f5f7d57a7ad5c5f0f1cec"
+size = 1578284
+mtime_ms = 1787213325440
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/fa1dccfe-8829-458d-828d-81336e62c639/ba7b8c2a-3914-4c81-9f58-7ae5a1e1d67e"
+storage_version_token = "1787213361739066"
 content_type = "application/pdf"

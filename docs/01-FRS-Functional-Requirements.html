@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>FRS — Abajifar Restaurant Management System</title>
+<title>FRS — Jima Restaurant Management System</title>
 <style>
   body{font-family:Georgia,'Times New Roman',serif;color:#4A3B32;background:#FDF7EE;max-width:900px;margin:0 auto;padding:48px 32px;line-height:1.6}
   h1{font-size:28px;color:#1A2D2D;border-bottom:3px solid #D4AA64;padding-bottom:10px}
@@ -19,14 +19,14 @@
 <body>
 <h1>Functional Requirements Specification (FRS)</h1>
 <div class="meta">
-<b>System:</b> Abajifar — CARAVAN Lounge Restaurant Management System<br>
+<b>System:</b> Jima — CARAVAN Lounge Restaurant Management System<br>
 <b>Document:</b> FRS v1.1 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026<br>
 <b>Related documents:</b> SRS (02), SDD (03), User Manual (04), Handoff (05), deployment guide (06), and operational runbooks (07–12)
 </div>
 
 <h2>1. Purpose</h2>
-<p>This document defines the functional requirements of the Abajifar Restaurant Management System — a full-stack web application that manages the daily operations of CARAVAN Lounge: ordering, kitchen workflow, payments, inventory, staff, branches, and reporting.</p>
-<p><b>Verified implementation baseline:</b> the registered Abajifar web artifact runs the real Next.js 15 / React 19 frontend in <code>artifacts/nextjs-app</code>. Browser requests use <code>/backend/api/*</code>, which Next.js rewrites to the NestJS service's <code>/api/*</code>. NestJS and TypeORM own all PostgreSQL access. The separate <code>artifacts/api-server</code> is not the restaurant application API.</p>
+<p>This document defines the functional requirements of the Jima Restaurant Management System — a full-stack web application that manages the daily operations of CARAVAN Lounge: ordering, kitchen workflow, payments, inventory, staff, branches, and reporting.</p>
+<p><b>Verified implementation baseline:</b> the registered Jima web artifact runs the real Next.js 15 / React 19 frontend in <code>artifacts/nextjs-app</code>. Browser requests use <code>/backend/api/*</code>, which Next.js rewrites to the NestJS service's <code>/api/*</code>. NestJS and TypeORM own all PostgreSQL access. The separate <code>artifacts/api-server</code> is not the restaurant application API.</p>
 <p><b>Requirements versus evidence:</b> the items below define required behavior. A requirement must not be treated as production-verified unless it appears as passed evidence in document 12.</p>
 
 <h2>2. User Roles</h2>
