@@ -218,15 +218,15 @@ export default function OrdersPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="w-10 h-10 bg-brand-100 rounded-xl flex items-center justify-center">
             <ShoppingCart className="text-brand-600" size={22} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Orders & POS</h1>
+          <h1 className="text-2xl font-bold text-gray-900 truncate">Orders & POS</h1>
         </div>
         {canCreateOrder && (
-          <button onClick={() => { resetPOS(); setShowPOS(true); }} className="btn-primary flex items-center gap-2">
+          <button onClick={() => { resetPOS(); setShowPOS(true); }} className="btn-primary self-start sm:self-auto flex items-center gap-2">
             <Plus size={18} /> New Order
           </button>
         )}
@@ -390,15 +390,15 @@ export default function OrdersPage() {
       {/* POS Modal */}
       {showPOS && (
         <div className="fixed inset-0 bg-black/50 z-50 flex">
-          <div className="ml-auto w-full max-w-5xl bg-white flex h-full">
+          <div className="ml-auto w-full max-w-5xl bg-white flex h-[100dvh] min-h-0 flex-col overflow-hidden lg:h-full lg:flex-row">
             {/* Menu */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="p-4 border-b flex items-center justify-between">
-                <h2 className="text-lg font-bold">{appendOrder ? `Add Items to Order #${appendOrder.id}` : 'Point of Sale'}</h2>
-                <button onClick={() => { setShowPOS(false); resetPOS(); }} className="text-gray-400 hover:text-gray-600"><X size={22} /></button>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <div className="flex items-center justify-between gap-3 border-b p-3 sm:p-4">
+                <h2 className="min-w-0 truncate text-lg font-bold">{appendOrder ? `Add Items to Order #${appendOrder.id}` : 'Point of Sale'}</h2>
+                <button onClick={() => { setShowPOS(false); resetPOS(); }} className="shrink-0 text-gray-400 hover:text-gray-600" aria-label="Close order form"><X size={22} /></button>
               </div>
               {/* Category tabs */}
-              <div className="flex gap-2 p-3 border-b overflow-x-auto">
+              <div className="flex gap-2 overflow-x-auto border-b p-3">
                 {categories.map((cat) => (
                   <button key={cat.id} onClick={() => setSelectedCat(cat.id)}
                     className={clsx('px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap', selectedCat === cat.id ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
@@ -406,13 +406,13 @@ export default function OrdersPage() {
                 ))}
               </div>
               {/* Items grid */}
-              <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 sm:grid-cols-3 gap-3 content-start">
+              <div className="grid flex-1 content-start grid-cols-2 gap-3 overflow-y-auto p-3 sm:grid-cols-3 sm:p-4">
                 {currentCat?.items?.filter(i => i.isAvailable).map((item) => (
                   <button key={item.id} onClick={() => addToCart(item)}
-                    className="p-4 border-2 border-gray-100 hover:border-brand-400 rounded-xl text-left transition-all hover:shadow-md"
+                    className="min-w-0 rounded-xl border-2 border-gray-100 p-3 text-left transition-all hover:border-brand-400 hover:shadow-md sm:p-4"
                   >
                     {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-20 object-cover rounded-lg mb-2" />}
-                    <p className="font-semibold text-gray-900 text-sm mb-1">{item.name}</p>
+                    <p className="mb-1 break-words text-sm font-semibold text-gray-900">{item.name}</p>
                     <p className="text-xs text-gray-400 mb-2 line-clamp-2">{item.description}</p>
                     <p className="text-brand-600 font-bold">ETB {Number(item.price).toLocaleString()}</p>
                   </button>
@@ -421,11 +421,11 @@ export default function OrdersPage() {
             </div>
 
             {/* Cart */}
-            <div className="w-80 border-l flex flex-col bg-gray-50">
-              <div className="p-4 border-b bg-white">
+            <div className="flex max-h-[48dvh] min-h-0 w-full shrink-0 flex-col overflow-y-auto border-t bg-gray-50 lg:max-h-none lg:w-80 lg:overflow-hidden lg:border-l lg:border-t-0">
+              <div className="shrink-0 border-b bg-white p-3 sm:p-4">
                 <h3 className="font-bold text-gray-900">Cart</h3>
                 {!appendOrder && (
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1">
                   <select value={selectedTable || ''} onChange={(e) => setSelectedTable(e.target.value ? +e.target.value : null)}
                     className="input text-xs py-1.5">
                     <option value="">Take Away</option>
@@ -445,14 +445,14 @@ export default function OrdersPage() {
                   </select>
                 )}
               </div>
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              <div className="max-h-32 shrink-0 space-y-2 overflow-y-auto p-3 lg:max-h-none lg:min-h-0 lg:flex-1">
                 {cart.length === 0 ? (
                   <p className="text-gray-400 text-sm text-center mt-8">Add items from the menu</p>
                 ) : cart.map((c) => (
                   <div key={c.menuItem.id} className="bg-white rounded-lg p-3 shadow-sm">
-                    <div className="flex justify-between items-start">
-                      <p className="text-sm font-medium text-gray-900 flex-1 mr-2">{c.menuItem.name}</p>
-                      <button onClick={() => removeFromCart(c.menuItem.id)} className="text-gray-300 hover:text-red-500"><X size={14} /></button>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 flex-1 break-words text-sm font-medium text-gray-900">{c.menuItem.name}</p>
+                      <button onClick={() => removeFromCart(c.menuItem.id)} className="shrink-0 text-gray-300 hover:text-red-500" aria-label={`Remove ${c.menuItem.name} from cart`}><X size={14} /></button>
                     </div>
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center gap-2">
@@ -465,15 +465,15 @@ export default function OrdersPage() {
                   </div>
                 ))}
               </div>
-              <div className="p-4 bg-white border-t">
+              <div className="shrink-0 border-t bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-4 sm:pb-4">
                 {!appendOrder && <input placeholder="Order notes..." value={notes} onChange={e => setNotes(e.target.value)} className="input text-sm mb-3" />}
-                <div className="flex justify-between text-sm mb-1">
+                <div className="flex justify-between gap-3 text-sm mb-1">
                   <span className="text-gray-500">Subtotal</span>
                   <span className="font-medium text-gray-700">ETB {cartTotal.toLocaleString()}</span>
                 </div>
                 {!appendOrder && (
-                <div className="flex justify-between items-center text-sm mb-1">
-                  <span className="text-gray-500 flex items-center gap-1">
+                <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm mb-1">
+                  <span className="flex flex-wrap items-center gap-1 text-gray-500">
                     Service Charge
                     <input type="number" min={0} max={100} step={0.5} value={svcPct} onChange={e => setSvcPct(e.target.value)}
                       className="w-14 text-xs border border-gray-200 rounded px-1 py-0.5 text-right" />%
@@ -481,7 +481,7 @@ export default function OrdersPage() {
                   <span className="font-medium text-gray-700">ETB {svcAmount.toLocaleString()}</span>
                 </div>
                 )}
-                <div className="flex justify-between mb-3">
+                <div className="flex justify-between gap-3 mb-3">
                   <span className="font-semibold text-gray-700">Total</span>
                   <span className="font-bold text-xl text-brand-600">ETB {(appendOrder ? cartTotal : grandTotal).toLocaleString()}</span>
                 </div>
