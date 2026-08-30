@@ -21,6 +21,7 @@ import { MainStoreReceipt } from '../entities/main-store-receipt.entity';
 import { MainStoreReceiptLine } from '../entities/main-store-receipt-line.entity';
 import { MainStoreTransfer } from '../entities/main-store-transfer.entity';
 import { MainStoreTransferLine } from '../entities/main-store-transfer-line.entity';
+import { MainStoreMovement } from '../entities/main-store-movement.entity';
 
 export const DATABASE_ENTITIES = [
   User,
@@ -46,4 +47,5 @@ export const DATABASE_ENTITIES = [
   MainStoreReceiptLine,
   MainStoreTransfer,
   MainStoreTransferLine,
+  MainStoreMovement,
 ];

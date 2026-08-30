@@ -9,7 +9,7 @@ export const DASHBOARD_ROUTE_ROLES: Record<string, readonly Role[]> = {
   '/dashboard/menu': ['admin', 'owner', 'manager'],
   '/dashboard/inventory': ['admin', 'owner', 'manager', 'storekeeper', 'cashier'],
   '/dashboard/main-store': ['owner', 'storekeeper'],
-  '/dashboard/inventory-transfers': ['manager'],
+  '/dashboard/inventory-transfers': ['owner', 'manager', 'storekeeper'],
   '/dashboard/item-requests': ['admin', 'owner', 'manager', 'coordinator'],
   '/dashboard/staff': ['admin', 'owner', 'manager'],
   '/dashboard/branches': ['admin', 'owner', 'manager'],
@@ -18,11 +18,26 @@ export const DASHBOARD_ROUTE_ROLES: Record<string, readonly Role[]> = {
   '/dashboard': ['admin', 'owner', 'manager', 'chef', 'storekeeper'],
 };
 
-export function canAccessDashboardPath(pathname: string, role: Role) {
+export function canAccessDashboardPath(pathname: string, role: Role, branchId?: number | null) {
   const route = Object.keys(DASHBOARD_ROUTE_ROLES)
     .sort((a, b) => b.length - a.length)
     .find((candidate) => pathname === candidate || pathname.startsWith(`${candidate}/`));
-  return route ? DASHBOARD_ROUTE_ROLES[route].includes(role) : false;
+
+  if (!route || !DASHBOARD_ROUTE_ROLES[route].includes(role)) {
+    return false;
+  }
+
+  if (route === '/dashboard/main-store' && role === 'storekeeper' && branchId) {
+    return false;
+  }
+  if (route === '/dashboard/inventory-transfers' && role === 'storekeeper' && !branchId) {
+    return false;
+  }
+  if (route === '/dashboard/inventory' && role === 'storekeeper' && !branchId) {
+    return false;
+  }
+
+  return true;
 }
 
 export function dashboardHomeForRole(role: Role) {

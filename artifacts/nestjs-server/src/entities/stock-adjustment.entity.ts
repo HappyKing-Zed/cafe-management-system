@@ -43,4 +43,10 @@ export class StockAdjustment {
 
   @Column({ nullable: true })
   branchId: number;
+
+  @Column({ nullable: true })
+  mainStoreTransferId: number;
+
+  @Column('decimal', { precision: 12, scale: 3, nullable: true })
+  balanceAfter: number;
 }

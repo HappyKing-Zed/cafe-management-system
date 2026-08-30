@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
-import { ROLE_LABELS } from '@/lib/auth';
+import { ROLE_LABELS, storekeeperRoleLabel } from '@/lib/auth';
 import { DASHBOARD_ROUTE_ROLES } from '@/lib/dashboard-access';
 import clsx from 'clsx';
 import {
@@ -22,7 +22,7 @@ const navItems = [
   { href: '/dashboard/menu', label: 'Menu', icon: UtensilsCrossed, roles: DASHBOARD_ROUTE_ROLES['/dashboard/menu'] },
   { href: '/dashboard/main-store', label: 'Main Store', icon: Warehouse, roles: DASHBOARD_ROUTE_ROLES['/dashboard/main-store'] },
   { href: '/dashboard/inventory', label: 'Branch Inventory', icon: Package, roles: DASHBOARD_ROUTE_ROLES['/dashboard/inventory'] },
-  { href: '/dashboard/inventory-transfers', label: 'Incoming Transfers', icon: ArrowDownToLine, roles: DASHBOARD_ROUTE_ROLES['/dashboard/inventory-transfers'] },
+  { href: '/dashboard/inventory-transfers', label: 'Main Store Requests', icon: ArrowDownToLine, roles: DASHBOARD_ROUTE_ROLES['/dashboard/inventory-transfers'] },
   { href: '/dashboard/item-requests', label: 'Item Requests', managerLabel: 'Item Requested', icon: PackageOpen, roles: DASHBOARD_ROUTE_ROLES['/dashboard/item-requests'] },
   { href: '/dashboard/staff', label: 'Staff', icon: Users, roles: DASHBOARD_ROUTE_ROLES['/dashboard/staff'] },
   { href: '/dashboard/branches', label: 'Branches and Restaurants', icon: Building2, roles: DASHBOARD_ROUTE_ROLES['/dashboard/branches'] },
@@ -72,6 +72,12 @@ export default function Sidebar() {
     if (!user?.role || !item.roles.includes(user.role)) return false;
     if (item.href === '/dashboard/main-store' && user.role === 'storekeeper') {
       return !user.branchId;
+    }
+    if (item.href === '/dashboard/inventory-transfers' && user.role === 'storekeeper') {
+      return !!user.branchId;
+    }
+    if (item.href === '/dashboard/inventory' && user.role === 'storekeeper') {
+      return !!user.branchId;
     }
     return true;
   });
@@ -143,7 +149,9 @@ export default function Sidebar() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm text-cream-50 truncate">{user?.name}</p>
-              <p className="text-xs text-gold-400/80 truncate">{user?.role ? ROLE_LABELS[user.role] : ''}</p>
+              <p className="text-xs text-gold-400/80 truncate">
+                {user?.role === 'storekeeper' ? storekeeperRoleLabel(user.branchId) : user?.role ? ROLE_LABELS[user.role] : ''}
+              </p>
             </div>
           </div>
         )}

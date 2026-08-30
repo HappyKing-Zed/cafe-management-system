@@ -37,21 +37,33 @@ export class MainStoreController {
     return this.service.findTransfers(req.user);
   }
 
+  @Get('requestable-items')
+  @Roles(Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
+  findRequestableItems(@Req() req: any) {
+    return this.service.findRequestableItems(req.user);
+  }
+
   @Post('transfers')
-  @Roles(Role.OWNER, Role.STOREKEEPER)
+  @Roles(Role.STOREKEEPER)
   createTransfer(@Req() req: any, @Body() body: any) {
     return this.service.createTransfer(body, req.user);
   }
 
   @Patch('transfers/:id/approve')
-  @Roles(Role.MANAGER)
+  @Roles(Role.OWNER, Role.MANAGER)
   approveTransfer(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.service.approveTransfer(id, req.user);
   }
 
   @Patch('transfers/:id/reject')
-  @Roles(Role.MANAGER)
+  @Roles(Role.OWNER, Role.MANAGER)
   rejectTransfer(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.service.rejectTransfer(id, req.user);
+  }
+
+  @Patch('transfers/:id/transfer')
+  @Roles(Role.STOREKEEPER)
+  transfer(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.service.transfer(id, req.user);
   }
 }

@@ -90,7 +90,7 @@ export default function NotificationBell() {
   const criticalCount = visibleAlerts.filter(a => a.severity === 'critical').length;
   const badgeCount = unread.length + visibleAlerts.length;
 
-  const allowed = (path: string) => canAccessDashboardPath(path, user.role);
+  const allowed = (path: string) => canAccessDashboardPath(path, user.role, user.branchId);
   const orderPage = user.role === 'chef' ? '/dashboard/kitchen'
     : allowed('/dashboard/orders') ? '/dashboard/orders' : '/dashboard/order-board';
 
@@ -98,6 +98,11 @@ export default function NotificationBell() {
     const m = n.message.toLowerCase();
     let target: string | null = null;
     if (n.orderId) target = orderPage;
+    else if (m.includes('main store transfer')) {
+      target = user.role === 'storekeeper' && !user.branchId
+        ? '/dashboard/main-store'
+        : '/dashboard/inventory-transfers';
+    }
     else if (m.includes('service report') || m.includes('daily report') || m.includes('submission') || m.includes('confirmed your')) target = '/dashboard/summary';
     else if (m.includes('requisition') || m.includes('item request') || m.includes('request')) target = '/dashboard/item-requests';
     else if (m.includes('purchase order') || m.includes('po #') || m.includes('stock') || m.includes('expir') || m.includes('supplier') || m.includes('inventory')) target = '/dashboard/inventory';

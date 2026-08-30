@@ -42,3 +42,5 @@ export const getMainStoreTransfers = () => api.get('/inventory/main-store/transf
 export const createMainStoreTransfer = (data: any) => api.post('/inventory/main-store/transfers', data);
 export const approveMainStoreTransfer = (id: number) => api.patch(`/inventory/main-store/transfers/${id}/approve`);
 export const rejectMainStoreTransfer = (id: number) => api.patch(`/inventory/main-store/transfers/${id}/reject`);
+export const transferMainStoreTransfer = (id: number) => api.patch(`/inventory/main-store/transfers/${id}/transfer`);
+export const getMainStoreRequestableItems = () => api.get('/inventory/main-store/requestable-items');

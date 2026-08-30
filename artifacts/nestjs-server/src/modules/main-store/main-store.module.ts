@@ -5,8 +5,10 @@ import { MainStoreReceiptLine } from '../../entities/main-store-receipt-line.ent
 import { MainStoreReceipt } from '../../entities/main-store-receipt.entity';
 import { MainStoreTransferLine } from '../../entities/main-store-transfer-line.entity';
 import { MainStoreTransfer } from '../../entities/main-store-transfer.entity';
+import { MainStoreMovement } from '../../entities/main-store-movement.entity';
 import { MainStoreController } from './main-store.controller';
 import { MainStoreService } from './main-store.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([
@@ -15,7 +17,8 @@ import { MainStoreService } from './main-store.service';
     MainStoreReceiptLine,
     MainStoreTransfer,
     MainStoreTransferLine,
-  ])],
+    MainStoreMovement,
+  ]), NotificationsModule],
   controllers: [MainStoreController],
   providers: [MainStoreService],
 })

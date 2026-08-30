@@ -36,8 +36,11 @@ export const ROLE_LABELS: Record<string, string> = {
   waiter: 'Waiter',
   chef: 'Chef',
   cashier: 'Cashier',
-  storekeeper: 'Main Store Storekeeper',
+  storekeeper: 'Storekeeper',
 };
+
+export const storekeeperRoleLabel = (branchId?: number | null) =>
+  branchId ? 'Branch Storekeeper' : 'Main Store Storekeeper';
 
 export const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-red-100 text-red-800',

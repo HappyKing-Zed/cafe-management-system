@@ -23,12 +23,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace('/login');
       return;
     }
-    if (user && !canAccessDashboardPath(pathname, user.role)) {
+    if (user && !canAccessDashboardPath(pathname, user.role, user.branchId)) {
       router.replace(dashboardHomeForRole(user.role));
     }
   }, [isAuthenticated, pathname, ready, router, user]);
 
-  const canRender = ready && isAuthenticated && user && canAccessDashboardPath(pathname, user.role);
+  const canRender = ready && isAuthenticated && user && canAccessDashboardPath(pathname, user.role, user.branchId);
   if (!canRender) {
     return <div className="min-h-screen bg-gray-50" aria-label="Loading dashboard" />;
   }

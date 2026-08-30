@@ -157,6 +157,8 @@ export class SeedService {
         role: Role.STOREKEEPER,
         enforcePassword: true,
       },
+      { name: 'Awetu Branch Storekeeper', email: 'storekeeper_awetu_branch@gmail.com', role: Role.STOREKEEPER, branchId: awetu.id, enforcePassword: true },
+      { name: 'Agaro Branch Storekeeper', email: 'storekeeper_agaro_branch@gmail.com', role: Role.STOREKEEPER, branchId: agaro.id, enforcePassword: true },
       { name: 'Tadesse Wolde', email: 'owner@gmail.com', role: Role.OWNER },
     ];
 
@@ -471,5 +473,7 @@ const REQUIRED_ACCOUNT_EMAILS = new Set([
   'chef_agaro_branch@gmail.com',
   'manager_awetu_branch@gmail.com',
   'manager_agaro_branch@gmail.com',
+  'storekeeper_awetu_branch@gmail.com',
+  'storekeeper_agaro_branch@gmail.com',
   'owner@gmail.com',
 ]);

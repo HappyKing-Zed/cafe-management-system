@@ -38,4 +38,10 @@ export class MainStoreTransferLine {
 
   @Column('decimal', { precision: 12, scale: 3, default: 0 })
   minStock: number;
+
+  @Column('decimal', { precision: 12, scale: 3, nullable: true })
+  mainStoreBalanceAfter: number;
+
+  @Column('decimal', { precision: 12, scale: 3, nullable: true })
+  branchBalanceAfter: number;
 }

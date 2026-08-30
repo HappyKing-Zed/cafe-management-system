@@ -7,6 +7,7 @@ import { MainStoreTransferLine } from './main-store-transfer-line.entity';
 export enum MainStoreTransferStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
+  TRANSFERRED = 'transferred',
   REJECTED = 'rejected',
 }
 
@@ -52,8 +53,25 @@ export class MainStoreTransfer {
   @Column({ type: 'timestamp', nullable: true })
   approvedAt: Date;
 
+  @Column({ nullable: true })
+  rejectedById: number;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'rejectedById' })
+  rejectedBy: User;
+
   @Column({ type: 'timestamp', nullable: true })
   rejectedAt: Date;
+
+  @Column({ nullable: true })
+  transferredById: number;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'transferredById' })
+  transferredBy: User;
+
+  @Column({ type: 'timestamp', nullable: true })
+  transferredAt: Date;
 
   @OneToMany(() => MainStoreTransferLine, (line) => line.transfer, { cascade: true })
   lines: MainStoreTransferLine[];
