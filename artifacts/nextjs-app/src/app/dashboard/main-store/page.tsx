@@ -5,8 +5,6 @@ import {
   createMainStoreReceipt, 
   getMainStoreTransfers, 
   createMainStoreTransfer, 
-  approveMainStoreTransfer, 
-  rejectMainStoreTransfer,
   getMainStoreDestinations
 } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
@@ -55,8 +53,7 @@ const TABS = ['Central Stock', 'Transfers'];
 
 export default function MainStorePage() {
   const { user } = useAuthStore();
-  const isManager = user?.role === 'manager';
-  const isAdminOrOwner = !!user && ['admin', 'owner'].includes(user.role);
+  const isOwner = user?.role === 'owner';
   const isStorekeeper = user?.role === 'storekeeper';
   
   const [tab, setTab] = useState('Central Stock');
@@ -85,7 +82,6 @@ export default function MainStorePage() {
   ]);
 
   const [submitting, setSubmitting] = useState(false);
-  const [opBusy, setOpBusy] = useState<number | null>(null);
 
   const fetchData = async () => {
     try {
@@ -174,32 +170,6 @@ export default function MainStorePage() {
     }
   };
 
-  const handleApprove = async (id: number) => {
-    if (!confirm('Are you sure you want to approve this transfer? Stock will be updated in the branch.')) return;
-    setOpBusy(id);
-    try {
-      await approveMainStoreTransfer(id);
-      await fetchData();
-    } catch (e: any) {
-      alert(e?.response?.data?.message || 'Approval failed');
-    } finally {
-      setOpBusy(null);
-    }
-  };
-
-  const handleReject = async (id: number) => {
-    if (!confirm('Are you sure you want to reject this transfer?')) return;
-    setOpBusy(id);
-    try {
-      await rejectMainStoreTransfer(id);
-      await fetchData();
-    } catch (e: any) {
-      alert(e?.response?.data?.message || 'Rejection failed');
-    } finally {
-      setOpBusy(null);
-    }
-  };
-
   const filteredItems = items.filter(i => 
     i.name.toLowerCase().includes(searchStock.toLowerCase()) || 
     (i.category && i.category.toLowerCase().includes(searchStock.toLowerCase()))
@@ -222,7 +192,7 @@ export default function MainStorePage() {
         </div>
         
         <div className="flex gap-3">
-          {(isAdminOrOwner || isStorekeeper) && (
+          {(isOwner || isStorekeeper) && (
             <button 
               onClick={() => setShowReceiveModal(true)}
               className="btn-secondary flex items-center gap-2 whitespace-nowrap"
@@ -230,7 +200,7 @@ export default function MainStorePage() {
               <ArrowDownToLine size={16} /> Receive Stock
             </button>
           )}
-          {(isAdminOrOwner || isStorekeeper) && (
+          {(isOwner || isStorekeeper) && (
             <button 
               onClick={() => setShowTransferModal(true)}
               className="btn-primary flex items-center gap-2 whitespace-nowrap"
@@ -356,8 +326,6 @@ export default function MainStorePage() {
                     </div>
                   ) : (
                     pendingTransfers.map(t => {
-                       const canApprove = isManager && user?.branchId === t.destinationBranchId;
-                      
                       return (
                         <div key={t.id} className="card p-5 border-amber-200 bg-amber-50/10">
                           <div className="flex justify-between items-start mb-4">
@@ -398,28 +366,9 @@ export default function MainStorePage() {
                             )}
                           </div>
                           
-                          {canApprove ? (
-                            <div className="flex gap-3">
-                              <button 
-                                onClick={() => handleApprove(t.id)} 
-                                disabled={opBusy === t.id}
-                                className="btn-primary flex-1 bg-teal-700 hover:bg-teal-800 flex justify-center items-center gap-2 disabled:opacity-50"
-                              >
-                                <CheckCircle2 size={16} /> {opBusy === t.id ? 'Approving...' : 'Approve'}
-                              </button>
-                              <button 
-                                onClick={() => handleReject(t.id)}
-                                disabled={opBusy === t.id}
-                                className="btn-secondary flex-1 text-red-700 hover:bg-red-50 hover:text-red-800 border border-red-200 flex justify-center items-center gap-2 disabled:opacity-50"
-                              >
-                                <XCircle size={16} /> Reject
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-coffee-400 text-center bg-cream-50 py-2 rounded-lg border border-cream-100">
-                               Waiting for the destination branch manager’s approval.
-                            </div>
-                          )}
+                          <div className="text-xs text-coffee-400 text-center bg-cream-50 py-2 rounded-lg border border-cream-100">
+                            Waiting for the destination branch manager’s approval.
+                          </div>
                         </div>
                       );
                     })

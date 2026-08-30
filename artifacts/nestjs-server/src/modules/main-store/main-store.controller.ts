@@ -14,31 +14,31 @@ export class MainStoreController {
   constructor(private readonly service: MainStoreService) {}
 
   @Get('items')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
+  @Roles(Role.OWNER, Role.STOREKEEPER)
   findItems(@Req() req: any) {
     return this.service.findItems(req.user);
   }
 
   @Get('destinations')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
+  @Roles(Role.OWNER, Role.STOREKEEPER)
   findDestinations(@Req() req: any) {
     return this.service.findDestinations(req.user);
   }
 
   @Post('receipts')
-  @Roles(Role.ADMIN, Role.OWNER, Role.STOREKEEPER)
+  @Roles(Role.OWNER, Role.STOREKEEPER)
   createReceipt(@Req() req: any, @Body() body: any) {
     return this.service.createReceipt(body, req.user);
   }
 
   @Get('transfers')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
+  @Roles(Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
   findTransfers(@Req() req: any) {
     return this.service.findTransfers(req.user);
   }
 
   @Post('transfers')
-  @Roles(Role.ADMIN, Role.OWNER, Role.STOREKEEPER)
+  @Roles(Role.OWNER, Role.STOREKEEPER)
   createTransfer(@Req() req: any, @Body() body: any) {
     return this.service.createTransfer(body, req.user);
   }

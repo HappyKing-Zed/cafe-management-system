@@ -27,6 +27,12 @@ export class MainStoreService {
     return id;
   }
 
+  private assertMainStoreAccess(user: AuthUser) {
+    if (user.role === 'owner') return;
+    if (user.role === 'storekeeper' && !user.branchId) return;
+    throw new ForbiddenException('Main Store is restricted to the owner and Main Store storekeeper');
+  }
+
   private positive(value: unknown, label: string): number {
     const number = Number(value);
     if (!Number.isFinite(number) || number <= 0) throw new BadRequestException(`${label} must be a positive finite number`);
@@ -49,6 +55,7 @@ export class MainStoreService {
   }
 
   findItems(user: AuthUser) {
+    this.assertMainStoreAccess(user);
     return this.itemRepo.find({
       where: { restaurantId: this.restaurantId(user) },
       order: { name: 'ASC', unit: 'ASC' },
@@ -56,6 +63,7 @@ export class MainStoreService {
   }
 
   findDestinations(user: AuthUser) {
+    this.assertMainStoreAccess(user);
     return this.dataSource.getRepository(Branch).find({
       where: { restaurantId: this.restaurantId(user) },
       order: { name: 'ASC' },
@@ -63,6 +71,7 @@ export class MainStoreService {
   }
 
   async createReceipt(data: any, user: AuthUser) {
+    this.assertMainStoreAccess(user);
     const restaurantId = this.restaurantId(user);
     if (!Array.isArray(data?.lines) || !data.lines.length) {
       throw new BadRequestException('Receipt needs at least one line');
@@ -148,6 +157,8 @@ export class MainStoreService {
     if (user.role === 'manager') {
       if (!user.branchId) throw new ForbiddenException('Manager is not assigned to a branch');
       where.destinationBranchId = user.branchId;
+    } else {
+      this.assertMainStoreAccess(user);
     }
     return this.transferRepo.find({
       where,
@@ -157,6 +168,7 @@ export class MainStoreService {
   }
 
   async createTransfer(data: any, user: AuthUser) {
+    this.assertMainStoreAccess(user);
     const restaurantId = this.restaurantId(user);
     const destinationBranchId = Number(data?.destinationBranchId);
     if (!Number.isInteger(destinationBranchId) || destinationBranchId <= 0) {

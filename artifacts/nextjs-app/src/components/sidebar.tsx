@@ -9,7 +9,7 @@ import clsx from 'clsx';
 import {
   LayoutDashboard, ShoppingCart, ChefHat, Table2, UtensilsCrossed,
   Package, Users, BarChart3, Building2, LogOut, Columns3, Send, PackageOpen, Menu, X,
-  ChevronsLeft, ClipboardList, Wine, Warehouse
+  ChevronsLeft, ClipboardList, Wine, Warehouse, ArrowDownToLine
 } from 'lucide-react';
 
 const navItems = [
@@ -22,6 +22,7 @@ const navItems = [
   { href: '/dashboard/menu', label: 'Menu', icon: UtensilsCrossed, roles: DASHBOARD_ROUTE_ROLES['/dashboard/menu'] },
   { href: '/dashboard/main-store', label: 'Main Store', icon: Warehouse, roles: DASHBOARD_ROUTE_ROLES['/dashboard/main-store'] },
   { href: '/dashboard/inventory', label: 'Branch Inventory', icon: Package, roles: DASHBOARD_ROUTE_ROLES['/dashboard/inventory'] },
+  { href: '/dashboard/inventory-transfers', label: 'Incoming Transfers', icon: ArrowDownToLine, roles: DASHBOARD_ROUTE_ROLES['/dashboard/inventory-transfers'] },
   { href: '/dashboard/item-requests', label: 'Item Requests', managerLabel: 'Item Requested', icon: PackageOpen, roles: DASHBOARD_ROUTE_ROLES['/dashboard/item-requests'] },
   { href: '/dashboard/staff', label: 'Staff', icon: Users, roles: DASHBOARD_ROUTE_ROLES['/dashboard/staff'] },
   { href: '/dashboard/branches', label: 'Branches and Restaurants', icon: Building2, roles: DASHBOARD_ROUTE_ROLES['/dashboard/branches'] },
@@ -67,7 +68,13 @@ export default function Sidebar() {
     router.replace('/login');
   };
 
-  const visible = navItems.filter((item) => user?.role && item.roles.includes(user.role));
+  const visible = navItems.filter((item) => {
+    if (!user?.role || !item.roles.includes(user.role)) return false;
+    if (item.href === '/dashboard/main-store' && user.role === 'storekeeper') {
+      return !user.branchId;
+    }
+    return true;
+  });
 
   const renderNav = (isCollapsed: boolean) => (
     <>

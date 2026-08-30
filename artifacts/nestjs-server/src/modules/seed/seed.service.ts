@@ -155,7 +155,6 @@ export class SeedService {
         name: 'Selamawit Kebede',
         email: 'storekeeper@gmail.com',
         role: Role.STOREKEEPER,
-        branchId: awetu.id,
         enforcePassword: true,
       },
       { name: 'Tadesse Wolde', email: 'owner@gmail.com', role: Role.OWNER },
