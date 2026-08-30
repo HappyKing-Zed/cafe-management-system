@@ -68,13 +68,13 @@ id = "gyZ3XoEAcATzBgdJCkoTI"
 uri = "file://exports/Jima-Documentation-Pack.pdf"
 type = "pdf"
 title = "Jima Documentation Pack"
-description = "Updated 39-page documentation pack covering the responsive mobile Orders/POS behavior, requirements, design, user guidance, handoff notes, and release checks."
+description = "Updated requirements, architecture, user manual, and handoff documentation reflecting the Branch Stock Request and Main Store workflow."
 logical_id = "fa1dccfe-8829-458d-828d-81336e62c639"
-content_hash = "sha256:138977d30d91deb41cf6423357fe7ae3923537f0ae05f3040eb07075e4604b3a"
-size = 1581806
-mtime_ms = 1787217746783
-storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/fa1dccfe-8829-458d-828d-81336e62c639/f1526dc1-c79e-4544-81e9-b688e1d4dfe0"
-storage_version_token = "1787217888055744"
+content_hash = "sha256:9f4362f2d0426b594fb90b4b7af4fd33099b4ba6687615456f871310c9576f14"
+size = 1614567
+mtime_ms = 1788115835693
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/fa1dccfe-8829-458d-828d-81336e62c639/56779c36-b316-438a-ae79-d9d37cd0ff9c"
+storage_version_token = "1788115881976701"
 content_type = "application/pdf"
 
 [[outputs]]

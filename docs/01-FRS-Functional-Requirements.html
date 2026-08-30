@@ -20,7 +20,7 @@
 <h1>Functional Requirements Specification (FRS)</h1>
 <div class="meta">
 <b>System:</b> Jima — CARAVAN Lounge Restaurant Management System<br>
-<b>Document:</b> FRS v1.2 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026<br>
+<b>Document:</b> FRS v1.3 &nbsp;·&nbsp; <b>Updated:</b> August 30, 2026<br>
 <b>Related documents:</b> SRS (02), SDD (03), User Manual (04), Handoff (05), deployment guide (06), and operational runbooks (07–12)
 </div>
 
@@ -39,7 +39,8 @@
 <tr><td>Waiter</td><td>Takes orders at tables (POS), adds items to open orders, tracks order progress.</td></tr>
 <tr><td>Chef</td><td>Works the kitchen board: accepts, prepares, and marks orders ready.</td></tr>
 <tr><td>Cashier</td><td>Collects payments, closes orders, views sales and items-purchased reports.</td></tr>
-<tr><td>Storekeeper</td><td>Manages stock levels, receives goods, handles item requests and adjustments.</td></tr>
+<tr><td>Branch Storekeeper</td><td>A storekeeper assigned to a branch; manages that branch's stock and requests stock from the restaurant's Main Store for the assigned branch.</td></tr>
+<tr><td>Main Store Storekeeper</td><td>A storekeeper assigned to a restaurant but to no branch; receives central stock and exclusively fulfills approved Branch Stock Requests.</td></tr>
 </table>
 
 <h2>3. Functional Requirements</h2>
@@ -97,7 +98,21 @@
 <tr><td class="req">FR-I02</td><td>Low-stock alerts flag items below minimum (critical when at or below half the minimum, or zero).</td></tr>
 <tr><td class="req">FR-I03</td><td>Suppliers and purchase orders are managed with status tracking.</td></tr>
 <tr><td class="req">FR-I04</td><td>Stock adjustments record additions, deductions, and waste with reasons and the acting user.</td></tr>
-<tr><td class="req">FR-I05</td><td>Staff submit item requests; managers/storekeepers approve, issue, and track them, with low-stock / expiry badges shown on request rows.</td></tr>
+<tr><td class="req">FR-I05</td><td>The existing generic Item Requests workflow remains available: staff submit requests against branch inventory; authorized users approve, reject, issue, and track them, with low-stock / expiry badges shown on request rows. It is separate from, and has not been replaced by, Branch Stock Requests.</td></tr>
+<tr><td class="req">FR-I06</td><td>Only a Branch Storekeeper (a storekeeper with a branch assignment) may create a Branch Stock Request. Its destination is always that user's assigned branch; request lines select Main Store items and positive quantities.</td></tr>
+<tr><td class="req">FR-I07</td><td>A Manager assigned to the destination branch or an Owner of the same restaurant may approve or reject a pending Branch Stock Request. A request or decision records workflow state and audit data but never changes Main Store or branch stock.</td></tr>
+<tr><td class="req">FR-I08</td><td>Only the branchless Main Store Storekeeper of the same restaurant may fulfill an approved request. Fulfillment must reject non-approved requests, missing destinations or items, and insufficient Main Store stock.</td></tr>
+<tr><td class="req">FR-I09</td><td>Fulfillment is one atomic database transaction: for every line it decrements the restaurant's Main Store item and increments the matching name-and-unit inventory item in the assigned destination branch, creating that branch item when needed. Any failure rolls back the complete transfer.</td></tr>
+<tr><td class="req">FR-I10</td><td>The Branch Stock Request audit trail records requester and request time; approver or rejector and decision time; fulfilling Main Store Storekeeper and fulfillment time; a linked Main Store stock-out movement; a linked destination-branch addition adjustment; and the Main Store and branch balances after each transferred line.</td></tr>
+<tr><td class="req">FR-I11</td><td>Main Store items, requests, decisions, fulfillment, movements, and destination inventory are isolated by restaurant. Branch Storekeepers and Managers see only requests for their assigned branch; Managers cannot decide another branch's request, and no transfer may target a branch outside the restaurant.</td></tr>
+</table>
+
+<h3>3.6.1 Branch Stock Request lifecycle</h3>
+<table>
+<tr><th>Status / action</th><th>Authorized actor</th><th>Stock effect</th></tr>
+<tr><td><code>pending</code> — request submitted</td><td>Destination Branch Storekeeper</td><td>None</td></tr>
+<tr><td><code>approved</code> or <code>rejected</code></td><td>Destination Manager or restaurant Owner</td><td>None</td></tr>
+<tr><td><code>approved → transferred</code></td><td>Branchless Main Store Storekeeper only</td><td>Atomic Main Store stock-out and destination-branch stock-in</td></tr>
 </table>
 
 <h3>3.7 Staff, Branches &amp; Tables</h3>
@@ -129,6 +144,9 @@
 <li>Only pending orders can be confirmed; only served orders can be paid.</li>
 <li>Cancelling is allowed only while an order is pending, confirmed, or preparing.</li>
 <li>Data is scoped by branch where applicable (orders, tables, staff, stock).</li>
+<li>A Branch Stock Request and its approval or rejection reserve no stock and make no inventory adjustment; actual balances change only on successful fulfillment.</li>
+<li>Branch Stock Requests are distinct from the older generic Item Requests workflow. Both workflows remain supported and must not be conflated in UI, authorization, reporting, or audit evidence.</li>
+<li>All Branch Stock Request reads and writes must enforce restaurant isolation, plus destination-branch isolation for Branch Storekeepers and Managers.</li>
 </ul>
 <h2>5. Verification Status</h2>
 <p>Functional development is active and major workflows have been exercised manually. Complete automated regression evidence for every role, branch boundary, order transition, payment, inventory operation, notification, report, and export is not yet recorded. Production release remains blocked until the verification matrix in document 12 is complete.</p>

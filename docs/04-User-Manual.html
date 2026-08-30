@@ -21,7 +21,7 @@
     </head>
     <body>
     <h1>User Manual</h1>
-    <div class="meta"><b>System:</b> Jima — CARAVAN Lounge Restaurant Management System<br><b>Version:</b> 1.1 · <b>Date:</b> August 20, 2026</div>
+    <div class="meta"><b>System:</b> Jima — CARAVAN Lounge Restaurant Management System<br><b>Version:</b> 1.2 · <b>Date:</b> August 30, 2026</div>
 
     <h2>1. Signing In</h2>
     <p>Open the app in your browser. Enter the e-mail and password given to you by your manager, then press <b>Sign In</b>. What you see after logging in depends on your role — waiters, coordinators and cashiers land directly on the Orders page; managers and owners land on the dashboard.</p>
@@ -74,23 +74,51 @@
     <figure><img src="screenshots/08-inventory.png" alt="Inventory with stock levels and alerts"><figcaption>Inventory with stock levels and alerts</figcaption></figure>
 
     <h2>9. Item Requests</h2>
-    <p>Staff request stock from the store; approvers see each request with helpful badges (low stock, expires soon, expired) and approve, reject or issue. The list updates automatically.</p>
+    <p>This is the older generic workflow for staff requests against branch inventory. Staff request stock from the store; authorized approvers see each request with helpful badges (low stock, expires soon, expired) and approve, reject or issue. The list updates automatically.</p>
+    <div class="tip"><b>Do not confuse the workflows:</b> generic <b>Item Requests</b> remain available and have not been replaced. A <b>Branch Stock Request</b> is the separate Main Store-to-branch transfer process described below.</div>
     <figure><img src="screenshots/09-item-requests.png" alt="Item request approval list"><figcaption>Item request approval list</figcaption></figure>
 
-    <h2>10. Staff (manager)</h2>
+    <h2>10. Branch Stock Requests &amp; Main Store</h2>
+    <p>A storekeeper's branch assignment determines the role in this workflow:</p>
+    <table>
+    <tr><th>User</th><th>Responsibility</th></tr>
+    <tr><td>Branch Storekeeper</td><td>Has an assigned branch. Creates requests from available Main Store items; the destination is automatically the assigned branch.</td></tr>
+    <tr><td>Destination Manager or Owner</td><td>Approves or rejects a pending request. A Manager can decide only requests for the Manager's own branch; an Owner acts only within the Owner's restaurant.</td></tr>
+    <tr><td>Main Store Storekeeper</td><td>Has no branch assignment. Receives Main Store stock and is the only user who can fulfill an approved request.</td></tr>
+    </table>
+    <h3>Requesting stock (Branch Storekeeper)</h3>
+    <ol>
+    <li>Open <b>Main Store Requests</b>, choose <b>Request Stock from Main Store</b>, and add one or more Main Store items with positive quantities.</li>
+    <li>Review the automatically assigned destination branch, add an optional note, and submit. The request becomes <b>pending</b>.</li>
+    <li>Wait for the destination Manager or restaurant Owner to approve or reject it. Submitting or deciding a request does not reserve or change any stock.</li>
+    </ol>
+    <h3>Deciding a request (destination Manager or Owner)</h3>
+    <ol>
+    <li>Open <b>Main Store Requests</b> and review the destination, requested lines, requester, and time.</li>
+    <li>Choose <b>Approve</b> or <b>Reject</b>. The decision and its actor/time are recorded. Approval does not move stock; it waits for Main Store fulfillment.</li>
+    </ol>
+    <h3>Fulfilling an approved request (Main Store Storekeeper only)</h3>
+    <ol>
+    <li>Open <b>Main Store</b> and review the approved transfer and current availability.</li>
+    <li>Choose the transfer action and confirm. The system validates every line before proceeding.</li>
+    <li>On success, one atomic operation decrements Main Store and increments the assigned destination branch. If any item is unavailable or validation fails, the whole operation rolls back—there is no partial transfer.</li>
+    </ol>
+    <p>The completed record identifies the requester, approver or rejector, and fulfilling Main Store Storekeeper with timestamps. Each transferred line records the Main Store stock-out movement, destination-branch addition adjustment, and both balances after transfer. Restaurant and branch boundaries are enforced by the backend, so users cannot route or decide requests for unauthorized locations.</p>
+
+    <h2>11. Staff (manager)</h2>
     <p>Create and manage employee accounts: name, e-mail, phone, role, branch, and active status. The header shows how many people match the current filter.</p>
     <figure><img src="screenshots/10-staff.png" alt="Staff management"><figcaption>Staff management</figcaption></figure>
 
-    <h2>11. Branches and Restaurants</h2>
+    <h2>12. Branches and Restaurants</h2>
     <p>Manage the company hierarchy: restaurants and their branches with contact details.</p>
     <figure><img src="screenshots/11-branches.png" alt="Branches and restaurants"><figcaption>Branches and restaurants</figcaption></figure>
 
-    <h2>12. Reports</h2>
+    <h2>13. Reports</h2>
     <p><b>Managers/owners/admins:</b> the Overview tab shows daily revenue, payment methods and order status; the other tabs (Order Board, Menu, Inventory, Item Requested, Staff, Branches) each offer filters and one-click <b>Export Excel</b> / <b>Export PDF</b>.</p>
     <p><b>Cashiers</b> see a simplified version with just two tabs: <b>Sales</b> (filter by payment type and date) and <b>Items Purchased</b> (filter by category and date), both exportable.</p>
     <figure><img src="screenshots/12-reports.png" alt="Reports with filters and Excel / PDF export"><figcaption>Reports with filters and Excel / PDF export</figcaption></figure>
 
-    <h2>13. Tips &amp; Troubleshooting</h2>
+    <h2>14. Tips &amp; Troubleshooting</h2>
     <table>
     <tr><th>Question</th><th>Answer</th></tr>
     <tr><td>Numbers look old?</td><td>Every live page refreshes itself every 10 seconds — no refresh button needed.</td></tr>
@@ -98,9 +126,11 @@
     <tr><td>Wrong item on an order?</td><td>While the order is pending/confirmed/preparing it can be cancelled (whole order or items) by the waiter or coordinator.</td></tr>
     <tr><td>Can't see the Place Order button on my phone?</td><td>Scroll within the cart/check-out section. The menu and cart have their own scrolling areas so payment details and the final button remain reachable.</td></tr>
     <tr><td>Export doesn't download?</td><td>Allow downloads/pop-ups for this site in your browser.</td></tr>
+    <tr><td>Approved Main Store request did not change stock?</td><td>This is expected. Approval records permission only. The branchless Main Store Storekeeper must fulfill it before either balance changes.</td></tr>
+    <tr><td>Main Store transfer failed for one item?</td><td>No line is transferred. Resolve the displayed validation or insufficient-stock error, then retry the approved request.</td></tr>
     <tr><td>Forgot password?</td><td>An admin can set a new password from the Staff page.</td></tr>
     </table>
-    <h2>14. Account and Support Safety</h2>
+    <h2>15. Account and Support Safety</h2>
     <ul>
     <li>Never share passwords in messages, screenshots, or documentation. Ask an administrator to reset access through the Staff workflow.</li>
     <li>If you can open a page but an action is denied, the backend role and branch rules are authoritative; contact a manager rather than retrying with another user's account.</li>

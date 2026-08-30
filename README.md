@@ -29,6 +29,14 @@ Use the managed workflows:
 
 Do not run a Next.js production build while its development server is running because both processes share `.next`.
 
+## Branch Stock Requests
+
+- A branch-assigned storekeeper requests Main Store stock for their own branch.
+- The destination branch manager may approve or reject requests for that branch; the restaurant owner may decide requests across the restaurant.
+- A Main Store storekeeper (a storekeeper without a branch assignment) fulfills approved requests. Request creation and approval/rejection do not change stock.
+- The lifecycle is `pending` → `approved` → `transferred`, or `pending` → `rejected`. Fulfillment atomically decreases Main Store stock, increases destination-branch stock, and writes linked movement/adjustment records with resulting balances.
+- All items, requests, decisions, and fulfillment are restricted to the authenticated user's restaurant; branch users see and act only within their assigned branch.
+
 ## Documentation
 
 1. `docs/01-FRS-Functional-Requirements.html`

@@ -127,7 +127,7 @@ export default function MainStoreRequestsPage() {
 
   const decide = async (id: number, decision: 'approve' | 'reject') => {
     const prompt = decision === 'approve'
-      ? 'Approve this request? The Main Storekeeper will execute it to transfer stock.'
+      ? 'Approve this request? Approval does not change stock. Only the branchless Main Store Storekeeper can fulfill it.'
       : 'Reject this request?';
     if (!window.confirm(prompt)) return;
     setBusyId(id);
@@ -155,7 +155,7 @@ export default function MainStoreRequestsPage() {
           <div>
             <h1 className="text-2xl font-bold text-teal-950">Main Store Requests</h1>
             <p className="text-sm text-teal-800/70">
-              {canApprove ? "Review and approve branch stock requests." : "Request stock from the central main store."}
+              Branch requests and Manager/Owner decisions do not change stock. Only the branchless Main Store Storekeeper fulfills approved requests, updating Main Store and destination branch stock together and recording post-transfer balances in the audit history.
             </p>
           </div>
         </div>
@@ -269,13 +269,13 @@ export default function MainStoreRequestsPage() {
 
                     {isPending && !canApprove && (
                       <div className="text-xs text-coffee-400 text-center bg-cream-50 py-2 rounded-lg border border-cream-100 flex items-center justify-center gap-2">
-                        Waiting for Manager/Owner approval
+                        Waiting for Manager/Owner decision. Stock remains unchanged.
                       </div>
                     )}
 
                     {!isPending && (
                       <div className="text-xs text-coffee-400 text-center bg-cream-50 py-2 rounded-lg border border-cream-100">
-                        Approved. Waiting for Main Storekeeper to execute transfer.
+                        Approved; stock is unchanged. Waiting for the branchless Main Store Storekeeper to fulfill the request.
                       </div>
                     )}
                   </article>
@@ -295,7 +295,7 @@ export default function MainStoreRequestsPage() {
                       <th className="table-header">Branch</th>
                       <th className="table-header">Items</th>
                       <th className="table-header">Status</th>
-                      <th className="table-header">Details</th>
+                      <th className="table-header">Audit Details</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-cream-100">
@@ -315,7 +315,7 @@ export default function MainStoreRequestsPage() {
                               <div key={line.id}>
                                 {line.name}
                                 {transfer.status === 'transferred' && line.branchBalanceAfter != null
-                                  ? ` · branch available ${Number(line.branchBalanceAfter)} ${line.unit}`
+                                  ? ` · post-transfer branch balance ${Number(line.branchBalanceAfter)} ${line.unit}`
                                   : ''}
                               </div>
                             ))}

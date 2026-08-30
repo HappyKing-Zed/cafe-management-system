@@ -126,7 +126,7 @@ export default function MainStorePage() {
   };
 
   const handleExecuteTransfer = async (id: number) => {
-    if (!window.confirm("This will atomically stock out the Main Store and stock in the destination branch. Proceed?")) return;
+    if (!window.confirm("Fulfill this approved request? Main Store and destination branch stock will update together, and post-transfer balances will be recorded in the audit history.")) return;
     setBusyId(id);
     try {
       await transferMainStoreTransfer(id);
@@ -155,7 +155,7 @@ export default function MainStorePage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-teal-950">Main Store</h1>
-            <p className="text-sm text-teal-800/70">Manage central stock, receive bulk supplies, and dispatch requested items.</p>
+            <p className="text-sm text-teal-800/70">Branch requests and Manager/Owner decisions do not change stock. Only the branchless Main Store Storekeeper fulfills approved requests, updating Main Store and destination branch stock together and recording post-transfer balances in the audit history.</p>
           </div>
         </div>
 
@@ -342,12 +342,12 @@ export default function MainStorePage() {
                           )}
                           {isApproved && isOwner && (
                             <div className="text-xs text-coffee-400 text-center bg-cream-50 py-2 rounded-lg border border-cream-100">
-                              Waiting for Main Storekeeper to execute transfer.
+                              Approved; stock is unchanged. Waiting for the branchless Main Store Storekeeper to fulfill the request.
                             </div>
                           )}
                           {!isApproved && (
                             <div className="text-xs text-coffee-400 text-center flex items-center justify-center gap-2 bg-cream-50 py-2 rounded-lg border border-cream-100">
-                              <Clock size={14} /> Waiting for Manager/Owner approval.
+                              <Clock size={14} /> Waiting for Manager/Owner decision. Stock remains unchanged.
                             </div>
                           )}
                         </div>
@@ -370,7 +370,7 @@ export default function MainStorePage() {
                           <th className="table-header">Destination</th>
                           <th className="table-header">Items</th>
                           <th className="table-header">Status</th>
-                          <th className="table-header">Details</th>
+                          <th className="table-header">Audit Details</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-cream-100">
@@ -401,7 +401,7 @@ export default function MainStorePage() {
                                     <div key={line.id}>
                                       {line.name}
                                       {t.status === 'transferred' && line.mainStoreBalanceAfter != null && line.branchBalanceAfter != null
-                                        ? ` · main ${Number(line.mainStoreBalanceAfter)}, branch ${Number(line.branchBalanceAfter)} ${line.unit}`
+                                        ? ` · post-transfer balances: Main Store ${Number(line.mainStoreBalanceAfter)}, branch ${Number(line.branchBalanceAfter)} ${line.unit}`
                                         : ''}
                                     </div>
                                   ))}

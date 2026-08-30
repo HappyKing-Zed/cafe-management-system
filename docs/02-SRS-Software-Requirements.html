@@ -20,7 +20,7 @@
 <h1>Software Requirements Specification (SRS)</h1>
 <div class="meta">
 <b>System:</b> Jima — CARAVAN Lounge Restaurant Management System<br>
-<b>Document:</b> SRS v1.2 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026<br>
+<b>Document:</b> SRS v1.3 &nbsp;·&nbsp; <b>Updated:</b> August 30, 2026<br>
 <b>Standard:</b> Structured after IEEE 830
 </div>
 
@@ -35,7 +35,9 @@
 <tr><td>POS</td><td>Point of Sale — the screen waiters use to compose orders.</td></tr>
 <tr><td>Order Board</td><td>Live kanban-style view of order progress.</td></tr>
 <tr><td>JWT</td><td>JSON Web Token used for stateless authentication.</td></tr>
-<tr><td>Item Request</td><td>An internal request for stock items from the store.</td></tr>
+<tr><td>Item Request</td><td>The older generic request against branch inventory, with its own approval/issue lifecycle.</td></tr>
+<tr><td>Branch Stock Request</td><td>A separate request by a Branch Storekeeper for Main Store stock to be transferred to that storekeeper's assigned destination branch.</td></tr>
+<tr><td>Main Store Storekeeper</td><td>A storekeeper assigned to a restaurant but with no branch assignment; the only actor permitted to fulfill an approved Branch Stock Request.</td></tr>
 </table>
 
 <h2>2. Overall Description</h2>
@@ -68,10 +70,21 @@
 <tr><td>Kitchen</td><td>Chef queues, accept/preparing/ready, live progress board with delay flags</td></tr>
 <tr><td>Payments</td><td>Cash/card/wallet payment capture, change, daily report, shifts</td></tr>
 <tr><td>Menu</td><td>Categories and items with availability</td></tr>
-<tr><td>Inventory</td><td>Stock, low-stock alerts, suppliers, purchase orders, adjustments, item requests</td></tr>
+<tr><td>Inventory</td><td>Branch stock, central Main Store stock, low-stock alerts, suppliers, purchase orders, adjustments, generic Item Requests, and the separate Branch Stock Request / Main Store transfer workflow</td></tr>
 <tr><td>Admin</td><td>Staff, restaurants, branches, tables</td></tr>
 <tr><td>Analytics</td><td>Manager/owner one-page dashboard, exportable reports (Excel/PDF), cashier-scoped reports</td></tr>
 <tr><td>Notifications</td><td>Role/user-targeted messages with read tracking</td></tr>
+</table>
+
+<h3>3.1 Branch Stock Request / Main Store requirements</h3>
+<table>
+<tr><th>Stage</th><th>Required behavior</th></tr>
+<tr><td>Request</td><td>Only a storekeeper with a branch assignment may request positive quantities of Main Store items. The destination is derived from the requester's assigned branch, and both items and destination must belong to the requester's restaurant. Creation records the requester and creation timestamp but does not reserve, decrement, or increment stock.</td></tr>
+<tr><td>Decision</td><td>Only the destination branch's Manager or an Owner in the same restaurant may approve or reject a pending request. The system records the approver and approval time or rejector and rejection time. Neither decision changes stock.</td></tr>
+<tr><td>Fulfillment</td><td>Only a branchless Main Store Storekeeper in the same restaurant may fulfill an approved request. In one transaction, the system locks and validates the request, destination, lines, and Main Store quantities; decrements Main Store; and increments or creates the matching name-and-unit inventory item in the assigned destination branch. Any error rolls back every line.</td></tr>
+<tr><td>Audit</td><td>Each fulfilled line links a Main Store stock-out movement and destination-branch addition adjustment to the transfer, records the fulfilling actor, and preserves both post-transfer balances. The request also records requester, decision actor, fulfillment actor, and corresponding timestamps.</td></tr>
+<tr><td>Isolation</td><td>Every operation is restaurant-scoped. Branch Storekeepers and Managers may list only their assigned destination branch's transfers; a Manager cannot decide another branch's request; fulfillment cannot use another restaurant's Main Store item or destination branch.</td></tr>
+<tr><td>Separation</td><td>The older generic Item Requests workflow remains a separate supported workflow. Branch Stock Requests do not replace it and must use distinct lifecycle, permissions, records, and stock effects.</td></tr>
 </table>
 
 <h2>4. Non-Functional Requirements</h2>
@@ -84,14 +97,16 @@
 <tr><td class="req">NFR-05</td><td>Reliability</td><td>Backend failures surface explicit errors; the frontend degrades gracefully (empty states, retry on next poll).</td></tr>
 <tr><td class="req">NFR-06</td><td>Maintainability</td><td>TypeScript end-to-end; modular NestJS feature modules; monorepo with shared conventions; <code>tsc --noEmit</code> must pass.</td></tr>
 <tr><td class="req">NFR-07</td><td>Portability</td><td>Runs anywhere Node 18+ and PostgreSQL are available; deployable to Replit, Vercel (frontend) + managed Node host (backend), or a single VM.</td></tr>
-<tr><td class="req">NFR-08</td><td>Auditability</td><td>Stock adjustments and item requests record acting users and timestamps.</td></tr>
+<tr><td class="req">NFR-08</td><td>Auditability</td><td>Stock adjustments and requests record acting users and timestamps. Branch Stock Request evidence additionally links request, decision, fulfillment, Main Store movement, branch adjustment, and per-line post-transfer balances.</td></tr>
+<tr><td class="req">NFR-09</td><td>Transactional integrity</td><td>A Branch Stock Request fulfillment is all-or-nothing across all lines and both stock locations; partial transfers are forbidden.</td></tr>
+<tr><td class="req">NFR-10</td><td>Tenant isolation</td><td>Backend authorization and queries enforce restaurant isolation and, for destination Branch Storekeepers and Managers, assigned-branch isolation. Client-side navigation is not an authorization boundary.</td></tr>
 </table>
 
 <h2>5. External Interface Requirements</h2>
 <h3>5.1 User Interface</h3>
 <p>Single-page-app feel with a persistent left sidebar (role-filtered), light gray theme with brand-orange accents (#E8832A), and modal dialogs for POS, payment, order detail, and confirmations. On phones, the Orders/POS workspace stacks the menu above the cart and keeps checkout controls scrollable and reachable.</p>
 <h3>5.2 API Interface</h3>
-<p>REST over HTTPS with JSON bodies. The browser-facing path is <code>/backend/api</code>; the backend's direct prefix is <code>/api</code>. Interactive Swagger documentation exists at backend path <code>/api/docs</code> and must be restricted or disabled in production. Main resource groups are <code>/auth, /users, /restaurants, /branches, /menus, /tables, /orders, /kitchen, /payments, /inventory, /notifications, /summary, /seed</code>.</p>
+<p>REST over HTTPS with JSON bodies. The browser-facing path is <code>/backend/api</code>; the backend's direct prefix is <code>/api</code>. Interactive Swagger documentation exists at backend path <code>/api/docs</code> and must be restricted or disabled in production. Main resource groups are <code>/auth, /users, /restaurants, /branches, /menus, /tables, /orders, /kitchen, /payments, /inventory, /notifications, /summary, /seed</code>. Branch Stock Request operations are exposed beneath <code>/inventory/main-store/transfers</code>; generic Item Requests remain beneath <code>/inventory/requests</code>.</p>
 <h3>5.3 Database Interface</h3>
 <p>PostgreSQL via TypeORM repositories; connection string in <code>DATABASE_URL</code>; SSL honored when <code>sslmode=require</code> is present.</p>
 
@@ -100,6 +115,7 @@
 <li>A single restaurant company operates the system; multiple branches are supported.</li>
 <li>Kitchen staff record stock deductions/waste for profitability estimates to be accurate.</li>
 <li>Exports (Excel/PDF) are generated client-side (xlsx, jsPDF) and require a modern browser.</li>
+<li>A Main Store Storekeeper account has a restaurant assignment and no branch assignment; assigning a branch changes that user's operational identity to Branch Storekeeper.</li>
 </ul>
 <h2>7. Acceptance and Production Evidence</h2>
 <p>Architecture assessment is complete, but repository evidence for the full safe-refactoring, separation, automated-regression, security-hardening, migration, backup/restore, and production-verification stages is incomplete. Requirements marked in this SRS are acceptance targets, not automatic claims of production readiness. Refer to document 12 for current READY / NEEDS ATTENTION / BLOCKED status.</p>

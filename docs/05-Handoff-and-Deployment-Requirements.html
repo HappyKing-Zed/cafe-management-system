@@ -21,7 +21,7 @@
 <h1>Project Handoff &amp; Deployment Requirements</h1>
 <div class="meta">
 <b>System:</b> Jima — CARAVAN Lounge Restaurant Management System<br>
-<b>Document:</b> Handoff v1.2 &nbsp;·&nbsp; <b>Updated:</b> August 20, 2026
+<b>Document:</b> Handoff v1.3 &nbsp;·&nbsp; <b>Updated:</b> August 30, 2026
 </div>
 
 <h2>1. Repository Layout</h2>
@@ -37,7 +37,7 @@ workspace/ (pnpm monorepo)
 │   │   └── public/        # Static assets (login-bg.jpg, ...)
 │   ├── nestjs-server/     # Authoritative restaurant API — NestJS 10
 │       └── src/&lt;module&gt;/  # auth, users, orders, kitchen, payments,
-│                          # menus, tables, inventory, branches,
+│                          # menus, tables, inventory, main-store, branches,
 │                          # restaurants, notifications, seed
 │   └── api-server/        # Separate minimal artifact; not the restaurant API
 ├── docs/                  # This documentation set + screenshots
@@ -92,6 +92,12 @@ pnpm --filter @workspace/nextjs-app run dev
 <tr><td>☐</td><td>Restrict or disable Swagger and seed operations in production.</td></tr>
 <tr><td>☐</td><td>Resolve high security-scan findings or record a reviewed risk acceptance.</td></tr>
 <tr><td>☐</td><td>Run automated role, branch, order, payment, inventory, report, notification, and export checks.</td></tr>
+<tr><td>☐</td><td>Verify Branch Storekeeper and branchless Main Store Storekeeper permissions separately: only the former requests for its assigned branch and only the latter fulfills.</td></tr>
+<tr><td>☐</td><td>Verify only the destination Manager or same-restaurant Owner can approve/reject, and that request submission, approval, and rejection leave both stock balances unchanged.</td></tr>
+<tr><td>☐</td><td>Verify fulfillment is atomic across every line: Main Store decrements, assigned destination branch increments, and any validation or insufficient-stock failure rolls back all writes.</td></tr>
+<tr><td>☐</td><td>Verify transfer audit evidence: requester/decision/fulfillment actors and timestamps, linked Main Store stock-out movement, linked branch addition adjustment, and both post-transfer balances.</td></tr>
+<tr><td>☐</td><td>Test cross-restaurant and cross-branch denial on transfer listing, request items/destination, decisions, and fulfillment.</td></tr>
+<tr><td>☐</td><td>Regression-test the older generic Item Requests workflow independently; it remains supported and is not replaced by Branch Stock Requests.</td></tr>
 <tr><td>☐</td><td>Verify the Orders/POS flow at 320 px and 390 px mobile viewports: menu/cart stack cleanly, checkout controls do not overlap, and the final action remains reachable.</td></tr>
 <tr><td>☐</td><td>Set up log retention / error alerting on both services.</td></tr>
 <tr><td>☐</td><td>Create real staff accounts with strong passwords; deactivate demo users.</td></tr>
@@ -107,6 +113,11 @@ pnpm --filter @workspace/nextjs-app run dev
 <li><b>Role logic:</b> sidebar visibility lives in <code>src/components/sidebar.tsx</code>; per-page role behavior is in each page component; backend guards are authoritative.</li>
 <li><b>Mobile POS:</b> the order form changes from two columns to a vertical menu-and-cart layout on phones. Preserve the separate menu/cart scrolling areas and single-column cart fields when changing the POS.</li>
 <li><b>Profitability math:</b> food cost is estimated from stock deduction/waste movements × unit cost; accuracy depends on the store team recording usage.</li>
+<li><b>Storekeeper identity:</b> role alone is insufficient. A storekeeper with <code>branchId</code> is a Branch Storekeeper; one with a restaurant but no <code>branchId</code> is the Main Store Storekeeper. Preserve this distinction in account provisioning and authorization tests.</li>
+<li><b>Branch Stock Request lifecycle:</b> Branch Storekeeper request → destination Manager or same-restaurant Owner approval/rejection → branchless Main Store Storekeeper fulfillment. Requests and decisions never change stock.</li>
+<li><b>Transfer transaction:</b> fulfillment validates and locks the restaurant-scoped transfer, branch, lines, and Main Store items, then atomically writes Main Store decrements, destination-branch increments, linked movements/adjustments, post-transfer balances, fulfilling actor/time, and <code>transferred</code> status. Never split this transaction.</li>
+<li><b>Isolation:</b> preserve restaurant predicates on all Main Store data and destination-branch predicates for Branch Storekeeper/Manager transfer views and decisions. Frontend route visibility is not the security boundary.</li>
+<li><b>Workflow separation:</b> <code>/inventory/requests</code> is the older generic Item Requests workflow; <code>/inventory/main-store/transfers</code> is Branch Stock Requests. Neither replaces the other.</li>
 <li><b>API reference:</b> Swagger UI is served by the backend at <code>/api/docs</code>.</li>
 </ul>
 

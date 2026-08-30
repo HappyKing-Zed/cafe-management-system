@@ -32,6 +32,14 @@ A full-stack Ethiopian cafe and restaurant management system with role-based acc
 
 Supported roles are admin, owner, manager, coordinator, waiter, chef, cashier, and storekeeper. Do not publish passwords or reusable credentials in documentation. Provision and rotate production credentials through a controlled administrative process.
 
+### Branch Stock Request / Main Store boundaries
+
+- **Branch storekeeper** (storekeeper with a branch): browses requestable Main Store items, submits requests only for the assigned branch, and sees that branch's requests.
+- **Branch manager**: sees and approves or rejects only requests whose destination is the assigned branch.
+- **Owner**: sees and decides requests across the authenticated restaurant.
+- **Main Store storekeeper** (storekeeper without a branch): manages Main Store stock and fulfills approved requests, but cannot submit a branch request or approve/reject one.
+- Requests progress `pending` → `approved` → `transferred`, or `pending` → `rejected`. Creating or deciding a request never mutates stock. Fulfillment is one database transaction that debits Main Store stock, credits destination-branch stock, and records linked audit movements and post-operation balances.
+
 ## Seed Data
 
 Development seed data can populate Ethiopian sample data:
@@ -52,6 +60,7 @@ Development seed data can populate Ethiopian sample data:
 
 - Next.js rewrites browser path `/backend/api/*` to backend path `/api/*`.
 - NestJS owns business rules, authorization, validation, and all PostgreSQL access.
+- Main Store requests are restaurant-scoped, with destination-branch checks for branch users; only fulfillment moves stock, and all transfer lines and audit/balance records commit or roll back together.
 - TypeORM `synchronize:true` is currently enabled and is a production blocker until migrations and rollback procedures are verified.
 - JWT is currently stored in localStorage and injected by the Axios interceptor; treat XSS prevention as a critical security boundary.
 - Role-based sidebar rendering (different nav items per role)

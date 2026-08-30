@@ -63,6 +63,29 @@ Do not change the browser base to `/api`. That path belongs to a separate regist
 - Transactional integrity
 - Migration history
 
+## Branch Stock Request / Main Store workflow
+
+The workflow separates requesting, deciding, and physically moving stock:
+
+| Actor | Scope | Allowed workflow actions |
+|---|---|---|
+| Branch storekeeper (branch assigned) | Own restaurant and assigned destination branch | Browse requestable Main Store items, create a request, view branch requests |
+| Manager | Own restaurant and assigned branch | View and approve or reject pending requests for that destination branch |
+| Owner | Own restaurant | View and approve or reject requests across restaurant branches |
+| Main Store storekeeper (no branch assigned) | Own restaurant Main Store | View Main Store data and fulfill approved requests |
+
+The status paths are `pending` → `approved` → `transferred` and `pending` → `rejected`. A request captures its destination, requester, requested lines, and item metadata. Creating, approving, or rejecting it does **not** reserve, debit, or credit stock.
+
+Fulfillment is the stock boundary. NestJS locks and validates the approved transfer, destination branch, Main Store items, and available quantities inside one database transaction. It then:
+
+1. decreases each Main Store item balance;
+2. increases the matching destination-branch inventory item balance, creating that branch item when needed;
+3. stores Main Store and branch balances after each transfer line;
+4. writes a linked Main Store `STOCK_OUT` movement and branch stock-addition adjustment for each line; and
+5. records the fulfilling actor/time and changes the status to `transferred`.
+
+Every lookup and mutation is restaurant-scoped. Managers and branch storekeepers are additionally constrained to their assigned branch. If any line, balance check, destination, or write fails, the entire fulfillment rolls back; partial stock movement or partial audit history must not persist.
+
 ## Architectural risks
 
 - The frontend API facade is centralized but broad.
