@@ -133,7 +133,13 @@ export class SeedService {
       ensureBranch('Agaro Branch', 'Agaro, Jimma, Ethiopia'),
     ]);
     const password = await bcrypt.hash(REQUIRED_ACCOUNT_PASSWORD, 10);
-    const accounts: Array<{ name: string; email: string; role: Role; branchId?: number }> = [
+    const accounts: Array<{
+      name: string;
+      email: string;
+      role: Role;
+      branchId?: number;
+      enforcePassword?: boolean;
+    }> = [
       { name: 'Abebe Kebede', email: 'admin1@gmail.com', role: Role.ADMIN },
       { name: 'Selamawit Tesfaye', email: 'waiter1_awetu_branch@gmail.com', role: Role.WAITER, branchId: awetu.id },
       { name: 'Mikiya Alemu', email: 'waiter2_awetu_branch@gmail.com', role: Role.WAITER, branchId: awetu.id },
@@ -145,14 +151,33 @@ export class SeedService {
       { name: 'Genet Haile', email: 'chef_agaro_branch@gmail.com', role: Role.CHEF, branchId: agaro.id },
       { name: 'Getachew Ayele', email: 'manager_awetu_branch@gmail.com', role: Role.MANAGER, branchId: awetu.id },
       { name: 'Tigist Assefa', email: 'manager_agaro_branch@gmail.com', role: Role.MANAGER, branchId: agaro.id },
+      {
+        name: 'Selamawit Kebede',
+        email: 'storekeeper@gmail.com',
+        role: Role.STOREKEEPER,
+        branchId: awetu.id,
+        enforcePassword: true,
+      },
       { name: 'Tadesse Wolde', email: 'owner@gmail.com', role: Role.OWNER },
     ];
 
     await Promise.all(accounts.map(async account => {
       const existing = await this.userRepo.findOne({ where: { email: account.email } });
-      if (existing) return existing;
+      if (existing) {
+        if (account.enforcePassword) {
+          existing.password = password;
+          existing.name = account.name;
+          existing.role = account.role;
+          existing.branchId = account.branchId ?? null;
+          existing.restaurantId = restaurant!.id;
+          existing.isActive = true;
+          return this.userRepo.save(existing);
+        }
+        return existing;
+      }
+      const { enforcePassword: _enforcePassword, ...userAccount } = account;
       return this.userRepo.save(this.userRepo.create({
-        ...account,
+        ...userAccount,
         password,
         isActive: true,
         restaurantId: restaurant!.id,
