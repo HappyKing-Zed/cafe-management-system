@@ -42,12 +42,12 @@ export default function LoginPage() {
         <div className="hidden lg:flex flex-col justify-between w-[55%] xl:w-[60%] relative overflow-hidden bg-stone-950">
           {/* Background Image Anchor */}
           <div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 mix-blend-luminosity transform scale-105 transition-transform duration-[20s] ease-out hover:scale-100"
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-80 transform scale-105 transition-transform duration-[20s] ease-out hover:scale-100"
             style={{ backgroundImage: 'url(/login-bg.jpg)' }}
           />
           {/* Gradients for text readability and mood */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1A100C]/95 via-[#1A100C]/75 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#1A100C] via-[#1A100C]/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1A100C]/80 via-[#1A100C]/45 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#1A100C]/90 via-[#1A100C]/35 to-transparent" />
 
           {/* Top Logo / Brand */}
           <div className="relative z-10 px-16 xl:px-24 pt-20">
