@@ -90,3 +90,31 @@ mtime_ms = 1787217729233
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/f36e3307-bb7d-4fc6-9adc-fb28c2f4d2d1/54b3afac-5b95-4df9-8274-d8360bd5d063"
 storage_version_token = "1787217888623306"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "gzyWs7geE9Oy7cOK6secA"
+uri = "file://exports/Jima-Comprehensive-Test-Cases.xlsx"
+type = "table"
+title = "Jima Comprehensive Test Cases"
+description = "Tester-ready Excel workbook with 238 planned cases across 27 modules, execution tracking, traceability, defects, UAT, and release gates."
+logical_id = "de925366-3073-4978-a7fc-170323f8fd7a"
+content_hash = "sha256:93024f19950f86e23216dcc381d4d00c701a7b2a0b61edaa6b78fb6926347c12"
+size = 87841
+mtime_ms = 1788116932713
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/de925366-3073-4978-a7fc-170323f8fd7a/cade8011-0bf5-4de3-9b3b-851abe3921fc"
+storage_version_token = "1788116947258677"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+[[outputs]]
+id = "dPPEn4HKFISGi5yBkQTlK"
+uri = "file://exports/pdf/13-Comprehensive-System-Test-Plan.pdf"
+type = "pdf"
+title = "Jima Comprehensive System Test Plan"
+description = "Printable master QA plan covering scope, environments, execution cycles, evidence, security, performance, recovery, and deployment sign-off."
+logical_id = "f7295618-6427-4db5-ad42-689c36309740"
+content_hash = "sha256:99d955a6679d45ed9bb4b5ecfee5f8c459e218ac7b593cc860bac5eb27edd1b6"
+size = 100835
+mtime_ms = 1788116877082
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/f7295618-6427-4db5-ad42-689c36309740/78d3d650-a8e0-4704-94a6-539219315437"
+storage_version_token = "1788116947811626"
+content_type = "application/pdf"
