@@ -16,6 +16,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SummaryModule } from './modules/summary/summary.module';
+import { MainStoreModule } from './modules/main-store/main-store.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { SummaryModule } from './modules/summary/summary.module';
     PaymentsModule,
     SummaryModule,
     InventoryModule,
+    MainStoreModule,
     SeedModule,
     NotificationsModule,
   ],

@@ -33,3 +33,12 @@ export const updateItemRequestStatus = (id: number, status: string, quantity?: n
     quantity !== undefined ? { status, quantity } : { status },
   );
 export const getRequestableItems = () => api.get('/inventory/requestable-items');
+
+// Main Store
+export const getMainStoreItems = () => api.get('/inventory/main-store/items');
+export const getMainStoreDestinations = () => api.get('/inventory/main-store/destinations');
+export const createMainStoreReceipt = (data: any) => api.post('/inventory/main-store/receipts', data);
+export const getMainStoreTransfers = () => api.get('/inventory/main-store/transfers');
+export const createMainStoreTransfer = (data: any) => api.post('/inventory/main-store/transfers', data);
+export const approveMainStoreTransfer = (id: number) => api.patch(`/inventory/main-store/transfers/${id}/approve`);
+export const rejectMainStoreTransfer = (id: number) => api.patch(`/inventory/main-store/transfers/${id}/reject`);

@@ -16,6 +16,11 @@ import { StockAdjustment } from '../entities/stock-adjustment.entity';
 import { Supplier } from '../entities/supplier.entity';
 import { RestaurantTable } from '../entities/table.entity';
 import { User } from '../entities/user.entity';
+import { MainStoreItem } from '../entities/main-store-item.entity';
+import { MainStoreReceipt } from '../entities/main-store-receipt.entity';
+import { MainStoreReceiptLine } from '../entities/main-store-receipt-line.entity';
+import { MainStoreTransfer } from '../entities/main-store-transfer.entity';
+import { MainStoreTransferLine } from '../entities/main-store-transfer-line.entity';
 
 export const DATABASE_ENTITIES = [
   User,
@@ -36,4 +41,9 @@ export const DATABASE_ENTITIES = [
   ItemRequest,
   Notification,
   ServiceSubmission,
+  MainStoreItem,
+  MainStoreReceipt,
+  MainStoreReceiptLine,
+  MainStoreTransfer,
+  MainStoreTransferLine,
 ];

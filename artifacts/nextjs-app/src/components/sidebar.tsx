@@ -9,7 +9,7 @@ import clsx from 'clsx';
 import {
   LayoutDashboard, ShoppingCart, ChefHat, Table2, UtensilsCrossed,
   Package, Users, BarChart3, Building2, LogOut, Columns3, Send, PackageOpen, Menu, X,
-  ChevronsLeft, ClipboardList, Wine
+  ChevronsLeft, ClipboardList, Wine, Warehouse
 } from 'lucide-react';
 
 const navItems = [
@@ -20,7 +20,8 @@ const navItems = [
   { href: '/dashboard/kitchen', label: 'Kitchen Board', icon: ChefHat, roles: DASHBOARD_ROUTE_ROLES['/dashboard/kitchen'] },
   { href: '/dashboard/tables', label: 'Tables', icon: Table2, roles: DASHBOARD_ROUTE_ROLES['/dashboard/tables'] },
   { href: '/dashboard/menu', label: 'Menu', icon: UtensilsCrossed, roles: DASHBOARD_ROUTE_ROLES['/dashboard/menu'] },
-  { href: '/dashboard/inventory', label: 'Inventory', icon: Package, roles: DASHBOARD_ROUTE_ROLES['/dashboard/inventory'] },
+  { href: '/dashboard/main-store', label: 'Main Store', icon: Warehouse, roles: DASHBOARD_ROUTE_ROLES['/dashboard/main-store'] },
+  { href: '/dashboard/inventory', label: 'Branch Inventory', icon: Package, roles: DASHBOARD_ROUTE_ROLES['/dashboard/inventory'] },
   { href: '/dashboard/item-requests', label: 'Item Requests', managerLabel: 'Item Requested', icon: PackageOpen, roles: DASHBOARD_ROUTE_ROLES['/dashboard/item-requests'] },
   { href: '/dashboard/staff', label: 'Staff', icon: Users, roles: DASHBOARD_ROUTE_ROLES['/dashboard/staff'] },
   { href: '/dashboard/branches', label: 'Branches and Restaurants', icon: Building2, roles: DASHBOARD_ROUTE_ROLES['/dashboard/branches'] },

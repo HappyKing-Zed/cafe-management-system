@@ -8,6 +8,7 @@ export const DASHBOARD_ROUTE_ROLES: Record<string, readonly Role[]> = {
   '/dashboard/tables': ['admin', 'owner', 'manager', 'coordinator', 'waiter'],
   '/dashboard/menu': ['admin', 'owner', 'manager'],
   '/dashboard/inventory': ['admin', 'owner', 'manager', 'storekeeper', 'cashier'],
+  '/dashboard/main-store': ['admin', 'owner', 'manager', 'storekeeper'],
   '/dashboard/item-requests': ['admin', 'owner', 'manager', 'coordinator'],
   '/dashboard/staff': ['admin', 'owner', 'manager'],
   '/dashboard/branches': ['admin', 'owner', 'manager'],
