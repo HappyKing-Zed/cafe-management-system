@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Machine Deployment Guide — Jima — CARAVAN Lounge</title>
+<style>
+  :root{--ink:#243333;--muted:#60706d;--brand:#d87924;--gold:#d4aa64;--paper:#fffdf9;--soft:#f8efe2;--line:#dfc8aa;--red:#9b2c2c;--redbg:#fff2f0;--blue:#245d73;--bluebg:#eef8fb;--green:#286345;--greenbg:#eef8f1}
+  @page{size:A4;margin:17mm 15mm 18mm;@bottom-center{content:"Jima — Local Machine Deployment Guide  |  " counter(page) " / " counter(pages);font:9px Arial;color:#667}}
+  *{box-sizing:border-box}
+  html{background:#eee}
+  body{font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:var(--paper);max-width:980px;margin:0 auto;padding:46px 54px;line-height:1.48;font-size:14px}
+  h1,h2,h3,h4{font-family:Georgia,"Times New Roman",serif;color:#183434;page-break-after:avoid}
+  h1{font-size:33px;line-height:1.15;margin:0 0 10px;border-bottom:4px solid var(--brand);padding-bottom:14px}
+  h2{font-size:22px;margin:34px 0 12px;border-bottom:2px solid var(--gold);padding-bottom:5px}
+  h3{font-size:17px;margin:23px 0 8px;color:#31504e}
+  h4{font-size:15px;margin:17px 0 6px}
+  p{margin:7px 0 10px}
+  a{color:#245d73;text-decoration:none}
+  ul,ol{margin:7px 0 12px;padding-left:24px}
+  li{margin:3px 0}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin:10px 0 16px;page-break-inside:auto}
+  tr{page-break-inside:avoid}
+  th{background:#efe0ca;color:#263d3b;text-align:left}
+  th,td{border:1px solid var(--line);padding:7px 8px;vertical-align:top}
+  code{font-family:"DejaVu Sans Mono",Consolas,monospace;background:#f3eadf;padding:1px 4px;border-radius:3px;font-size:.92em}
+  pre{font-family:"DejaVu Sans Mono",Consolas,monospace;background:#172827;color:#eef6f2;border-left:5px solid var(--brand);padding:11px 13px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11.2px;line-height:1.45;margin:8px 0 14px;page-break-inside:avoid}
+  pre .comment{color:#acd0c2}
+  .meta{background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin:14px 0 20px;display:grid;grid-template-columns:1fr 1fr;gap:6px 22px}
+  .warning,.note,.safe{padding:12px 15px;margin:13px 0;border-radius:6px;page-break-inside:avoid}
+  .warning{border:2px solid #c9584d;background:var(--redbg);color:#652020}
+  .note{border-left:5px solid var(--blue);background:var(--bluebg)}
+  .safe{border-left:5px solid var(--green);background:var(--greenbg)}
+  .label{font-weight:bold;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+  .diagram{border:1px solid var(--line);background:#fff;border-radius:8px;padding:13px;margin:12px 0 16px;page-break-inside:avoid}
+  .flow{display:flex;align-items:stretch;justify-content:center;gap:6px;flex-wrap:wrap}
+  .box{border:2px solid #74928b;background:#f4faf7;border-radius:7px;padding:9px 8px;text-align:center;min-width:112px;flex:1}
+  .box strong{display:block;color:#173d39}
+  .arrow{align-self:center;color:var(--brand);font-size:22px;font-weight:bold}
+  .caption{text-align:center;color:var(--muted);font-size:11px;margin-top:8px}
+  .steps{counter-reset:item}
+  .step{border-left:4px solid var(--gold);padding:3px 0 5px 14px;margin:13px 0;page-break-inside:avoid}
+  .step h3{margin:0 0 5px}
+  .checklist{list-style:none;padding-left:0}
+  .checklist li{padding-left:22px;position:relative;margin:5px 0}
+  .checklist li:before{content:"☐";position:absolute;left:0;color:var(--brand);font-weight:bold}
+  .small{font-size:11.5px;color:var(--muted)}
+  .toc{columns:2;column-gap:32px;background:#fff;border:1px solid var(--line);padding:13px 20px}
+  .toc li{break-inside:avoid}
+  .pagebreak{page-break-before:always}
+  .keep{page-break-inside:avoid}
+  @media print{html,body{background:#fff}body{max-width:none;margin:0;padding:0}.toc a{color:inherit}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Local Machine Deployment Guide</h1>
+  <p style="font-size:20px;margin:0;color:#53615e"><strong>Jima — CARAVAN Lounge</strong></p>
+  <div class="meta">
+    <div><strong>Version:</strong> 1.0</div><div><strong>Updated:</strong> August 31, 2026</div>
+    <div><strong>Prepared for:</strong> CARAVAN Lounge</div><div><strong>Powered by:</strong> Idata Technologies</div>
+    <div><strong>Deployment target:</strong> Local workstation/server</div><div><strong>Audience:</strong> Technical installer / system administrator</div>
+  </div>
+</header>
+
+<div class="warning">
+  <div class="label">Local use only — not a production deployment recipe</div>
+  <strong>The audited backend currently runs TypeORM with <code>synchronize: true</code>, permits wildcard CORS, exposes Swagger and a seed operation, and performs required-account setup after startup. There is no verified migration baseline.</strong>
+  Use only a new, disposable local PostgreSQL database. Never point this configuration at production, staging, shared, or valuable data. Production deployment is blocked until the controls in Documents 10 and 12 are completed.
+</div>
+
+<h2>Contents</h2>
+<ol class="toc">
+  <li><a href="#purpose">Purpose, scope, audience</a></li>
+  <li><a href="#stack">Audited technology stack</a></li>
+  <li><a href="#architecture">Architecture and design</a></li>
+  <li><a href="#prerequisites">Prerequisites</a></li>
+  <li><a href="#layout">Repository layout</a></li>
+  <li><a href="#install">Development installation</a></li>
+  <li><a href="#production-local">Production-style local mode</a></li>
+  <li><a href="#schema-seed">Schema and sample data</a></li>
+  <li><a href="#verification">Verification checklist</a></li>
+  <li><a href="#operations">Operations, backup, restore, reset</a></li>
+  <li><a href="#troubleshooting">Troubleshooting</a></li>
+  <li><a href="#security">Security and acceptance</a></li>
+  <li><a href="#references">Project references and change log</a></li>
+</ol>
+
+<h2 id="purpose">1. Purpose, Scope, and Intended Audience</h2>
+<p>This guide enables an installer who receives the source repository to run the Jima restaurant management system on one local machine without any Replit knowledge. It covers source acquisition, workspace installation, a dedicated PostgreSQL database, environment variables, two-process startup, verification, backup/restore, and disposal.</p>
+<p><strong>In scope:</strong> Linux, macOS, and Windows through WSL2; local development mode; and a production-style build/start exercise on localhost. <strong>Out of scope:</strong> internet exposure, TLS, reverse proxies, cloud hosting, high availability, production hardening, migration creation, real account provisioning, and production release approval.</p>
+<p>The intended reader can use a terminal, administer PostgreSQL, protect secrets, interpret HTTP responses, and stop services before database maintenance.</p>
+
+<h2 id="stack">2. Audited Technology Stack</h2>
+<p>Versions below are package-file constraints from the audited repository. A caret means installation may resolve a compatible newer minor/patch; the workspace lockfile (<code>pnpm-lock.yaml</code>, format 9.0) supplies the reproducible resolution.</p>
+<table>
+  <tr><th>Layer</th><th>Technology / library</th><th>Repository version</th><th>Purpose</th></tr>
+  <tr><td>Runtime/tooling</td><td>Node.js; TypeScript; pnpm</td><td>Node 20 LTS recommended; root TS <code>~5.9.3</code>; lockfile 9.0</td><td>JavaScript runtime, typed source, monorepo package manager</td></tr>
+  <tr><td>Frontend</td><td>Next.js; React / React DOM</td><td><code>^15.3.4</code>; <code>19.1.0</code></td><td>App Router web UI and same-origin API rewrite</td></tr>
+  <tr><td>Frontend libraries</td><td>Axios, Zustand, Tailwind CSS, Recharts, date-fns, ExcelJS, jsPDF, lucide-react</td><td><code>^1.7.9</code>, <code>^5.0.3</code>, <code>^3.4.17</code>, <code>^2.15.3</code>, <code>^4.1.0</code>, <code>^4.4.0</code>, <code>^4.2.1</code>, <code>^0.469.0</code></td><td>HTTP, auth state, styling, charts, dates, client exports, icons</td></tr>
+  <tr><td>Backend</td><td>NestJS core/common/platform-express</td><td><code>^10.4.15</code></td><td>REST API modular monolith</td></tr>
+  <tr><td>Auth/API</td><td>Passport, passport-jwt, Nest JWT, Swagger</td><td><code>^0.7.0</code>, <code>^4.0.1</code>, <code>^10.2.0</code>, <code>^7.4.2</code></td><td>JWT authentication, RBAC guards, API explorer</td></tr>
+  <tr><td>Validation/runtime</td><td>class-validator, class-transformer, RxJS, bcryptjs</td><td><code>^0.14.1</code>, <code>^0.5.1</code>, <code>^7.8.1</code>, <code>^2.4.3</code></td><td>DTO validation/transformation, reactive primitives, password hashing</td></tr>
+  <tr><td>Persistence</td><td>PostgreSQL, TypeORM, pg driver, Nest TypeORM</td><td>Local PostgreSQL supported; <code>^0.3.21</code>, <code>^8.13.1</code>, <code>^10.0.2</code></td><td>Relational storage and repository/data-source access</td></tr>
+</table>
+
+<h2 id="architecture">3. Architecture and Design</h2>
+<p>Jima is a <strong>modular monolith</strong>: one Next.js frontend process and one NestJS backend process, with backend business modules deployed together. PostgreSQL is the only authoritative persistence tier. The browser must not receive database or JWT secrets.</p>
+<div class="diagram">
+  <div class="flow">
+    <div class="box"><strong>Browser</strong>localhost:3000</div><div class="arrow">→</div>
+    <div class="box"><strong>Next.js 15</strong>React 19 UI</div><div class="arrow">→</div>
+    <div class="box"><strong>/backend/api</strong>rewrite proxy</div><div class="arrow">→</div>
+    <div class="box"><strong>NestJS REST API</strong>localhost:3001/api</div><div class="arrow">→</div>
+    <div class="box"><strong>TypeORM</strong>repositories</div><div class="arrow">→</div>
+    <div class="box"><strong>PostgreSQL</strong>local database</div>
+  </div>
+  <div class="caption">Browser requests /backend/api/&lt;resource&gt;; Next.js rewrites them to BACKEND_URL/api/&lt;resource&gt;.</div>
+</div>
+
+<h3>3.1 Layer responsibilities</h3>
+<table>
+  <tr><th>Construct</th><th>Authoritative responsibility</th></tr>
+  <tr><td>Next.js pages/components/store</td><td>Presentation, forms, role-aware navigation, loading/error states, client auth state, and Axios calls. Client checks are not security boundaries.</td></tr>
+  <tr><td>Controllers</td><td>REST routes, request/response boundary, decorators, guards, validated DTO hand-off.</td></tr>
+  <tr><td>DTOs and global validation pipe</td><td>Describe accepted payloads and transform/whitelist decorated fields. DTO coverage is currently incomplete, so services must remain authoritative.</td></tr>
+  <tr><td>JWT and role guards</td><td>Authenticate bearer JWTs and compare required roles. Passport JWT supplies the request user; role decorators drive RBAC.</td></tr>
+  <tr><td>Services</td><td>Business rules, workflow transitions, restaurant/branch scope checks, calculations, orchestration, and transaction boundaries.</td></tr>
+  <tr><td>TypeORM repositories / EntityManager</td><td>Scoped queries, persistence, pessimistic locks, and transaction participation.</td></tr>
+  <tr><td>Entities</td><td>Relational model, columns, associations, enums, and schema metadata currently consumed by synchronization.</td></tr>
+  <tr><td>PostgreSQL</td><td>Durable rows, relations, constraints, locking, commit, and rollback.</td></tr>
+</table>
+
+<h3>3.2 Authentication, authorization, and isolation</h3>
+<p>Login verifies a bcrypt hash and returns a stateless signed JWT. Axios attaches the bearer token; <code>JwtAuthGuard</code> validates it and <code>RolesGuard</code> enforces role metadata. Backend services—not hidden UI controls—must enforce all permissions. Records and mutations are restaurant-scoped; branch-assigned roles are additionally constrained to their assigned branch. Owners can operate at restaurant scope. A branchless Main Store storekeeper has the central-store fulfillment role.</p>
+
+<h3>3.3 Domains and transaction boundaries</h3>
+<p>Backend modules are Auth, Users, Restaurants, Branches, Menus, Tables, Orders, Kitchen, Payments, Summary, Inventory, Main Store, Notifications, and Seed. Important entities include users, branches, menu categories/items, tables, orders/items, payments/shifts, suppliers/purchase orders, branch inventory/adjustments/requests, and Main Store items/movements/receipts/transfers.</p>
+<p>A transaction should encompass every all-or-nothing business change. The audited code uses explicit TypeORM transactions in Main Store, inventory, seed, and summary operations, with pessimistic locks in critical inventory flows. Main Store fulfillment is the clearest boundary: all requested lines, both stock sides, audit rows, balances, actor/time, and final status commit together or completely roll back. The audit notes that order, payment, table, and some other workflows still require atomicity review before production use.</p>
+
+<h3>3.4 Main Store / branch inventory workflow</h3>
+<div class="diagram">
+  <div class="flow">
+    <div class="box"><strong>Branch storekeeper</strong>Create request<br><em>pending</em></div><div class="arrow">→</div>
+    <div class="box"><strong>Branch manager / owner</strong>Approve or reject</div><div class="arrow">→</div>
+    <div class="box"><strong>Main Store storekeeper</strong>Fulfill approved request</div><div class="arrow">→</div>
+    <div class="box"><strong>One DB transaction</strong>Main Store − qty<br>Branch + qty<br>Audit both sides</div><div class="arrow">→</div>
+    <div class="box"><strong>Transferred</strong>or full rollback</div>
+  </div>
+  <div class="caption">Creating, approving, or rejecting does not move stock. Only same-restaurant, branchless Main Store fulfillment moves stock.</div>
+</div>
+
+<h2 id="prerequisites">4. Hardware and Software Prerequisites</h2>
+<table>
+  <tr><th>Resource</th><th>Minimum</th><th>Recommended</th></tr>
+  <tr><td>CPU</td><td>2 x64/ARM64 cores</td><td>4+ modern cores</td></tr>
+  <tr><td>RAM</td><td>4 GB available</td><td>8 GB+ available</td></tr>
+  <tr><td>Free disk</td><td>5 GB plus database growth/backups</td><td>10 GB+ on SSD plus separate backup space</td></tr>
+  <tr><td>Network</td><td>Package/repository access during installation</td><td>Local firewall; no public port exposure</td></tr>
+</table>
+<ul>
+  <li><strong>Node.js 20 LTS</strong> and Corepack; use pnpm through Corepack.</li>
+  <li><strong>PostgreSQL</strong> server and CLI tools: <code>psql</code>, <code>createdb</code>, <code>dropdb</code>, <code>pg_dump</code>, <code>pg_restore</code>. PostgreSQL 15 or 16 is recommended locally.</li>
+  <li><strong>Git</strong> and a current Chrome, Edge, or Firefox browser.</li>
+  <li>Ports <strong>3000</strong> (Next.js) and <strong>3001</strong> (NestJS) available on loopback.</li>
+</ul>
+<pre># Verify on Linux, macOS, or WSL2
+node --version
+corepack --version
+git --version
+psql --version
+pg_dump --version</pre>
+
+<h3>4.1 Platform installation notes</h3>
+<h4>Ubuntu/Debian Linux</h4>
+<pre>sudo apt update
+sudo apt install -y git postgresql postgresql-client
+# Install Node.js 20 LTS using your organization's approved Node repository/version manager.
+sudo systemctl enable --now postgresql
+corepack enable
+corepack prepare pnpm@9 --activate
+pnpm --version</pre>
+<h4>macOS (Homebrew)</h4>
+<pre>brew install git node@20 postgresql@16
+brew services start postgresql@16
+export PATH="$(brew --prefix node@20)/bin:$(brew --prefix postgresql@16)/bin:$PATH"
+corepack enable
+corepack prepare pnpm@9 --activate
+pnpm --version</pre>
+<h4>Windows: use WSL2</h4>
+<div class="note"><span class="label">Windows requirement</span><br>Use Ubuntu under WSL2 and keep the repository in the WSL filesystem (for example <code>~/src</code>), not under <code>/mnt/c</code>, for reliable permissions and performance. Run PostgreSQL inside WSL2 or supply a reachable dedicated local PostgreSQL server. Commands in this guide are bash/WSL commands, not PowerShell commands.</div>
+<pre># Run in elevated PowerShell once, then reboot if requested:
+wsl --install -d Ubuntu
+
+# Then run inside the Ubuntu/WSL terminal:
+sudo apt update
+sudo apt install -y git postgresql postgresql-client
+sudo service postgresql start
+# Install Node.js 20 LTS in WSL using your approved method, then:
+corepack enable
+corepack prepare pnpm@9 --activate</pre>
+
+<h2 id="layout">5. Repository Layout and Correct Packages</h2>
+<table>
+  <tr><th>Path/package</th><th>Use for this system?</th><th>Meaning</th></tr>
+  <tr><td><code>artifacts/nextjs-app</code><br><code>@workspace/nextjs-app</code></td><td><strong>Yes</strong></td><td>Canonical restaurant frontend; run on port 3000.</td></tr>
+  <tr><td><code>artifacts/nestjs-server</code><br><code>@workspace/nestjs-server</code></td><td><strong>Yes</strong></td><td>Authoritative restaurant REST API; run on port 3001.</td></tr>
+  <tr><td><code>artifacts/api-server</code></td><td><strong>No</strong></td><td>Separate minimal API artifact; it is not the restaurant API.</td></tr>
+  <tr><td><code>artifacts/habesha</code></td><td><strong>No</strong></td><td>Registered Vite/routing shim; do not run it as the local restaurant frontend.</td></tr>
+  <tr><td><code>artifacts/mockup-sandbox</code></td><td><strong>No</strong></td><td>Design/component preview only; not the restaurant application.</td></tr>
+  <tr><td><code>docs</code>, <code>exports</code></td><td>Reference</td><td>Project documentation and generated deliverables.</td></tr>
+</table>
+<p>Always issue workspace commands from the repository root and select the two canonical packages by package name.</p>
+
+<h2 id="install" class="pagebreak">6. Step-by-Step Local Development Installation</h2>
+<div class="step"><h3>Step 1 — Acquire and inspect the source</h3>
+<pre># Bash / macOS / WSL2
+git clone "&lt;repository-url&gt;" "&lt;project-directory&gt;"
+cd "&lt;project-directory&gt;"
+git status --short
+test -f package.json &amp;&amp; test -f pnpm-lock.yaml
+test -f artifacts/nextjs-app/package.json
+test -f artifacts/nestjs-server/package.json</pre>
+<p>If source is delivered as an archive, extract it into <code>&lt;project-directory&gt;</code>, enter that directory, and perform the same file checks. Confirm the delivery source and checksum through a trusted channel.</p></div>
+
+<div class="step"><h3>Step 2 — Install locked dependencies</h3>
+<pre>cd "&lt;project-directory&gt;"
+corepack enable
+corepack prepare pnpm@9 --activate
+pnpm install --frozen-lockfile</pre>
+<p>The root preinstall rule rejects npm/yarn. Do not delete or regenerate <code>pnpm-lock.yaml</code> merely to make installation pass. The workspace also enforces a 1-day minimum package release age.</p></div>
+
+<div class="step"><h3>Step 3 — Create a disposable PostgreSQL role and database</h3>
+<p>Use the PostgreSQL administrative account appropriate to the OS. The following opens an SQL session:</p>
+<pre># Ubuntu/WSL2
+sudo -u postgres psql
+
+# macOS Homebrew (current macOS user is commonly an administrator)
+psql postgres</pre>
+<p>At the <code>postgres=#</code> SQL prompt, replace every angle-bracket placeholder. Keep the double quotes around identifiers and single quotes around the password:</p>
+<pre>-- SQL (psql), not bash
+CREATE ROLE "&lt;db-user&gt;" LOGIN PASSWORD '&lt;strong-local-password&gt;';
+CREATE DATABASE "&lt;db-name&gt;" OWNER "&lt;db-user&gt;" ENCODING 'UTF8';
+\connect "&lt;db-name&gt;"
+SELECT current_database(), current_user;
+\quit</pre>
+<div class="warning"><strong>Use a unique local password and an empty database.</strong> Do not reuse production names or credentials. Commands with <code>DROP DATABASE</code> later in this guide are destructive.</div></div>
+
+<div class="step"><h3>Step 4 — Configure backend environment</h3>
+<p>Create <code>artifacts/nestjs-server/.env</code> locally. This is a template only; substitute locally generated values:</p>
+<pre># artifacts/nestjs-server/.env
+DATABASE_URL=postgresql://&lt;db-user&gt;:&lt;url-encoded-strong-local-password&gt;@localhost:5432/&lt;db-name&gt;
+JWT_SECRET=&lt;generated-random-secret&gt;
+PORT=3001
+NODE_ENV=development</pre>
+<p><code>DATABASE_URL</code> and <code>JWT_SECRET</code> are required. The code accepts <code>SESSION_SECRET</code> as a fallback if <code>JWT_SECRET</code> is absent, but relying on that fallback is discouraged: define a dedicated, long, random <code>JWT_SECRET</code>. Generate it locally without printing it into documentation or chat, and store it only in the untracked environment file.</p>
+<p>Percent-encode reserved URL characters in the username/password portion of the connection URL: for example <code>@</code> becomes <code>%40</code>, <code>:</code> becomes <code>%3A</code>, <code>/</code> becomes <code>%2F</code>, <code>#</code> becomes <code>%23</code>, and <code>%</code> becomes <code>%25</code>. Do not add <code>sslmode=require</code> for the usual local non-TLS PostgreSQL service; the audited code enables SSL when that string is present.</p></div>
+
+<div class="step"><h3>Step 5 — Configure frontend environment</h3>
+<p>Create <code>artifacts/nextjs-app/.env.local</code>:</p>
+<pre># artifacts/nextjs-app/.env.local
+BACKEND_URL=http://localhost:3001
+PORT=3000</pre>
+<p><code>BACKEND_URL</code> is read by the Next.js server and targets NestJS. Never put <code>DATABASE_URL</code> or <code>JWT_SECRET</code> here, and never expose either through a <code>NEXT_PUBLIC_</code> variable. Never commit any <code>.env</code> or <code>.env.local</code> file. Check before committing:</p>
+<pre>git status --short
+git check-ignore artifacts/nestjs-server/.env artifacts/nextjs-app/.env.local</pre></div>
+
+<div class="step"><h3>Step 6 — Initialize the schema safely</h3>
+<p>No migration baseline currently exists. On first backend startup, TypeORM <code>synchronize: true</code> compares registered entities and automatically creates/updates schema objects. There is no separate migration command to run. Treat startup itself as schema initialization, and only allow it against the disposable database created above.</p></div>
+
+<div class="step"><h3>Step 7 — Start backend (Terminal 1)</h3>
+<pre>cd "&lt;project-directory&gt;"
+pnpm --filter @workspace/nestjs-server run dev</pre>
+<p>Expected listener: <code>http://localhost:3001</code>. Startup also invokes an audited required-account setup routine after listening; it may create or update restaurant, branch, and staff records. Therefore even “unseeded” startup mutates the local database. This is another reason to use only disposable data.</p></div>
+
+<div class="step"><h3>Step 8 — Start frontend (Terminal 2)</h3>
+<pre>cd "&lt;project-directory&gt;"
+pnpm --filter @workspace/nextjs-app run dev</pre>
+<div class="note"><strong>Windows/native-shell warning:</strong> the exact frontend development script begins with <code>rm -rf .next</code>. Use WSL2 or Git Bash. Native PowerShell/cmd users must manually remove <code>artifacts/nextjs-app/.next</code> and then invoke an equivalent Next.js command; WSL2 is the supported path in this guide.</div>
+<p>Open <code>http://localhost:3000/login</code>. The browser API boundary is <code>http://localhost:3000/backend/api/*</code>; do not change browser calls to <code>/api</code>.</p></div>
+
+<div class="step"><h3>Step 9 — Optional sample-data seed (disposable local DB only)</h3>
+<p>The protected <code>POST /api/seed</code> endpoint requires an authenticated ADMIN bearer token and writes demonstration restaurant, branch, menu, table, inventory, supplier, and user data. It also contains repository-defined demonstration account credentials; this guide intentionally does not publish any account passwords.</p>
+<pre># Only after authorized local ADMIN credentials are supplied securely:
+curl -X POST "http://localhost:3001/api/seed" \
+  -H "Authorization: Bearer &lt;local-admin-jwt&gt;" \
+  -H "Content-Type: application/json"</pre>
+<div class="warning"><strong>Do not seed production, staging, shared, or valuable data.</strong> Use a newly created disposable database, take a snapshot first if needed, and inspect the response. The operation's “already seeded” check is limited; do not assume it is a general merge/import tool.</div></div>
+
+<h2 id="production-local">7. Production-Style Local Build and Start</h2>
+<p>This mode validates compiled artifacts locally; it does not make the audited application production-ready. Keep the same disposable database and secrets. Stop all development processes first.</p>
+<div class="warning"><strong>Never run <code>next build</code> while <code>next dev</code> is active.</strong> Both use <code>artifacts/nextjs-app/.next</code> and can race, corrupt output, or produce a blank/broken preview.</div>
+<h3>7.1 Build with exact package scripts</h3>
+<pre>cd "&lt;project-directory&gt;"
+
+# Backend package script: "build": "nest build"
+pnpm --filter @workspace/nestjs-server run build
+
+# Frontend package script: "build": "next build"
+pnpm --filter @workspace/nextjs-app run build</pre>
+<h3>7.2 Start in two terminals</h3>
+<pre># Terminal 1 — backend package script: "start": "node dist/main"
+cd "&lt;project-directory&gt;"
+NODE_ENV=production pnpm --filter @workspace/nestjs-server run start
+
+# Terminal 2 — frontend package script: "start": "next start -p ${PORT:-3000}"
+cd "&lt;project-directory&gt;"
+NODE_ENV=production pnpm --filter @workspace/nextjs-app run start</pre>
+<p>The package-local environment files still provide database/JWT, backend target, and ports. URLs remain frontend <code>http://localhost:3000</code>, backend <code>http://localhost:3001</code>, and Swagger <code>http://localhost:3001/api/docs</code>.</p>
+
+<h2 id="schema-seed">8. Database Schema and Seed Behavior</h2>
+<table>
+  <tr><th>Behavior</th><th>Operator implication</th></tr>
+  <tr><td><code>synchronize: true</code></td><td>Backend startup automatically creates or changes local tables to match entities. It is convenient for disposable development but unsafe as a production change process.</td></tr>
+  <tr><td>No verified migration baseline</td><td>There is no trustworthy migration history for controlled promotion/rollback. Do not improvise a production migration from this guide.</td></tr>
+  <tr><td>Startup account setup</td><td>After the listener starts, the service ensures required restaurant/branch/staff records and may update selected existing accounts. It is not a read-only startup.</td></tr>
+  <tr><td>Protected seed endpoint</td><td>ADMIN JWT required. Adds demonstration domain data and is intended only for a disposable local environment.</td></tr>
+  <tr><td>Seed credentials</td><td>Repository code defines demonstration passwords. Do not publish them, reuse them, or treat them as production provisioning.</td></tr>
+</table>
+<p>For a clean schema, create a new empty database and start the backend once. For a repeatable reset, stop both processes, back up anything intentionally retained, drop/recreate the disposable database, and restart. Never connect this backend configuration to production.</p>
+
+<h2 id="verification">9. Verification Checklist</h2>
+<h3>9.1 Connectivity and routing</h3>
+<ul class="checklist">
+  <li><code>curl -i http://localhost:3001/</code> returns HTTP 200 and <code>{"status":"ok"}</code>.</li>
+  <li><code>curl -i http://localhost:3001/nestjs-backend</code> returns HTTP 200 and the same status.</li>
+  <li><code>http://localhost:3001/api/docs</code> renders Swagger and lists the Jima Restaurant API.</li>
+  <li><code>http://localhost:3000/login</code> renders the login UI.</li>
+  <li>An invalid login fails explicitly (normally 401) and does not navigate to a protected page or issue a usable token.</li>
+  <li>After authorized local login, <code>GET http://localhost:3000/backend/api/auth/me</code> with the bearer token returns only the authenticated user permitted by the API.</li>
+</ul>
+<pre># Authenticated same-origin proxy check (token placeholder only)
+curl -i "http://localhost:3000/backend/api/auth/me" \
+  -H "Authorization: Bearer &lt;local-jwt&gt;"</pre>
+
+<h3>9.2 Session and browser behavior</h3>
+<ul class="checklist">
+  <li>Refresh a protected page: the authorized session restores correctly, or redirects safely if expired.</li>
+  <li>Direct navigation to a protected URL while logged out redirects/denies access.</li>
+  <li>Logout clears client auth state; refreshing or using Back does not restore protected data.</li>
+  <li>Clear stale local browser storage after changing <code>JWT_SECRET</code>, then sign in again.</li>
+</ul>
+
+<h3>9.3 Workflow and isolation smoke tests</h3>
+<ul class="checklist">
+  <li>Role-specific navigation and backend denials agree for admin, owner, manager, coordinator, waiter, chef, cashier, and storekeeper.</li>
+  <li>Create an order, coordinate/assign it, progress kitchen states, serve, pay, and confirm the table is released.</li>
+  <li>Exercise inventory receipt/adjustment/request flows and verify balances and audit records.</li>
+  <li>Branch storekeeper submits a Main Store request for only the assigned branch; request/approval/rejection alone changes no stock.</li>
+  <li>Assigned manager or restaurant owner decides; another branch/restaurant and disallowed roles are denied.</li>
+  <li>Only the same-restaurant branchless Main Store storekeeper fulfills an approved request.</li>
+  <li>Successful multi-line fulfillment atomically decrements Main Store, increments only the destination branch, writes both audit sides, and marks transferred.</li>
+  <li>Insufficient stock on any line leaves every line, audit record, destination item, and status unchanged.</li>
+</ul>
+
+<h2 id="operations">10. Startup, Shutdown, Restart, Logs, and Data Operations</h2>
+<h3>10.1 Normal operations</h3>
+<table>
+  <tr><th>Action</th><th>Procedure</th></tr>
+  <tr><td>Start</td><td>Start PostgreSQL; start backend in Terminal 1; wait for listening/database messages; start frontend in Terminal 2; run health checks.</td></tr>
+  <tr><td>Shutdown</td><td>Press <code>Ctrl+C</code> once in frontend, then backend. Confirm ports are released. Stop PostgreSQL only if no other local databases need it.</td></tr>
+  <tr><td>Restart</td><td>Stop the affected process cleanly, correct configuration/code, then rerun its package command. Restart both after changing <code>JWT_SECRET</code> or <code>BACKEND_URL</code>.</td></tr>
+  <tr><td>Logs</td><td>Development/build/start output is written to each terminal. Capture it using an approved local log mechanism if needed; redact tokens, headers, connection URLs, passwords, and stack traces containing sensitive paths.</td></tr>
+</table>
+<pre># Identify listeners if a clean shutdown failed
+lsof -nP -iTCP:3000 -sTCP:LISTEN
+lsof -nP -iTCP:3001 -sTCP:LISTEN
+# Linux/WSL alternative
+ss -ltnp | grep -E ':3000|:3001'</pre>
+
+<h3>10.2 Backup with pg_dump</h3>
+<p>Stop application writes for a simple consistent local maintenance point, create a protected directory, and use the custom archive format:</p>
+<pre>mkdir -p "&lt;backup-directory&gt;"
+pg_dump --format=custom --no-owner --no-acl \
+  --dbname="postgresql://&lt;db-user&gt;:&lt;url-encoded-strong-local-password&gt;@localhost:5432/&lt;db-name&gt;" \
+  --file="&lt;backup-directory&gt;/jima-local.backup"
+test -s "&lt;backup-directory&gt;/jima-local.backup"
+pg_restore --list "&lt;backup-directory&gt;/jima-local.backup" | head</pre>
+<p>Command-line URLs may be visible in shell history/process lists. Prefer a protected <code>.pgpass</code>, an interactive prompt, or your organization's credential method. Never commit backups; they can contain personal and operational data.</p>
+
+<h3>10.3 Restore to a newly created database</h3>
+<pre># Bash / macOS / WSL2 — application stopped
+createdb --host=localhost --username="&lt;db-user&gt;" "&lt;restore-db-name&gt;"
+pg_restore --host=localhost --username="&lt;db-user&gt;" \
+  --dbname="&lt;restore-db-name&gt;" --no-owner --no-acl \
+  "&lt;backup-directory&gt;/jima-local.backup"</pre>
+<p>Point a temporary backend environment at <code>&lt;restore-db-name&gt;</code> only after verifying the target name, then perform health and record-count checks. Because synchronization runs on connection, preserve an untouched copy of the archive before testing.</p>
+<h4>Plain SQL alternative</h4>
+<pre># Create a plain backup
+pg_dump --format=plain --no-owner --no-acl \
+  --dbname="postgresql://&lt;db-user&gt;:&lt;url-encoded-strong-local-password&gt;@localhost:5432/&lt;db-name&gt;" \
+  --file="&lt;backup-directory&gt;/jima-local.sql"
+
+# Restore plain SQL into an empty database
+createdb --host=localhost --username="&lt;db-user&gt;" "&lt;restore-db-name&gt;"
+psql --host=localhost --username="&lt;db-user&gt;" \
+  --dbname="&lt;restore-db-name&gt;" --file="&lt;backup-directory&gt;/jima-local.sql"</pre>
+
+<h3>10.4 Cleanup/reset of disposable local data</h3>
+<div class="warning"><strong>Destructive:</strong> stop backend/frontend and verify the exact database name. Never substitute a production/shared name.</div>
+<pre># Bash / macOS / WSL2
+dropdb --host=localhost --username="&lt;db-user&gt;" --if-exists "&lt;db-name&gt;"
+createdb --host=localhost --username="&lt;db-user&gt;" --owner="&lt;db-user&gt;" "&lt;db-name&gt;"
+# Restart backend once to recreate the synchronized schema.</pre>
+<p>Final removal, after confirming no database remains owned by the role:</p>
+<pre># SQL in an administrative psql session
+DROP ROLE "&lt;db-user&gt;";</pre>
+
+<h2 id="troubleshooting" class="pagebreak">11. Troubleshooting</h2>
+<table>
+  <tr><th>Symptom</th><th>Likely cause</th><th>Safe resolution</th></tr>
+  <tr><td>Missing <code>DATABASE_URL</code>; TypeORM cannot connect</td><td>Backend <code>.env</code> absent, wrong directory, or malformed URL</td><td>Place it in <code>artifacts/nestjs-server/.env</code>; verify placeholders were replaced and password is URL-encoded. Do not paste the value into logs/tickets.</td></tr>
+  <tr><td><code>JWT_SECRET or SESSION_SECRET is required</code></td><td>No signing secret loaded</td><td>Define a long random <code>JWT_SECRET</code> in backend <code>.env</code>. Do not rely on the fallback and do not expose it to Next.js/browser.</td></tr>
+  <tr><td>Frontend proxy returns <code>ECONNREFUSED</code> / 502</td><td>Backend stopped, wrong <code>BACKEND_URL</code>, wrong port</td><td>Check backend health directly on 3001, set <code>BACKEND_URL=http://localhost:3001</code>, restart Next.js.</td></tr>
+  <tr><td>404 from <code>/api</code> in browser</td><td>Wrong request boundary</td><td>Browser calls must use <code>/backend/api</code>. Direct backend calls use <code>http://localhost:3001/api</code>. Do not run the separate api-server artifact.</td></tr>
+  <tr><td><code>EADDRINUSE</code> on 3000/3001</td><td>Old process or another service owns port</td><td>Inspect with <code>lsof</code>/<code>ss</code>, stop the owner cleanly, or coordinate both <code>PORT</code> and <code>BACKEND_URL</code> changes.</td></tr>
+  <tr><td>PostgreSQL password/authentication failure</td><td>Role/password/host mismatch; local auth policy</td><td>Test with <code>psql</code>, inspect local <code>pg_hba.conf</code>, reset only the dedicated local role password, then encode it in the URL.</td></tr>
+  <tr><td>PostgreSQL SSL error</td><td>Local server is non-TLS but URL includes <code>sslmode=require</code>, or TLS expectations differ</td><td>Remove <code>sslmode=require</code> for normal local PostgreSQL. The code turns on SSL when that exact option appears.</td></tr>
+  <tr><td><code>rm</code> not recognized on Windows</td><td>Native cmd/PowerShell ran frontend dev script</td><td>Use WSL2/Git Bash. Otherwise manually delete <code>.next</code> before an equivalent command. WSL2 is recommended.</td></tr>
+  <tr><td>401 after secret/user change</td><td>Stale JWT in Zustand/localStorage</td><td>Logout; clear site data/localStorage for localhost; sign in again using securely supplied local credentials.</td></tr>
+  <tr><td>Missing chunks, build errors, blank page</td><td><code>next build</code> and <code>next dev</code> shared <code>.next</code></td><td>Stop all Next.js processes, delete <code>artifacts/nextjs-app/.next</code>, then run exactly one mode.</td></tr>
+  <tr><td>TypeORM schema/permission errors</td><td>Database not empty, wrong owner, insufficient create/alter rights, or incompatible old synchronized schema</td><td>Confirm this is disposable; back it up; recreate an empty database owned by the local role. Never “fix” by granting broad production rights.</td></tr>
+  <tr><td>Blank preview / wrong UI</td><td>Wrong artifact started, frontend backend unavailable, stale assets, browser error</td><td>Run only the named Next.js/NestJS packages, health-check backend, stop Next.js, remove <code>.next</code>, restart, and hard refresh.</td></tr>
+</table>
+
+<h2 id="security">12. Security and Operational Checklist</h2>
+<ul class="checklist">
+  <li>Database is new, disposable, locally scoped, and contains no production/valuable data.</li>
+  <li>PostgreSQL, 3000, and 3001 are bound/firewalled for local access only; no router port forwarding.</li>
+  <li>Unique strong database password and long random JWT secret are stored only in ignored local files/approved secret storage.</li>
+  <li>No secrets, database URLs, tokens, account passwords, or backups appear in Git, chat, screenshots, terminal captures, or tickets.</li>
+  <li>Frontend has no database/JWT variables and no secret uses a <code>NEXT_PUBLIC_</code> prefix.</li>
+  <li>Only <code>@workspace/nextjs-app</code> and <code>@workspace/nestjs-server</code> are running.</li>
+  <li>Sample seeding is restricted to disposable local data and uses an authorized ADMIN token supplied securely.</li>
+  <li>Swagger and wildcard CORS are understood as local-only behavior, not accepted production controls.</li>
+  <li>Dependencies came from the locked pnpm install; the lockfile and release-age safeguard were not bypassed.</li>
+  <li>Backups are access-controlled, nonempty, restorable, retained only as required, and securely deleted afterward.</li>
+  <li>Logs are reviewed without leaking secrets; processes are stopped cleanly before restore/reset.</li>
+  <li>No production approval is inferred from a successful production-style local build.</li>
+</ul>
+
+<h2>13. Local Deployment Acceptance Checklist</h2>
+<ul class="checklist">
+  <li>Prerequisite versions and available resources are recorded.</li>
+  <li>Source provenance is trusted; correct repository and package names are confirmed.</li>
+  <li>Locked install completes with pnpm under Node 20 LTS.</li>
+  <li>Dedicated database/role and both local environment files are configured without committed secrets.</li>
+  <li>Backend health routes, Swagger, frontend login, and same-origin proxy work.</li>
+  <li>Invalid login, authenticated <code>auth/me</code>, refresh, protected navigation, and logout behave safely.</li>
+  <li>Role and restaurant/branch isolation checks pass.</li>
+  <li>Order/payment/table and Main Store/branch inventory smoke tests pass, including atomic failure.</li>
+  <li>Development mode and, separately, production-style build/start complete without a <code>.next</code> race.</li>
+  <li>A local backup is nonempty and a restore into a different empty database has been verified.</li>
+  <li>Shutdown/restart and disposable reset procedures are understood and documented locally.</li>
+  <li>Installer records exceptions; unresolved auth, isolation, stock, payment, schema, or restore failures reject acceptance.</li>
+</ul>
+
+<h2 id="references">14. Project References</h2>
+<p>The repository documents below are part of the audited context. Relative links work when this HTML remains in <code>docs/</code>; Markdown files may require a local editor/viewer.</p>
+<ol>
+  <li><a href="01-FRS-Functional-Requirements.html">01 — Functional Requirements Specification</a></li>
+  <li><a href="02-SRS-Software-Requirements.html">02 — Software Requirements Specification</a></li>
+  <li><a href="03-SDD-Software-Design.html">03 — Software Design Document</a></li>
+  <li><a href="04-User-Manual.html">04 — User Manual</a></li>
+  <li><a href="05-Handoff-and-Deployment-Requirements.html">05 — Handoff and Deployment Requirements</a></li>
+  <li><a href="06-Deploy-on-Vercel.html">06 — Deploying on Vercel</a></li>
+  <li><a href="07-Architecture-and-Routing.md">07 — Architecture and Routing</a></li>
+  <li><a href="08-Environment-and-Secrets.md">08 — Environment and Secrets</a></li>
+  <li><a href="09-API-and-Authorization-Boundary.md">09 — API and Authorization Boundary</a></li>
+  <li><a href="10-Database-Safety-Runbook.md">10 — Database Safety Runbook</a></li>
+  <li><a href="11-Test-and-Release-Runbook.md">11 — Test and Release Runbook</a></li>
+  <li><a href="12-Production-Readiness-Status.md">12 — Production Readiness Status</a></li>
+  <li><a href="13-Comprehensive-System-Test-Plan.html">13 — Comprehensive System Test Plan</a></li>
+</ol>
+
+<h2>15. Change Log</h2>
+<table>
+  <tr><th>Version</th><th>Date</th><th>Change</th><th>Prepared for</th></tr>
+  <tr><td>1.0</td><td>August 31, 2026</td><td>Initial audited local-machine deployment guide, including development and production-style local modes, database safety, verification, operations, and troubleshooting.</td><td>CARAVAN Lounge, powered by Idata Technologies</td></tr>
+</table>
+<p class="small">End of document — Jima — CARAVAN Lounge Local Machine Deployment Guide v1.0.</p>
+</body>
+</html>

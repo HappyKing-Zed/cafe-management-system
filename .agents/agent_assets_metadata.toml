@@ -118,3 +118,17 @@ mtime_ms = 1788116877082
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/f7295618-6427-4db5-ad42-689c36309740/78d3d650-a8e0-4704-94a6-539219315437"
 storage_version_token = "1788116947811626"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "9qnO_JvxujL82TDf86HcL"
+uri = "file://exports/pdf/14-Local-Machine-Deployment-Guide.pdf"
+type = "pdf"
+title = "Jima Local Machine Deployment Guide"
+description = "17-page step-by-step guide covering requirements, technology stack, architecture, design, PostgreSQL setup, environment variables, installation, startup, verification, backup, security, and troubleshooting for Linux, macOS, and Windows WSL2."
+logical_id = "d99e407e-104a-47f1-9a1d-b709a5d71302"
+content_hash = "sha256:e859a8d8f8e36f72ea1a17502b92bda32f744e528307119de5772685205bf6d0"
+size = 98493
+mtime_ms = 1788155573005
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/d99e407e-104a-47f1-9a1d-b709a5d71302/f966a4c4-e328-4be4-aa09-a80a7b1b8d05"
+storage_version_token = "1788155590791873"
+content_type = "application/pdf"
