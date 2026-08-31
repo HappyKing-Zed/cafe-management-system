@@ -32,9 +32,10 @@ export class PaymentsController {
     @Query('date') date?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('method') method?: string,
     @Query('branchId') branchId?: string,
   ) {
-    return this.service.getDailyReport(from || date, effectiveBranch(req.user, branchId), to);
+    return this.service.getDailyReport(from || date, effectiveBranch(req.user, branchId), to, method);
   }
 
   @Get('shifts')

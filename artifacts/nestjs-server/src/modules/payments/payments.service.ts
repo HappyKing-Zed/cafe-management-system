@@ -92,7 +92,7 @@ export class PaymentsService {
     return this.shiftRepo.save(shift);
   }
 
-  async getDailyReport(fromDate?: string, branchId?: number, toDate?: string) {
+  async getDailyReport(fromDate?: string, branchId?: number, toDate?: string, method?: string) {
     const startDate = fromDate ? new Date(`${fromDate}T00:00:00`) : new Date();
     startDate.setHours(0, 0, 0, 0);
     const endDate = toDate ? new Date(`${toDate}T23:59:59.999`) : new Date(startDate);
@@ -109,6 +109,7 @@ export class PaymentsService {
       .where('p.createdAt >= :start', { start: startDate })
       .andWhere('p.createdAt <= :end', { end: endDate });
     if (branchId) qb.andWhere('order.branchId = :branchId', { branchId });
+    if (method && method !== 'all') qb.andWhere('p.method = :method', { method });
     const payments = await qb.getMany();
 
     const byMethod = payments.reduce((acc, p) => {

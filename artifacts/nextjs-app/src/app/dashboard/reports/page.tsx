@@ -25,6 +25,7 @@ export default function ReportsPage() {
   const [error, setError] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const [salesRange, setSalesRange] = useState({ from: today, to: today });
+  const [salesMethod, setSalesMethod] = useState('all');
   const [branchId, setBranchId] = useState<number | undefined>(undefined);
   const canPickBranch = ['admin', 'owner'].includes(user?.role || '');
   const [tab, setTab] = useState<Tab>('Overview');
@@ -58,7 +59,7 @@ export default function ReportsPage() {
     if (!background) setLoading(true);
     try {
       const [reportRes, ordersRes, paymentsRes, catRes, invRes, reqRes, staffRes, brRes] = await Promise.allSettled([
-        getDailyReport(salesRange.from, branchId, salesRange.to),
+        getDailyReport(salesRange.from, branchId, salesRange.to, salesMethod),
         getOrders(branchId ? { branchId } : undefined),
         getPayments(branchId),
         getMenuCategories(),
@@ -86,7 +87,7 @@ export default function ReportsPage() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [salesRange.from, salesRange.to, branchId]);
+  }, [salesRange.from, salesRange.to, salesMethod, branchId]);
 
   // ── Export data builders ─────────────────────────────────────────────
   const menuItems = menuCats.flatMap((c: any) => (c.items || []).map((i: any) => ({ ...i, categoryName: c.name })));
@@ -210,21 +211,40 @@ export default function ReportsPage() {
     };
   };
 
+  const overviewSalesData = () => ({
+    title: 'Sales Information Report',
+    file: 'sales_information',
+    head: ['Payment #', 'Order', 'Payment Type', 'Amount (ETB)', 'Change (ETB)', 'Date'],
+    rows: filteredSalesPayments.map((payment: any) => [
+      `#${payment.id}`,
+      `Order #${payment.orderId}`,
+      payment.method === 'mobile' ? 'wallet' : payment.method,
+      Number(payment.amount),
+      Number(payment.changeGiven || 0),
+      new Date(payment.createdAt).toLocaleString(),
+    ]),
+  });
+
+  const currentExportData = () => tab === 'Overview' ? overviewSalesData() : dataFor(tab);
+
   const exportExcel = async () => {
     setExporting(true);
     try {
-      const { title, file, head, rows } = dataFor(tab);
+      const { title, file, head, rows } = currentExportData();
       await downloadExcelFile(
         `${file}_${new Date().toISOString().slice(0, 10)}.xlsx`,
         [{ name: title, rows: [[title], head, ...rows] }],
       );
-    } catch { alert('Export failed'); } finally { setExporting(false); }
+    } catch (error: any) {
+      console.error('Excel export failed', error);
+      alert(`Export failed: ${error?.message || 'unknown error'}`);
+    } finally { setExporting(false); }
   };
 
   const exportPDF = async () => {
     setExporting(true);
     try {
-      const { title, file, head, rows } = dataFor(tab);
+      const { title, file, head, rows } = currentExportData();
       const { default: jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
       const doc = new jsPDF();
@@ -234,7 +254,10 @@ export default function ReportsPage() {
       doc.text(`generated ${new Date().toLocaleString()}`, 14, 22);
       autoTable(doc, { head: [head], body: rows.map(r => r.map(String)), startY: 27, styles: { fontSize: 8 } });
       doc.save(`${file}_${new Date().toISOString().slice(0, 10)}.pdf`);
-    } catch { alert('Export failed'); } finally { setExporting(false); }
+    } catch (error: any) {
+      console.error('PDF export failed', error);
+      alert(`Export failed: ${error?.message || 'unknown error'}`);
+    } finally { setExporting(false); }
   };
 
   // ── Overview stats ───────────────────────────────────────────────────
@@ -242,14 +265,20 @@ export default function ReportsPage() {
     const timestamp = new Date(value);
     return timestamp >= new Date(`${salesRange.from}T00:00:00`) && timestamp <= new Date(`${salesRange.to}T23:59:59.999`);
   };
-  const rangeOrders = orders.filter((o: any) => inSalesRange(o.createdAt));
   const rangePayments = payments.filter((p: any) => inSalesRange(p.createdAt));
+  const filteredSalesPayments = salesMethod === 'all'
+    ? rangePayments
+    : rangePayments.filter((payment: any) => payment.method === salesMethod);
+  const matchingOrderIds = new Set(filteredSalesPayments.map((payment: any) => payment.orderId));
+  const rangeOrders = orders.filter((order: any) =>
+    inSalesRange(order.createdAt) && (salesMethod === 'all' || matchingOrderIds.has(order.id))
+  );
   const statusBreakdown = rangeOrders.reduce((acc: any, o: any) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
-  const totalRevenue = rangePayments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+  const totalRevenue = filteredSalesPayments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
   const totalOrders = rangeOrders.length;
   const paidOrders = rangeOrders.filter((o: any) => o.status === 'paid').length;
   const avgOrderValue = paidOrders > 0 ? totalRevenue / paidOrders : 0;
-  const methodBreakdown = rangePayments.reduce((acc: any, p: any) => { acc[p.method] = (acc[p.method] || 0) + Number(p.amount); return acc; }, {});
+  const methodBreakdown = filteredSalesPayments.reduce((acc: any, p: any) => { acc[p.method] = (acc[p.method] || 0) + Number(p.amount); return acc; }, {});
 
   const rowCount = tab !== 'Overview' ? dataFor(tab).rows.length : 0;
 
@@ -273,6 +302,19 @@ export default function ReportsPage() {
           )}
           {tab === 'Overview' && (
             <div className="flex flex-wrap items-end gap-2">
+              <label className="text-xs font-semibold text-gray-600">
+                Payment Type
+                <select
+                  value={salesMethod}
+                  onChange={e => setSalesMethod(e.target.value)}
+                  className="input mt-1 block w-auto text-sm"
+                >
+                  <option value="all">All types</option>
+                  <option value="cash">Cash</option>
+                  <option value="card">Card</option>
+                  <option value="mobile">Wallet</option>
+                </select>
+              </label>
               <label className="text-xs font-semibold text-gray-600">
                 From
                 <input
@@ -437,6 +479,23 @@ export default function ReportsPage() {
       )}
 
       {tab === 'Overview' && (<>
+      <div className="card mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-semibold text-gray-900">Sales Information Report</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            {filteredSalesPayments.length} transaction(s) match the selected date, payment type, and branch.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <button onClick={exportExcel} disabled={exporting || loading} className="btn-primary flex items-center gap-2 disabled:opacity-50 text-sm">
+            <ArrowDownToLine size={15} /> {exporting ? 'Exporting…' : 'Export Excel'}
+          </button>
+          <button onClick={exportPDF} disabled={exporting || loading} className="btn-secondary flex items-center gap-2 disabled:opacity-50 text-sm">
+            <FileText size={15} /> {exporting ? 'Exporting…' : 'Export PDF'}
+          </button>
+        </div>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         {[
