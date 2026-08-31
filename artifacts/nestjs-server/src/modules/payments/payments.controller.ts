@@ -27,8 +27,14 @@ export class PaymentsController {
   }
 
   @Get('report')
-  report(@Req() req: any, @Query('date') date?: string, @Query('branchId') branchId?: string) {
-    return this.service.getDailyReport(date, effectiveBranch(req.user, branchId));
+  report(
+    @Req() req: any,
+    @Query('date') date?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.service.getDailyReport(from || date, effectiveBranch(req.user, branchId), to);
   }
 
   @Get('shifts')

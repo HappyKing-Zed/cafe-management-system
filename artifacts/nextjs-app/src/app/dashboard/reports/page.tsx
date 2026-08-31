@@ -23,7 +23,8 @@ export default function ReportsPage() {
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const today = new Date().toISOString().split('T')[0];
+  const [salesRange, setSalesRange] = useState({ from: today, to: today });
   const [branchId, setBranchId] = useState<number | undefined>(undefined);
   const canPickBranch = ['admin', 'owner'].includes(user?.role || '');
   const [tab, setTab] = useState<Tab>('Overview');
@@ -44,10 +45,20 @@ export default function ReportsPage() {
   }, [isCashier]);
 
   const fetchData = async (background = false) => {
+    if (!salesRange.from || !salesRange.to) {
+      setError('Select both a start date and an end date for the sales report.');
+      setLoading(false);
+      return;
+    }
+    if (salesRange.from > salesRange.to) {
+      setError('The sales report start date must be on or before the end date.');
+      setLoading(false);
+      return;
+    }
     if (!background) setLoading(true);
     try {
       const [reportRes, ordersRes, paymentsRes, catRes, invRes, reqRes, staffRes, brRes] = await Promise.allSettled([
-        getDailyReport(selectedDate, branchId),
+        getDailyReport(salesRange.from, branchId, salesRange.to),
         getOrders(branchId ? { branchId } : undefined),
         getPayments(branchId),
         getMenuCategories(),
@@ -75,7 +86,7 @@ export default function ReportsPage() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate, branchId]);
+  }, [salesRange.from, salesRange.to, branchId]);
 
   // ── Export data builders ─────────────────────────────────────────────
   const menuItems = menuCats.flatMap((c: any) => (c.items || []).map((i: any) => ({ ...i, categoryName: c.name })));
@@ -227,12 +238,18 @@ export default function ReportsPage() {
   };
 
   // ── Overview stats ───────────────────────────────────────────────────
-  const statusBreakdown = orders.reduce((acc: any, o: any) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
-  const totalRevenue = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-  const totalOrders = orders.length;
-  const paidOrders = orders.filter((o: any) => o.status === 'paid').length;
+  const inSalesRange = (value: string) => {
+    const timestamp = new Date(value);
+    return timestamp >= new Date(`${salesRange.from}T00:00:00`) && timestamp <= new Date(`${salesRange.to}T23:59:59.999`);
+  };
+  const rangeOrders = orders.filter((o: any) => inSalesRange(o.createdAt));
+  const rangePayments = payments.filter((p: any) => inSalesRange(p.createdAt));
+  const statusBreakdown = rangeOrders.reduce((acc: any, o: any) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {});
+  const totalRevenue = rangePayments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+  const totalOrders = rangeOrders.length;
+  const paidOrders = rangeOrders.filter((o: any) => o.status === 'paid').length;
   const avgOrderValue = paidOrders > 0 ? totalRevenue / paidOrders : 0;
-  const methodBreakdown = payments.reduce((acc: any, p: any) => { acc[p.method] = (acc[p.method] || 0) + Number(p.amount); return acc; }, {});
+  const methodBreakdown = rangePayments.reduce((acc: any, p: any) => { acc[p.method] = (acc[p.method] || 0) + Number(p.amount); return acc; }, {});
 
   const rowCount = tab !== 'Overview' ? dataFor(tab).rows.length : 0;
 
@@ -254,7 +271,32 @@ export default function ReportsPage() {
               ))}
             </select>
           )}
-          {tab === 'Overview' && <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="input w-auto" />}
+          {tab === 'Overview' && (
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="text-xs font-semibold text-gray-600">
+                From
+                <input
+                  type="date"
+                  required
+                  value={salesRange.from}
+                  max={salesRange.to}
+                  onChange={e => setSalesRange(range => ({ ...range, from: e.target.value }))}
+                  className="input mt-1 block w-auto text-sm"
+                />
+              </label>
+              <label className="text-xs font-semibold text-gray-600">
+                To
+                <input
+                  type="date"
+                  required
+                  value={salesRange.to}
+                  min={salesRange.from}
+                  onChange={e => setSalesRange(range => ({ ...range, to: e.target.value }))}
+                  className="input mt-1 block w-auto text-sm"
+                />
+              </label>
+            </div>
+          )}
           <button type="button" onClick={() => void fetchData()} disabled={loading} aria-label="Refresh reports"
             className="btn-secondary inline-flex items-center gap-2 disabled:opacity-50">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
@@ -411,10 +453,11 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Today's Report */}
+        {/* Sales report for the selected period */}
         <div className="card">
           <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <TrendingUp size={18} className="text-brand-500" /> Daily Report — {selectedDate}
+            <TrendingUp size={18} className="text-brand-500" />
+            Sales Report — {salesRange.from === salesRange.to ? salesRange.from : `${salesRange.from} to ${salesRange.to}`}
           </h2>
           {report ? (
             <div className="space-y-4">
@@ -436,13 +479,13 @@ export default function ReportsPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-400">No transactions on this date</p>
+            <p className="text-gray-400">No transactions in this date range</p>
           )}
         </div>
 
         {/* Payment Method Breakdown */}
         <div className="card">
-          <h2 className="font-semibold text-gray-900 mb-4">All-Time Payment Methods</h2>
+          <h2 className="font-semibold text-gray-900 mb-4">Payment Methods for Selected Dates</h2>
           {Object.keys(methodBreakdown).length === 0 ? (
             <p className="text-gray-400">No payment records yet</p>
           ) : (

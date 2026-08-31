@@ -1,7 +1,7 @@
 import api from './http-client';
 
-export const getDailyReport = (date?: string, branchId?: number) =>
-  api.get('/payments/report', { params: { date, branchId } });
+export const getDailyReport = (from?: string, branchId?: number, to?: string) =>
+  api.get('/payments/report', { params: { from, to, branchId } });
 export const getPayments = (branchId?: number) =>
   api.get('/payments', { params: { branchId } });
 export const processPayment = (data: any) => api.post('/payments', data);

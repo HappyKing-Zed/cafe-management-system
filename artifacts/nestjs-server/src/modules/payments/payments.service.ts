@@ -92,15 +92,21 @@ export class PaymentsService {
     return this.shiftRepo.save(shift);
   }
 
-  async getDailyReport(date?: string, branchId?: number) {
-    const targetDate = date ? new Date(date) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(targetDate);
+  async getDailyReport(fromDate?: string, branchId?: number, toDate?: string) {
+    const startDate = fromDate ? new Date(`${fromDate}T00:00:00`) : new Date();
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = toDate ? new Date(`${toDate}T23:59:59.999`) : new Date(startDate);
     endDate.setHours(23, 59, 59, 999);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new BadRequestException('Invalid sales report date');
+    }
+    if (startDate > endDate) {
+      throw new BadRequestException('The sales report start date must be on or before the end date');
+    }
 
     const qb = this.payRepo.createQueryBuilder('p')
       .leftJoin('p.order', 'order')
-      .where('p.createdAt >= :start', { start: targetDate })
+      .where('p.createdAt >= :start', { start: startDate })
       .andWhere('p.createdAt <= :end', { end: endDate });
     if (branchId) qb.andWhere('order.branchId = :branchId', { branchId });
     const payments = await qb.getMany();
@@ -111,7 +117,8 @@ export class PaymentsService {
     }, {} as Record<string, number>);
 
     return {
-      date: targetDate,
+      from: startDate,
+      to: endDate,
       totalRevenue: payments.reduce((sum, p) => sum + Number(p.amount), 0),
       transactionCount: payments.length,
       byMethod,
