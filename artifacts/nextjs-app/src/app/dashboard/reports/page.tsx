@@ -284,30 +284,33 @@ export default function ReportsPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center">
             <BarChart3 className="text-teal-600" size={22} />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="grid grid-cols-1 items-end gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-[minmax(200px,1.5fr)_minmax(130px,0.8fr)_minmax(150px,1fr)_minmax(150px,1fr)_auto]">
           {canPickBranch && branches.length > 0 && (
-            <select value={branchId ?? ''} onChange={e => setBranchId(e.target.value ? +e.target.value : undefined)} className="input w-auto">
-              <option value="">All branches</option>
-              {branches.map((b: any) => (
-                <option key={b.id} value={b.id}>{b.restaurant?.name ? `${b.restaurant.name} — ` : ''}{b.name}</option>
-              ))}
-            </select>
+            <label className="text-xs font-semibold text-gray-600">
+              Branch
+              <select value={branchId ?? ''} onChange={e => setBranchId(e.target.value ? +e.target.value : undefined)} className="input mt-1 block w-full text-sm">
+                <option value="">All branches</option>
+                {branches.map((b: any) => (
+                  <option key={b.id} value={b.id}>{b.restaurant?.name ? `${b.restaurant.name} — ` : ''}{b.name}</option>
+                ))}
+              </select>
+            </label>
           )}
           {tab === 'Overview' && (
-            <div className="flex flex-wrap items-end gap-2">
+            <>
               <label className="text-xs font-semibold text-gray-600">
                 Payment Type
                 <select
                   value={salesMethod}
                   onChange={e => setSalesMethod(e.target.value)}
-                  className="input mt-1 block w-auto text-sm"
+                  className="input mt-1 block w-full text-sm"
                 >
                   <option value="all">All types</option>
                   <option value="cash">Cash</option>
@@ -323,7 +326,7 @@ export default function ReportsPage() {
                   value={salesRange.from}
                   max={salesRange.to}
                   onChange={e => setSalesRange(range => ({ ...range, from: e.target.value }))}
-                  className="input mt-1 block w-auto text-sm"
+                  className="input mt-1 block w-full text-sm"
                 />
               </label>
               <label className="text-xs font-semibold text-gray-600">
@@ -334,13 +337,13 @@ export default function ReportsPage() {
                   value={salesRange.to}
                   min={salesRange.from}
                   onChange={e => setSalesRange(range => ({ ...range, to: e.target.value }))}
-                  className="input mt-1 block w-auto text-sm"
+                  className="input mt-1 block w-full text-sm"
                 />
               </label>
-            </div>
+            </>
           )}
           <button type="button" onClick={() => void fetchData()} disabled={loading} aria-label="Refresh reports"
-            className="btn-secondary inline-flex items-center gap-2 disabled:opacity-50">
+            className="btn-secondary inline-flex h-[42px] items-center justify-center gap-2 disabled:opacity-50">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
         </div>
