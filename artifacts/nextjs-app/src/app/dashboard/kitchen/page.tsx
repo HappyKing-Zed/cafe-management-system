@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { getKitchenBoard, acceptOrder, startPreparing, markReady, updateOrderStatus, getChefs } from '@/lib/api';
-import { Order, User } from '@/lib/types';
+import { getKitchenBoard, acceptOrder, startPreparing, markReady, updateOrderItemStatus, getChefs } from '@/lib/api';
+import { Order, OrderItem, OrderItemStatus, User } from '@/lib/types';
 import { Clock, RefreshCw, ChefHat } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
 import clsx from 'clsx';
@@ -18,10 +18,22 @@ function elapsed(dateStr: string) {
   return d < 1 ? 'Just now' : `${d}m ago`;
 }
 
+const orderNumber = (order: Order) => order.orderNumber ?? order.id;
+const ITEM_STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  confirmed: 'bg-blue-100 text-blue-800',
+  accepted: 'bg-indigo-100 text-indigo-800',
+  preparing: 'bg-orange-100 text-orange-800',
+  ready: 'bg-green-100 text-green-800',
+  served: 'bg-purple-100 text-purple-800',
+};
+
 export default function KitchenPage() {
   const { user } = useAuthStore();
   const isChef = user?.role === 'chef';
+  const isCoordinator = user?.role === 'coordinator';
   const canPickChef = !!user && ['admin', 'owner', 'manager', 'coordinator'].includes(user.role);
+  const canAdvanceItems = !!user && ['chef', 'admin', 'owner'].includes(user.role);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -55,13 +67,22 @@ export default function KitchenPage() {
     return () => clearInterval(interval);
   }, [fetchBoard]);
 
-  const handleAction = async (orderId: number, action: 'accept' | 'preparing' | 'ready' | 'served') => {
+  const handleAction = async (orderId: number, action: 'accept' | 'preparing' | 'ready') => {
     setActionLoading(orderId);
     try {
       if (action === 'accept') await acceptOrder(orderId);
       else if (action === 'preparing') await startPreparing(orderId);
       else if (action === 'ready') await markReady(orderId);
-      else if (action === 'served') await updateOrderStatus(orderId, 'served');
+      await fetchBoard();
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleItemAction = async (orderId: number, itemId: number, status: OrderItemStatus) => {
+    setActionLoading(itemId);
+    try {
+      await updateOrderItemStatus(orderId, itemId, status);
       await fetchBoard();
     } finally {
       setActionLoading(null);
@@ -69,10 +90,17 @@ export default function KitchenPage() {
   };
 
   const grouped = COLUMNS.reduce((acc, col) => {
-    // Served orders leave the board — Completed only shows orders waiting to be served
-    acc[col.key] = col.key === 'completed'
-      ? orders.filter(o => o.status === 'ready')
-      : orders.filter(o => o.status === col.key);
+    acc[col.key] = orders.filter((order) => {
+      const itemStatuses = order.items?.map(item => item.status).filter(Boolean);
+      if (itemStatuses?.length) {
+        if (col.key === 'pending') return itemStatuses.includes('pending');
+        if (col.key === 'confirmed') return itemStatuses.some(status => status === 'confirmed' || status === 'accepted');
+        if (col.key === 'preparing') return itemStatuses.includes('preparing');
+        if (col.key === 'completed') return itemStatuses.includes('ready');
+      }
+      // Legacy orders without item-level status continue through the order lifecycle.
+      return col.key === 'completed' ? order.status === 'ready' : order.status === col.key;
+    });
     return acc;
   }, {} as Record<string, Order[]>);
 
@@ -114,16 +142,9 @@ export default function KitchenPage() {
           <p className="text-green-800 font-semibold">✅ {readyOrders.length} order(s) ready for serving!</p>
           <div className="flex gap-2">
             {readyOrders.map(o => (
-              // Chefs cannot mark orders served — that's the waiter's step
-              isChef ? (
-                <span key={o.id} className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
-                  #{o.id} awaiting waiter
-                </span>
-              ) : (
-              <button key={o.id} onClick={() => handleAction(o.id, 'served')} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600">
-                Mark #{o.id} Served
-              </button>
-              )
+              <span key={o.id} className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
+                #{orderNumber(o)} awaiting waiter
+              </span>
             ))}
           </div>
         </div>
@@ -151,7 +172,7 @@ export default function KitchenPage() {
                     <div key={order.id} className="bg-white rounded-lg shadow-sm px-2.5 py-2 border border-white">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="font-bold text-gray-900 text-sm">#{order.id}</span>
+                          <span className="font-bold text-gray-900 text-sm">#{orderNumber(order)}</span>
                           {order.table && <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full shrink-0"> {order.table.number}</span>}
                           {order.waiter?.name && <span className="text-[10px] text-gray-400 truncate"> {order.waiter.name}</span>}
                         </div>
@@ -159,14 +180,38 @@ export default function KitchenPage() {
                           <Clock size={10} /> {elapsed(order.createdAt)}
                         </span>
                       </div>
-                      <p className="text-xs leading-snug text-gray-700 mt-1">
-                        {order.items?.map((item) => `${item.quantity}× ${item.menuItem?.name || 'Item'}`).join(', ')}
-                      </p>
+                      <div className="mt-1 space-y-1">
+                        {order.items?.map((item: OrderItem) => {
+                          const status = item.status;
+                          const nextStatus: OrderItemStatus | null =
+                            status === 'confirmed' ? 'accepted'
+                              : status === 'accepted' ? 'preparing'
+                                : status === 'preparing' ? 'ready'
+                                  : null;
+                          return (
+                            <div key={item.id} className="rounded-md bg-gray-50 px-1.5 py-1 text-xs text-gray-700">
+                              <div className="flex items-center justify-between gap-1">
+                                <span>{item.quantity}× {item.menuItem?.name || 'Item'}</span>
+                                {status && <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${ITEM_STATUS_COLORS[status] || 'bg-gray-100 text-gray-700'}`}>{status}</span>}
+                              </div>
+                              {nextStatus && canAdvanceItems && (
+                                <button
+                                  onClick={() => handleItemAction(order.id, item.id, nextStatus)}
+                                  disabled={actionLoading === item.id}
+                                  className="mt-1 w-full rounded bg-orange-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+                                >
+                                  {actionLoading === item.id ? '...' : nextStatus === 'accepted' ? 'Accept item' : nextStatus === 'preparing' ? 'Start preparing' : 'Mark item ready'}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                       {order.notes && (
                         <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-1 mt-1"> {order.notes}</p>
                       )}
                       <div className="flex gap-2 mt-1.5">
-                        {col.key === 'pending' && (
+                        {isCoordinator && col.key === 'pending' && !order.items?.some(item => item.status) && (
                           <button
                             onClick={() => handleAction(order.id, 'accept')}
                             disabled={actionLoading === order.id}
@@ -175,7 +220,7 @@ export default function KitchenPage() {
                             {actionLoading === order.id ? '...' : 'Accept'}
                           </button>
                         )}
-                        {col.key === 'confirmed' && (
+                        {canAdvanceItems && col.key === 'confirmed' && !order.items?.some(item => item.status) && (
                           <button
                             onClick={() => handleAction(order.id, 'preparing')}
                             disabled={actionLoading === order.id}
@@ -184,7 +229,7 @@ export default function KitchenPage() {
                             {actionLoading === order.id ? '...' : 'Start Preparing'}
                           </button>
                         )}
-                        {col.key === 'preparing' && (
+                        {canAdvanceItems && col.key === 'preparing' && !order.items?.some(item => item.status) && (
                           <button
                             onClick={() => handleAction(order.id, 'ready')}
                             disabled={actionLoading === order.id}

@@ -66,6 +66,7 @@ export interface RestaurantTable {
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'paid' | 'cancelled';
+export type OrderItemStatus = 'pending' | 'confirmed' | 'accepted' | 'preparing' | 'ready' | 'served';
 export interface OrderItem {
   id: number;
   quantity: number;
@@ -74,14 +75,17 @@ export interface OrderItem {
   menuItemId: number;
   menuItem: MenuItem;
   orderId: number;
+  status?: OrderItemStatus;
 }
 
 export interface Order {
   id: number;
+  orderNumber?: number;
   status: OrderStatus;
   totalAmount: number;
   notes?: string;
   customerName?: string;
+  customerPhone?: string;
   guestCount: number;
   createdAt: string;
   updatedAt: string;

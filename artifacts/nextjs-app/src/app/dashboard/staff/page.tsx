@@ -1,14 +1,18 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getUsers, createUser, updateUser, deleteUser, getRestaurants, getBranches } from '@/lib/api';
 import { User, Restaurant, Branch } from '@/lib/types';
 import { Users, Plus, Pencil, Trash2 } from 'lucide-react';
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth';
 import clsx from 'clsx';
+import { useAuthStore } from '@/store/auth';
 
 const ROLES = ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'cashier', 'storekeeper'];
 
 export default function StaffPage() {
+  const router = useRouter();
+  const { user: currentUser, updateProfile, logout } = useAuthStore();
   const [users, setUsers] = useState<User[]>([]);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -18,6 +22,7 @@ export default function StaffPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'waiter', phone: '', restaurantId: 1, branchId: '' });
   const [submitting, setSubmitting] = useState(false);
   const [filterRole, setFilterRole] = useState('all');
+  const [error, setError] = useState('');
 
   const fetchData = async () => {
     const [usersRes, restsRes, branchesRes] = await Promise.all([getUsers(), getRestaurants(), getBranches()]);
@@ -35,25 +40,55 @@ export default function StaffPage() {
 
   const openCreate = () => {
     setEditUser(null);
-    setForm({ name: '', email: '', password: '', role: 'waiter', phone: '', restaurantId: 1, branchId: '' });
+    setError('');
+    setForm({ name: '', email: '', password: '', role: 'waiter', phone: '', restaurantId: currentUser?.restaurantId || restaurants[0]?.id || 1, branchId: '' });
     setShowModal(true);
   };
 
   const openEdit = (user: User) => {
     setEditUser(user);
+    setError('');
     setForm({ name: user.name, email: user.email, password: '', role: user.role, phone: user.phone || '', restaurantId: user.restaurantId || 1, branchId: user.branchId ? String(user.branchId) : '' });
     setShowModal(true);
   };
 
   const save = async () => {
+    setError('');
+    if (!form.name.trim() || !form.email.trim() || (!editUser && form.password.length < 6)) {
+      setError('Name, a valid email, and a password of at least 6 characters are required.');
+      return;
+    }
     setSubmitting(true);
     try {
-      const data: any = { ...form, restaurantId: +form.restaurantId, branchId: form.branchId ? +form.branchId : undefined };
+      const data: any = {
+        ...form,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone: form.phone.trim() || null,
+        restaurantId: +form.restaurantId,
+        branchId: form.branchId ? +form.branchId : null,
+      };
       if (!data.password) delete data.password;
-      if (editUser) await updateUser(editUser.id, data);
-      else await createUser(data);
+      const response = editUser ? await updateUser(editUser.id, data) : await createUser(data);
+      const saved = response.data as User;
+      setUsers(previous => editUser
+        ? previous.map(user => user.id === saved.id ? saved : user)
+        : [...previous, saved]);
+
+      if (editUser && currentUser?.id === editUser.id) {
+        if (currentUser.role !== saved.role) {
+          logout();
+          window.alert('Your role was changed. Please sign in again so your new permissions take effect.');
+          router.replace('/login');
+          return;
+        }
+        updateProfile(saved);
+      }
       setShowModal(false);
       await fetchData();
+    } catch (e: any) {
+      const message = e?.response?.data?.message;
+      setError(Array.isArray(message) ? message.join(', ') : message || 'Could not save this staff member. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -61,11 +96,26 @@ export default function StaffPage() {
 
   const remove = async (id: number) => {
     if (!confirm('Delete this staff member?')) return;
-    await deleteUser(id);
-    await fetchData();
+    setError('');
+    try {
+      await deleteUser(id);
+      setUsers(previous => previous.filter(user => user.id !== id));
+      await fetchData();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Could not delete this staff member.');
+    }
   };
 
   const filtered = filterRole === 'all' ? users : users.filter(u => u.role === filterRole);
+  const availableBranches = branches.filter(branch => branch.restaurantId === +form.restaurantId);
+  const assignableRoles = currentUser?.role === 'manager'
+    ? ROLES.filter(role => !['admin', 'owner', 'manager'].includes(role))
+    : currentUser?.role === 'owner'
+      ? ROLES.filter(role => role !== 'admin')
+      : ROLES;
+  const availableRoles = editUser && !assignableRoles.includes(editUser.role)
+    ? [editUser.role, ...assignableRoles]
+    : assignableRoles;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -83,6 +133,10 @@ export default function StaffPage() {
           <Plus size={18} /> Add Staff
         </button>
       </div>
+
+      {error && !showModal && (
+        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{error}</div>
+      )}
 
       {/* Role filter */}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -148,18 +202,33 @@ export default function StaffPage() {
                 <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} className="input" /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                 <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className="input">
-                  {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                  {availableRoles.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
                 </select>
               </div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                 <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} className="input" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Restaurant</label>
+                <select
+                  value={form.restaurantId}
+                  onChange={e => setForm(p => ({ ...p, restaurantId: +e.target.value, branchId: '' }))}
+                  className="input"
+                  disabled={currentUser?.role !== 'admin'}
+                >
+                  {restaurants
+                    .filter(restaurant => currentUser?.role === 'admin' || restaurant.id === currentUser?.restaurantId)
+                    .map(restaurant => <option key={restaurant.id} value={restaurant.id}>{restaurant.name}</option>)}
+                </select>
+              </div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
                 <select value={form.branchId} onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))} className="input">
-                  <option value="">Select branch</option>
-                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  <option value="">No branch</option>
+                  {availableBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
             </div>
+            {error && (
+              <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</div>
+            )}
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
               <button onClick={save} disabled={submitting} className="btn-primary flex-1 disabled:opacity-50">

@@ -60,7 +60,7 @@ function OrderList({ title, orders, linkLabel, href }: { title: string; orders: 
           {orders.map((order) => (
             <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-brand-100 rounded-lg flex items-center justify-center text-brand-700 font-bold text-xs">#{order.id}</div>
+                <div className="w-8 h-8 bg-brand-100 rounded-lg flex items-center justify-center text-brand-700 font-bold text-xs">#{order.orderNumber ?? order.id}</div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
                     {order.table?.number ? `Table ${order.table.number}` : order.customerName || 'Walk-in'}
@@ -321,7 +321,7 @@ export default function DashboardPage() {
                 {board.filter(o => !['ready', 'served'].includes(o.status)).slice(0, 6).map((o) => (
                   <div key={o.id} className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">#{o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerName || 'Walk-in'}</p>
+                      <p className="text-sm font-medium text-gray-900">#{o.orderNumber ?? o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerPhone || o.customerName || 'Walk-in'}</p>
                       <p className="text-xs text-gray-400">{o.waiter?.name ? `Waiter: ${o.waiter.name}` : ''}</p>
                     </div>
                     <span className={`status-badge text-xs ${statusColors[o.status]}`}>{o.status}</span>
@@ -341,7 +341,7 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {myReady.map((o) => (
                   <div key={o.id} className="flex items-center justify-between bg-green-50 rounded-lg p-3">
-                    <p className="text-sm font-medium text-green-800">#{o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerName || 'Walk-in'}</p>
+                    <p className="text-sm font-medium text-green-800">#{o.orderNumber ?? o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerPhone || o.customerName || 'Walk-in'}</p>
                     <Link href="/dashboard/orders" className="text-xs font-semibold text-green-700 hover:underline">Serve →</Link>
                   </div>
                 ))}

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn, UpdateDateColumn, Generated } from 'typeorm';
 import { RestaurantTable } from './table.entity';
 import { User } from './user.entity';
 import { OrderItem } from './order-item.entity';
@@ -9,6 +9,14 @@ import { Payment } from './payment.entity';
 export class Order {
   @PrimaryGeneratedColumn()
   id: number;
+
+  /**
+   * Human-facing, database-sequenced number. Keep `id` as the API identifier;
+   * the database sequence makes this safe across concurrent server instances.
+   */
+  @Column({ type: 'int', unique: true })
+  @Generated('increment')
+  orderNumber: number;
 
   @Column({ type: 'enum', enum: OrderStatus, default: OrderStatus.PENDING })
   status: OrderStatus;
@@ -25,6 +33,9 @@ export class Order {
 
   @Column({ nullable: true })
   customerName: string;
+
+  @Column({ nullable: true })
+  customerPhone: string;
 
   @Column({ default: 1 })
   guestCount: number;

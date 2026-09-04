@@ -1,9 +1,13 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../entities/user.entity';
+import { Branch } from '../../entities/branch.entity';
 import { assignDefined } from '../../common/utils/assign-defined';
+import { Role } from '../../common/enums/roles.enum';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 const USER_FIELDS: readonly (keyof User)[] = ['name', 'email', 'role', 'isActive', 'phone', 'restaurantId', 'branchId'];
 
@@ -12,6 +16,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private repo: Repository<User>,
+    @InjectRepository(Branch)
+    private branchRepo: Repository<Branch>,
   ) {}
 
   findAll(restaurantId?: number, branchId?: number) {
@@ -33,17 +39,17 @@ export class UsersService {
     });
   }
 
-  findWaiters(branchId?: number) {
+  findWaiters(branchId?: number, restaurantId?: number) {
     return this.repo.find({
-      where: { role: 'waiter' as any, isActive: true, ...(branchId ? { branchId } : {}) },
+      where: { role: 'waiter' as any, isActive: true, ...(branchId ? { branchId } : {}), ...(restaurantId ? { restaurantId } : {}) },
       select: ['id', 'name'],
       order: { name: 'ASC' },
     });
   }
 
-  findChefs(branchId?: number) {
+  findChefs(branchId?: number, restaurantId?: number) {
     return this.repo.find({
-      where: { role: 'chef' as any, isActive: true, ...(branchId ? { branchId } : {}) },
+      where: { role: 'chef' as any, isActive: true, ...(branchId ? { branchId } : {}), ...(restaurantId ? { restaurantId } : {}) },
       select: ['id', 'name'],
       order: { name: 'ASC' },
     });
@@ -55,27 +61,103 @@ export class UsersService {
     return user;
   }
 
-  async create(data: Partial<User> & { password: string }) {
+  async findOneForActor(id: number, actor: User) {
+    const user = await this.findOne(id);
+    this.assertCanManage(actor, user);
+    return user;
+  }
+
+  async create(data: CreateUserDto, actor: User) {
+    const target = { ...data } as Partial<User>;
+    this.applyActorScope(actor, target);
+    await this.validateAssignment(target.restaurantId, target.branchId);
+    this.assertRoleAllowed(actor, target.role);
     const exists = await this.repo.findOne({ where: { email: data.email } });
     if (exists) throw new ConflictException('Email already in use');
     const hashed = await bcrypt.hash(data.password, 10);
-    const user = assignDefined(this.repo.create(), data, USER_FIELDS);
+    const user = assignDefined(this.repo.create(), target, USER_FIELDS);
     user.password = hashed;
-    return this.repo.save(user);
-  }
-
-  async update(id: number, data: Partial<User> & { password?: string }) {
-    const user = await this.findOne(id);
-    if (data.password) {
-      data.password = await bcrypt.hash(data.password, 10);
+    try {
+      const saved = await this.repo.save(user);
+      return this.findOne(saved.id);
+    } catch (error: any) {
+      if (error?.code === '23505') throw new ConflictException('Email already in use');
+      throw error;
     }
-    assignDefined(user, data, USER_FIELDS);
-    if (data.password) user.password = data.password;
-    return this.repo.save(user);
   }
 
-  async remove(id: number) {
+  async update(id: number, data: UpdateUserDto, actor: User) {
     const user = await this.findOne(id);
+    this.assertCanManage(actor, user);
+    const target = { ...data } as Partial<User> & { password?: string };
+    this.applyActorScope(actor, target);
+    const restaurantId = target.restaurantId !== undefined ? target.restaurantId : user.restaurantId;
+    const branchId = target.branchId !== undefined ? target.branchId : user.branchId;
+    await this.validateAssignment(restaurantId, branchId);
+    if (target.role !== undefined && target.role !== user.role) {
+      this.assertRoleAllowed(actor, target.role);
+    }
+    if (target.email && target.email !== user.email) {
+      const exists = await this.repo.findOne({ where: { email: target.email } });
+      if (exists) throw new ConflictException('Email already in use');
+    }
+    if (target.password) {
+      target.password = await bcrypt.hash(target.password, 10);
+    }
+    assignDefined(user, target, USER_FIELDS);
+    if (target.password) user.password = target.password;
+    try {
+      await this.repo.save(user);
+      return this.findOne(id);
+    } catch (error: any) {
+      if (error?.code === '23505') throw new ConflictException('Email already in use');
+      throw error;
+    }
+  }
+
+  private applyActorScope(actor: User, target: Partial<User>) {
+    if (actor.role === Role.ADMIN) return;
+    if (!actor.restaurantId) throw new ForbiddenException('Your account is not assigned to a restaurant');
+    target.restaurantId = actor.restaurantId;
+    if (actor.role === Role.MANAGER && actor.branchId) target.branchId = actor.branchId;
+  }
+
+  private assertCanManage(actor: User, target: User) {
+    if (actor.role === Role.ADMIN) return;
+    if (!actor.restaurantId || target.restaurantId !== actor.restaurantId) {
+      throw new ForbiddenException('You can only manage staff in your restaurant');
+    }
+    if (actor.role === Role.MANAGER && actor.branchId && target.branchId !== actor.branchId) {
+      throw new ForbiddenException('You can only manage staff in your branch');
+    }
+    if (actor.role === Role.MANAGER && target.id !== actor.id && [Role.ADMIN, Role.OWNER, Role.MANAGER].includes(target.role)) {
+      throw new ForbiddenException('Managers cannot manage administrators, owners, or other managers');
+    }
+    if (actor.role === Role.OWNER && target.role === Role.ADMIN) {
+      throw new ForbiddenException('Owners cannot manage administrators');
+    }
+  }
+
+  private assertRoleAllowed(actor: User, role: Role) {
+    if (actor.role === Role.ADMIN) return;
+    if (actor.role === Role.OWNER && role !== Role.ADMIN) return;
+    if (actor.role === Role.MANAGER && ![Role.ADMIN, Role.OWNER, Role.MANAGER].includes(role)) return;
+    throw new ForbiddenException('You cannot assign this role');
+  }
+
+  private async validateAssignment(restaurantId?: number | null, branchId?: number | null) {
+    if (!branchId) return;
+    if (!restaurantId) throw new BadRequestException('A branch assignment requires a restaurant');
+    const branch = await this.branchRepo.findOne({ where: { id: branchId } });
+    if (!branch) throw new BadRequestException('Selected branch does not exist');
+    if (branch.restaurantId !== restaurantId) {
+      throw new BadRequestException('Selected branch does not belong to the selected restaurant');
+    }
+  }
+
+  async remove(id: number, actor: User) {
+    const user = await this.findOne(id);
+    this.assertCanManage(actor, user);
     return this.repo.remove(user);
   }
 }

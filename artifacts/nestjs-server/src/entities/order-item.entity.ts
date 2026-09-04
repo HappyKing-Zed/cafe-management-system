@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Order } from './order.entity';
 import { MenuItem } from './menu-item.entity';
+import { OrderItemStatus } from '../common/enums/order-item-status.enum';
 
 @Entity('order_items')
 export class OrderItem {
@@ -15,6 +16,11 @@ export class OrderItem {
 
   @Column({ nullable: true })
   notes: string;
+
+  // Nullable only for rows created before item-level lifecycle tracking existed.
+  // New application writes always set this explicitly.
+  @Column({ type: 'enum', enum: OrderItemStatus, nullable: true })
+  status: OrderItemStatus;
 
   @ManyToOne(() => Order, (o) => o.items, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'orderId' })

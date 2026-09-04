@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe, Req, ForbiddenException } from '@nestjs/common';
 import { branchScope } from '../../common/utils/branch-scope';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -6,6 +6,8 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/roles.enum';
 import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -17,7 +19,13 @@ export class UsersController {
   @Get()
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
   findAll(@Req() req: any, @Query('restaurantId') restaurantId?: number) {
-    return this.service.findAll(restaurantId ? +restaurantId : undefined, branchScope(req.user));
+    if (req.user.role !== Role.ADMIN && !req.user.restaurantId) {
+      throw new ForbiddenException('Your account is not assigned to a restaurant');
+    }
+    const scopedRestaurant = req.user.role === Role.ADMIN
+      ? (restaurantId ? +restaurantId : undefined)
+      : req.user.restaurantId;
+    return this.service.findAll(scopedRestaurant, branchScope(req.user));
   }
 
   // Lightweight list for the item-request form (name + role only) — available to all staff
@@ -25,45 +33,45 @@ export class UsersController {
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
   staffList(@Req() req: any) {
     // Always constrain to the caller's restaurant (and branch when scoped)
+    if (!req.user?.restaurantId) throw new ForbiddenException('Your account is not assigned to a restaurant');
     return this.service.findStaffList(branchScope(req.user), req.user?.restaurantId);
   }
 
   @Get('waiters')
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.CASHIER)
   findWaiters(@Req() req: any) {
-    return this.service.findWaiters(branchScope(req.user));
+    if (!req.user?.restaurantId) throw new ForbiddenException('Your account is not assigned to a restaurant');
+    return this.service.findWaiters(branchScope(req.user), req.user.restaurantId);
   }
 
   @Get('chefs')
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR)
   findChefs(@Req() req: any) {
-    return this.service.findChefs(branchScope(req.user));
+    if (!req.user?.restaurantId) throw new ForbiddenException('Your account is not assigned to a restaurant');
+    return this.service.findChefs(branchScope(req.user), req.user.restaurantId);
   }
 
   @Get(':id')
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  findOne(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+    return this.service.findOneForActor(id, req.user);
   }
 
   @Post()
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
-  create(@Req() req: any, @Body() body: any) {
-    // Branch managers can only create staff in their own branch
-    const scope = branchScope(req.user);
-    if (scope) body.branchId = scope;
-    return this.service.create(body);
+  create(@Req() req: any, @Body() body: CreateUserDto) {
+    return this.service.create(body, req.user);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
-  update(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
-    return this.service.update(id, body);
+  update(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: UpdateUserDto) {
+    return this.service.update(id, body, req.user);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN, Role.OWNER)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.service.remove(id);
+  remove(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+    return this.service.remove(id, req.user);
   }
 }

@@ -244,7 +244,7 @@ export default function ManagerDashboard() {
               {inProgress.slice(0, 4).map(o => (
                 <div key={o.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 bg-orange-50 rounded-lg flex items-center justify-center text-orange-600 font-bold text-[10px] shrink-0">#{o.id}</div>
+                    <div className="w-7 h-7 bg-orange-50 rounded-lg flex items-center justify-center text-orange-600 font-bold text-[10px] shrink-0">#{o.orderNumber ?? o.id}</div>
                     <div className="min-w-0">
                       <p className="text-xs font-medium text-gray-900 truncate">{o.table?.number ? `Table ${o.table.number}` : o.customerName || 'Take Away'}</p>
                       <p className="text-[10px] text-gray-400">{o.items?.length || 0} items · {new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -405,7 +405,7 @@ export default function ManagerDashboard() {
                   <div className="space-y-2">
                     {list.map(o => (
                       <div key={o.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
-                        <span className="text-gray-700">#{o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerName || 'Take Away'}</span>
+                        <span className="text-gray-700">#{o.orderNumber ?? o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerPhone || o.customerName || 'Take Away'}</span>
                         <span className="font-semibold">{fmt(Number(o.totalAmount))} <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize" style={{ background: `${STATUS_COLORS[o.status]}20`, color: STATUS_COLORS[o.status] }}>{o.status}</span></span>
                       </div>
                     ))}
@@ -427,7 +427,7 @@ export default function ManagerDashboard() {
                   <div className="space-y-2">
                     {inProgress.map(o => (
                       <div key={o.id} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
-                        <span className="text-gray-700">#{o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerName || 'Take Away'} · {o.items?.length || 0} items</span>
+                        <span className="text-gray-700">#{o.orderNumber ?? o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerPhone || o.customerName || 'Take Away'} · {o.items?.length || 0} items</span>
                         <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full capitalize" style={{ background: `${STATUS_COLORS[o.status]}20`, color: STATUS_COLORS[o.status] }}>{o.status}</span>
                       </div>
                     ))}

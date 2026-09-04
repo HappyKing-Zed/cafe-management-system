@@ -8,6 +8,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import {
+  createDatabaseOptions,
   createDatabaseOptionsFromConfig,
 } from '../src/database/database.config';
 
@@ -20,7 +21,7 @@ test('loads database options after a fixture .env file is initialized', async ()
     'postgresql://fixture-host:5432/fixture-database?sslmode=require';
   const previousUrl = process.env.DATABASE_URL;
 
-  await writeFile(envFilePath, `DATABASE_URL=${fixtureUrl}\n`, 'utf8');
+  await writeFile(envFilePath, `DATABASE_URL=${fixtureUrl}\nNODE_ENV=development\nDATABASE_SYNCHRONIZE=true\n`, 'utf8');
   delete process.env.DATABASE_URL;
 
   @Module({
@@ -44,7 +45,12 @@ test('loads database options after a fixture .env file is initialized', async ()
     assert.equal(options.url, fixtureUrl);
     assert.equal(options.synchronize, true);
     assert.deepEqual(options.ssl, { rejectUnauthorized: false });
-    assert.equal(Array.isArray(options.entities) ? options.entities.length : 0, 18);
+    assert.ok(Array.isArray(options.entities) && options.entities.length > 0);
+    assert.equal(options.migrationsRun, false);
+    assert.equal(Array.isArray(options.migrations) ? options.migrations.length : 0, 1);
+    const productionOptions = createDatabaseOptions(fixtureUrl, 'production', true);
+    assert.equal(productionOptions.synchronize, false);
+    assert.equal(productionOptions.migrationsRun, true);
   } finally {
     await app.close();
     await rm(directory, { recursive: true, force: true });

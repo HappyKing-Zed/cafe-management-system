@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getOrders, getOrder, createOrder, addOrderItems, removeOrderItems, updateOrderStatus, processPayment, getMenuCategories, getTables, getWaiters, getChefs } from '@/lib/api';
-import { Order, MenuItem, MenuCategory, RestaurantTable, User } from '@/lib/types';
+import { getOrders, getOrder, createOrder, addOrderItems, removeOrderItems, updateOrderStatus, updateOrderItemStatus, processPayment, getMenuCategories, getTables, getWaiters, getChefs } from '@/lib/api';
+import { Order, OrderItem, OrderItemStatus, MenuItem, MenuCategory, RestaurantTable, User } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
 import { ShoppingCart, Plus, X, CreditCard, CheckCircle } from 'lucide-react';
 import clsx from 'clsx';
@@ -9,6 +9,7 @@ import clsx from 'clsx';
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   confirmed: 'bg-blue-100 text-blue-800',
+  accepted: 'bg-indigo-100 text-indigo-800',
   preparing: 'bg-orange-100 text-orange-800',
   ready: 'bg-green-100 text-green-800',
   served: 'bg-purple-100 text-purple-800',
@@ -20,6 +21,7 @@ interface CartItem { menuItem: MenuItem; quantity: number; notes?: string; }
 
 const CAN_ASSIGN_WAITER = ['admin', 'owner', 'manager', 'coordinator'];
 const CAN_PAY = ['cashier', 'admin', 'owner'];
+const orderNumber = (order: Order) => order.orderNumber ?? order.id;
 
 export default function OrdersPage() {
   const { user } = useAuthStore();
@@ -27,7 +29,11 @@ export default function OrdersPage() {
   const canPay = !!user && CAN_PAY.includes(user.role);
   const isWaiter = user?.role === 'waiter';
   const isCoordinator = user?.role === 'coordinator';
-  const canCreateOrder = !!user && !['coordinator', 'manager', 'owner'].includes(user.role);
+  const isCashier = user?.role === 'cashier';
+  const canConfirmItems = isCoordinator;
+  const canAdvanceKitchenItems = !!user && ['chef', 'admin', 'owner'].includes(user.role);
+  const ownsOrder = (order: Order) => isWaiter && order.waiterId === user?.id;
+  const canCreateOrder = !!user && !['coordinator', 'manager', 'owner', 'cashier'].includes(user.role);
 
   // Estimated completion: order time + longest preparation time among its items (default 20 min)
   const estCompletion = (order: Order) => {
@@ -46,7 +52,7 @@ export default function OrdersPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCat, setSelectedCat] = useState<number | null>(null);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
-  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [filter, setFilter] = useState('all');
   const [payingOrder, setPayingOrder] = useState<Order | null>(null);
@@ -113,13 +119,9 @@ export default function OrdersPage() {
 
   const cartTotal = cart.reduce((sum, c) => sum + Number(c.menuItem.price) * c.quantity, 0);
 
-  // Pay-at-order (waiter POS): take payment while placing the order when an amount is entered
-  const [posPayMethod, setPosPayMethod] = useState<'cash' | 'card' | 'mobile'>('cash');
-  const [posPayAmount, setPosPayAmount] = useState('');
   const [svcPct, setSvcPct] = useState('2');
   const svcAmount = Math.round(cartTotal * ((parseFloat(svcPct) || 0) / 100) * 100) / 100;
   const grandTotal = Math.round((cartTotal + svcAmount) * 100) / 100;
-  const payNow = parseFloat(posPayAmount) > 0;
   // When set, the POS adds items to this existing order instead of creating a new one
   const [appendOrder, setAppendOrder] = useState<Order | null>(null);
 
@@ -143,34 +145,31 @@ export default function OrdersPage() {
     setCart([]);
     setSelectedTable(null);
     setSelectedWaiter(null);
-    setCustomerName('');
+    setCustomerPhone('');
     setNotes('');
-    setPosPayAmount('');
-    setPosPayMethod('cash');
     setSvcPct('2');
     setAppendOrder(null);
   };
 
   const submitOrder = async () => {
     if (cart.length === 0) return;
+    if (!appendOrder && !selectedTable && !customerPhone.trim()) {
+      alert('Please enter a client phone number for takeaway orders.');
+      return;
+    }
     setSubmitting(true);
     try {
-      const res = appendOrder
-        ? await addOrderItems(appendOrder.id, cart.map(c => ({ menuItemId: c.menuItem.id, quantity: c.quantity, notes: c.notes })))
-        : await createOrder({
-        tableId: selectedTable,
-        waiterId: canAssignWaiter ? selectedWaiter : user?.role === 'waiter' ? user.id : undefined,
-        customerName,
-        notes,
-        serviceChargePct: parseFloat(svcPct) || 0,
-        items: cart.map(c => ({ menuItemId: c.menuItem.id, quantity: c.quantity, notes: c.notes })),
-      });
-      if (!appendOrder && payNow && res.data?.id) {
-        try {
-          await processPayment({ orderId: res.data.id, method: posPayMethod, amount: parseFloat(posPayAmount) || grandTotal });
-        } catch (e: any) {
-          alert(e?.response?.data?.message || 'Order placed, but the payment could not be processed');
-        }
+      if (appendOrder) {
+        await addOrderItems(appendOrder.id, cart.map(c => ({ menuItemId: c.menuItem.id, quantity: c.quantity, notes: c.notes })));
+      } else {
+        await createOrder({
+          tableId: selectedTable,
+          waiterId: canAssignWaiter ? selectedWaiter : user?.role === 'waiter' ? user.id : undefined,
+          customerPhone: customerPhone.trim() || undefined,
+          notes,
+          serviceChargePct: parseFloat(svcPct) || 0,
+          items: cart.map(c => ({ menuItemId: c.menuItem.id, quantity: c.quantity, notes: c.notes })),
+        });
       }
       resetPOS();
       setShowPOS(false);
@@ -183,6 +182,20 @@ export default function OrdersPage() {
   const handleStatusChange = async (orderId: number, status: string) => {
     await updateOrderStatus(orderId, status);
     await fetchData();
+  };
+
+  const handleItemStatusChange = async (orderId: number, itemId: number, status: OrderItemStatus) => {
+    setSubmitting(true);
+    try {
+      await updateOrderItemStatus(orderId, itemId, status);
+      const refreshed = (await getOrder(orderId)).data;
+      setDetailOrder(refreshed);
+      await fetchData();
+    } catch (e: any) {
+      alert(e?.response?.data?.message || 'Could not update the item status');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handlePayment = async () => {
@@ -198,7 +211,10 @@ export default function OrdersPage() {
     }
   };
 
-  const statusFiltered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
+  const roleOrders = isCashier
+    ? orders.filter(o => o.status === 'served' && (!o.items?.length || o.items.every(item => !item.status || item.status === 'served')))
+    : orders;
+  const statusFiltered = filter === 'all' ? roleOrders : roleOrders.filter(o => o.status === filter);
   const filteredOrders = statusFiltered.filter((o) => {
     if (!isWaiter && fWaiter && String(o.waiterId || o.waiter?.id || '') !== fWaiter) return false;
     if (fTable) {
@@ -233,17 +249,17 @@ export default function OrdersPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 mb-6 flex-wrap">
+      {!isCashier && <div className="flex gap-2 mb-6 flex-wrap">
         {['all', 'pending', 'confirmed', 'preparing', 'ready', 'served', 'paid', 'cancelled'].map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
             className={clsx('px-4 py-1.5 rounded-full text-sm font-medium transition-colors', filter === s ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
           >
-            {s.charAt(0).toUpperCase() + s.slice(1)} {s === 'all' ? `(${orders.length})` : `(${orders.filter(o => o.status === s).length})`}
+            {s.charAt(0).toUpperCase() + s.slice(1)} {s === 'all' ? `(${roleOrders.length})` : `(${roleOrders.filter(o => o.status === s).length})`}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* Filters — single compact row */}
       {(
@@ -319,7 +335,7 @@ export default function OrdersPage() {
                     }
                   }}
                 >
-                  <td className="table-cell !px-2.5 !py-2 text-xs font-semibold text-brand-600">#{order.id}</td>
+                  <td className="table-cell !px-2.5 !py-2 text-xs font-semibold text-brand-600">#{orderNumber(order)}</td>
                   <td className="table-cell !px-2.5 !py-2">
                     {order.table?.number ? <span className="text-xs font-medium">{order.table.number}</span> : <span className="text-xs text-gray-500">Take Away</span>}
                     {!isWaiter && order.waiter?.name && <p className="text-[10px] text-gray-400 truncate max-w-[90px]">{order.waiter.name}</p>}
@@ -335,7 +351,7 @@ export default function OrdersPage() {
                     <p className="text-[10px] text-gray-400 capitalize">{order.payments?.length ? (order.payments[order.payments.length - 1].method === 'mobile' ? 'wallet' : order.payments[order.payments.length - 1].method) : '—'}</p>
                   </td>
                   <td className="table-cell !px-2.5 !py-2" onClick={(e) => e.stopPropagation()}>
-                    {order.status === 'ready' ? (
+                    {order.status === 'ready' && ownsOrder(order) ? (
                       <button onClick={() => handleStatusChange(order.id, 'served')}
                         title="Click to mark as served"
                         className={`status-badge ${STATUS_COLORS[order.status]} cursor-pointer hover:ring-2 hover:ring-purple-300`}>
@@ -347,17 +363,24 @@ export default function OrdersPage() {
                   </td>
                   <td className="table-cell !px-2.5 !py-2" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1 flex-wrap">
-                      {isWaiter && !['paid', 'cancelled'].includes(order.status) && (
+                      {ownsOrder(order) && !['paid', 'cancelled'].includes(order.status) && (
                         <button onClick={() => { resetPOS(); setAppendOrder(order); setShowPOS(true); }}
                           className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded hover:bg-brand-200 whitespace-nowrap">+ Add Items</button>
-                      )}
-                      {!isWaiter && !isCoordinator && order.status === 'pending' && (
-                        <button onClick={() => handleStatusChange(order.id, 'confirmed')} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Confirm</button>
                       )}
                       {isCoordinator && order.status === 'pending' && (
                         <button onClick={() => { setChefSel(''); setConfirmOrder(order); }} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Confirm</button>
                       )}
-                      {!isWaiter && !isCoordinator && order.status === 'ready' && (
+                      {isCoordinator && order.status !== 'pending' && order.items?.some(item => item.status === 'pending') && (
+                        <button
+                          onClick={async () => {
+                            try { setDetailOrder((await getOrder(order.id)).data); } catch { setDetailOrder(order); }
+                          }}
+                          className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 whitespace-nowrap"
+                        >
+                          Review pending items
+                        </button>
+                      )}
+                      {ownsOrder(order) && order.status === 'ready' && (
                         <button onClick={() => handleStatusChange(order.id, 'served')} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">Served</button>
                       )}
                       {!isWaiter && !isCoordinator && order.status === 'served' && (canPay ? (
@@ -372,7 +395,7 @@ export default function OrdersPage() {
                           <CheckCircle size={12} /> Completed
                         </span>
                       )}
-                      {['pending', 'confirmed', 'preparing'].includes(order.status) && (
+                      {ownsOrder(order) && order.status === 'pending' && order.items?.every(item => !item.status || item.status === 'pending') && (
                         <button onClick={async () => {
                           setCancelSel([]);
                           try { const res = await getOrder(order.id); setCancelOrder(res.data); } catch { setCancelOrder(order); }
@@ -394,7 +417,7 @@ export default function OrdersPage() {
             {/* Menu */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               <div className="flex items-center justify-between gap-3 border-b p-3 sm:p-4">
-                <h2 className="min-w-0 truncate text-lg font-bold">{appendOrder ? `Add Items to Order #${appendOrder.id}` : 'Point of Sale'}</h2>
+                <h2 className="min-w-0 truncate text-lg font-bold">{appendOrder ? `Add Items to Order #${orderNumber(appendOrder)}` : 'Point of Sale'}</h2>
                 <button onClick={() => { setShowPOS(false); resetPOS(); }} className="shrink-0 text-gray-400 hover:text-gray-600" aria-label="Close order form"><X size={22} /></button>
               </div>
               {/* Category tabs */}
@@ -431,11 +454,19 @@ export default function OrdersPage() {
                     <option value="">Take Away</option>
                     {tables.map(t => <option key={t.id} value={t.id}>{t.number}</option>)}
                   </select>
-                  <input placeholder="Customer phone number" type="tel" value={customerName} onChange={e => setCustomerName(e.target.value)} className="input text-xs py-1.5" />
+                  <input
+                    placeholder={selectedTable ? 'Client phone number (optional)' : 'Client phone number (required)'}
+                    aria-label="Client phone number"
+                    required={!selectedTable}
+                    type="tel"
+                    value={customerPhone}
+                    onChange={e => setCustomerPhone(e.target.value)}
+                    className="input text-xs py-1.5"
+                  />
                 </div>
                 )}
                 {appendOrder && (
-                  <p className="text-xs text-gray-500 mt-1">Adding to Order #{appendOrder.id} · {appendOrder.table?.number || 'Take Away'}</p>
+                  <p className="text-xs text-gray-500 mt-1">Adding to Order #{orderNumber(appendOrder)} · {appendOrder.table?.number || 'Take Away'}</p>
                 )}
                 {!appendOrder && canAssignWaiter && (
                   <select value={selectedWaiter || ''} onChange={(e) => setSelectedWaiter(e.target.value ? +e.target.value : null)}
@@ -486,28 +517,9 @@ export default function OrdersPage() {
                   <span className="font-bold text-xl text-brand-600">ETB {(appendOrder ? cartTotal : grandTotal).toLocaleString()}</span>
                 </div>
 
-                {/* Payment (pay at order) */}
-                {!appendOrder && (
-                <div className="border-t pt-2 mb-2 space-y-1.5">
-                  <label className="block text-[11px] font-semibold text-gray-600">Payment Method</label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {(['cash', 'card', 'mobile'] as const).map((m) => (
-                      <button key={m} onClick={() => setPosPayMethod(m)}
-                        className={clsx('py-1.5 rounded-lg text-[11px] font-medium border transition-colors', posPayMethod === m ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
-                        {m === 'cash' ? ' Cash' : m === 'card' ? ' Card' : ' Wallet'}
-                      </button>
-                    ))}
-                  </div>
-                  <input type="number" value={posPayAmount} onChange={e => setPosPayAmount(e.target.value)} className="input text-xs py-1.5" placeholder="Amount received (empty = pay later)" />
-                  {posPayMethod === 'cash' && parseFloat(posPayAmount) > grandTotal && (
-                    <p className="text-[11px] text-green-700 text-center">Change: <span className="font-bold">ETB {(parseFloat(posPayAmount) - grandTotal).toLocaleString()}</span></p>
-                  )}
-                </div>
-                )}
-
-                <button onClick={submitOrder} disabled={cart.length === 0 || submitting}
+                <button onClick={submitOrder} disabled={cart.length === 0 || submitting || (!appendOrder && !selectedTable && !customerPhone.trim())}
                   className="btn-primary w-full py-3 disabled:opacity-50">
-                  {submitting ? 'Saving...' : appendOrder ? `Add to Order #${appendOrder.id}` : payNow ? 'Place Order & Confirm Payment' : 'Place Order'}
+                  {submitting ? 'Saving...' : appendOrder ? `Add to Order #${orderNumber(appendOrder)}` : 'Place Order'}
                 </button>
               </div>
             </div>
@@ -516,11 +528,11 @@ export default function OrdersPage() {
       )}
 
       {/* Cancel Order Modal */}
-      {cancelOrder && (
+      {cancelOrder && ownsOrder(cancelOrder) && cancelOrder.status === 'pending' && cancelOrder.items?.every(item => !item.status || item.status === 'pending') && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-xl font-bold">Cancel Order #{cancelOrder.id}</h3>
+              <h3 className="text-xl font-bold">Cancel Order #{orderNumber(cancelOrder)}</h3>
               <button onClick={() => setCancelOrder(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
             <p className="text-sm text-gray-500 mb-4">Cancel the whole order, or tick the items to remove.</p>
@@ -574,7 +586,7 @@ export default function OrdersPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setConfirmOrder(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold">Confirm Order #{confirmOrder.id}</h2>
+              <h2 className="text-lg font-bold">Confirm Order #{orderNumber(confirmOrder)}</h2>
               <button onClick={() => setConfirmOrder(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
             </div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Assign Chef</label>
@@ -606,7 +618,7 @@ export default function OrdersPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setDetailOrder(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-xl font-bold">Order #{detailOrder.id}</h3>
+              <h3 className="text-xl font-bold">Order #{orderNumber(detailOrder)}</h3>
               <button onClick={() => setDetailOrder(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
             <div className="flex items-center gap-2 mb-4">
@@ -616,7 +628,7 @@ export default function OrdersPage() {
             <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-xs text-gray-400 mb-0.5">Table / Customer</p>
-                <p className="font-medium text-gray-900">{detailOrder.table?.number ? `Table ${detailOrder.table.number}` : detailOrder.customerName || 'Walk-in'}</p>
+                 <p className="font-medium text-gray-900">{detailOrder.table?.number ? `Table ${detailOrder.table.number}` : detailOrder.customerPhone || detailOrder.customerName || 'Walk-in'}</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-xs text-gray-400 mb-0.5">Waiter</p>
@@ -625,18 +637,37 @@ export default function OrdersPage() {
             </div>
             <p className="text-sm font-semibold text-gray-700 mb-2">Items</p>
             <div className="divide-y divide-gray-50 border border-gray-100 rounded-lg mb-4">
-              {detailOrder.items?.map((item: any) => (
-                <div key={item.id} className="flex justify-between items-center px-3 py-2 text-sm">
+              {detailOrder.items?.map((item: OrderItem) => {
+                const itemStatus = item.status || detailOrder.status;
+                const nextItemStatus: OrderItemStatus | null =
+                  canConfirmItems && itemStatus === 'pending' ? 'confirmed'
+                    : canAdvanceKitchenItems && itemStatus === 'confirmed' ? 'accepted'
+                      : canAdvanceKitchenItems && itemStatus === 'accepted' ? 'preparing'
+                        : canAdvanceKitchenItems && itemStatus === 'preparing' ? 'ready'
+                          : ownsOrder(detailOrder) && itemStatus === 'ready' ? 'served'
+                            : null;
+                return (
+                <div key={item.id} className="flex justify-between items-center gap-3 px-3 py-2 text-sm">
                   <div>
                     <p className="text-gray-800">{item.menuItem?.name || `Item ${item.menuItemId}`}</p>
                     {item.notes && <p className="text-xs text-amber-700"> {item.notes}</p>}
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <p className="font-medium">×{item.quantity}</p>
                     <p className="text-xs text-gray-400">ETB {(Number(item.unitPrice) * item.quantity).toLocaleString()}</p>
+                    <span className={`status-badge mt-1 ${STATUS_COLORS[itemStatus] || 'bg-gray-100 text-gray-700'}`}>{itemStatus}</span>
+                    {nextItemStatus && (
+                      <button
+                        disabled={submitting}
+                        onClick={() => handleItemStatusChange(detailOrder.id, item.id, nextItemStatus)}
+                        className="block ml-auto mt-1 text-[11px] px-2 py-1 rounded bg-brand-100 text-brand-700 hover:bg-brand-200 disabled:opacity-50"
+                      >
+                        {nextItemStatus === 'confirmed' ? 'Confirm item' : nextItemStatus === 'accepted' ? 'Accept item' : nextItemStatus === 'preparing' ? 'Start preparing' : nextItemStatus === 'ready' ? 'Mark ready' : 'Mark served'}
+                      </button>
+                    )}
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
             {detailOrder.notes && <p className="text-xs text-amber-700 bg-amber-50 rounded p-2 mb-4"> {detailOrder.notes}</p>}
             {(detailOrder as any).payments?.length > 0 && (
@@ -665,7 +696,7 @@ export default function OrdersPage() {
               <h3 className="text-xl font-bold">Process Payment</h3>
               <button onClick={() => setPayingOrder(null)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
-            <p className="text-sm text-gray-500 mb-4">Order #{payingOrder.id} · ETB {Number(payingOrder.totalAmount).toLocaleString()}</p>
+            <p className="text-sm text-gray-500 mb-4">Order #{orderNumber(payingOrder)} · ETB {Number(payingOrder.totalAmount).toLocaleString()}</p>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>

@@ -76,7 +76,7 @@ export default function RequestsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                   <div>
                     <p className="font-bold text-gray-900">
-                      Order #{o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerName || 'Walk-in'}
+                      Order #{o.orderNumber ?? o.id} · {o.table?.number ? `Table ${o.table.number}` : o.customerPhone || o.customerName || 'Walk-in'}
                     </p>
                     <p className="text-xs text-gray-500">
                       {o.waiter?.name ? `Sent by ${o.waiter.name} · ` : ''}{minutesAgo(o.createdAt)} min ago

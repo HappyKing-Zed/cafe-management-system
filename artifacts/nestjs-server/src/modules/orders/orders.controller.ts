@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -19,7 +19,9 @@ export class OrdersController {
   findAll(@Req() req: any, @Query('status') status?: OrderStatus, @Query('tableId') tid?: number, @Query('branchId') branchId?: string) {
     // Waiters only ever see their own orders
     const waiterId = req.user?.role === Role.WAITER ? req.user.id : undefined;
-    return this.service.findAll(status, tid ? +tid : undefined, waiterId, effectiveBranch(req.user, branchId));
+    // Cashiers have a deliberately narrow queue: only orders ready for payment.
+    const visibleStatus = req.user?.role === Role.CASHIER ? OrderStatus.SERVED : status;
+    return this.service.findAll(visibleStatus, tid ? +tid : undefined, waiterId, effectiveBranch(req.user, branchId), req.user);
   }
 
   @Get('stats')
@@ -43,6 +45,8 @@ export class OrdersController {
   }
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF)
   create(@Req() req: any, @Body() body: any) {
     // Orders created by a waiter are always attributed to that waiter
     if (req.user?.role === Role.WAITER) body.waiterId = req.user.id;
@@ -56,20 +60,28 @@ export class OrdersController {
 
   @Patch(':id/items')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.CASHIER, Role.WAITER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.WAITER)
   addItems(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body('items') items: any[]) {
     return this.service.addItems(id, items, req.user);
   }
 
   @Patch(':id/items/remove')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.CASHIER, Role.WAITER, Role.COORDINATOR)
+  @Roles(Role.ADMIN, Role.OWNER, Role.WAITER)
   removeItems(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body('orderItemIds') orderItemIds: number[]) {
     return this.service.removeItems(id, orderItemIds, req.user);
   }
 
-  @Delete(':id')
+  @Patch(':id/items/:itemId/status')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER)
-  remove(@Param('id', ParseIntPipe) id: number) { return this.service.remove(id); }
+  @Roles(Role.ADMIN, Role.OWNER, Role.COORDINATOR, Role.CHEF, Role.WAITER)
+  updateItemStatus(
+    @Req() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('itemId', ParseIntPipe) itemId: number,
+    @Body('status') status: any,
+  ) {
+    return this.service.updateItemStatus(id, itemId, status, req.user);
+  }
+
 }

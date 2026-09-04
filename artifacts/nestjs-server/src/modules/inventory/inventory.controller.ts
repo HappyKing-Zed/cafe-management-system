@@ -56,9 +56,9 @@ export class InventoryController {
   @Patch('suppliers/:id')
   updateSupplier(@Param('id', ParseIntPipe) id: number, @Body() body: any) { return this.service.updateSupplier(id, body); }
 
-  // Purchase Orders (cashier included: they confirm payment after approval)
+  // Purchase Orders
   @Get('purchase-orders')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER, Role.CASHIER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
   findPOs(@Req() req: any, @Query('supplierId') sid?: number) {
     return this.service.findAllPOs(sid ? +sid : undefined, branchScope(req.user));
   }
@@ -76,7 +76,7 @@ export class InventoryController {
   }
 
   @Patch('purchase-orders/:id/status')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER, Role.CASHIER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
   updatePOStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Req() req: any) {
     return this.service.updatePOStatus(id, status, req.user, branchScope(req.user));
   }

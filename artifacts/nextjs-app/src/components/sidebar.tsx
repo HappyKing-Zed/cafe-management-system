@@ -70,6 +70,9 @@ export default function Sidebar() {
 
   const visible = navItems.filter((item) => {
     if (!user?.role || !item.roles.includes(user.role)) return false;
+    if (item.href === '/dashboard/inventory' && user.role === 'cashier') {
+      return false;
+    }
     if (item.href === '/dashboard/main-store' && user.role === 'storekeeper') {
       return !user.branchId;
     }

@@ -85,6 +85,7 @@ export class NotificationsService {
     const tableLabel = order.table?.number ? `Table ${order.table.number}` : order.customerName || 'Walk-in';
     const waiter = order.waiter?.name ? ` — waiter ${order.waiter.name}` : '';
     const base = { orderId: order.id, branchId: order.branchId ?? null } as any;
+    const orderLabel = order.orderNumber || order.id;
     const rows: Array<Partial<Notification>> = [];
     const toWaiter = (message: string) => {
       if (order.waiterId) rows.push({ ...base, targetUserId: order.waiterId, message });
@@ -95,28 +96,28 @@ export class NotificationsService {
 
     switch (event) {
       case 'created':
-        toRoles(['chef', 'coordinator'], `New order #${order.id} (${tableLabel})${waiter} — waiting for kitchen`);
+        toRoles(['chef', 'coordinator'], `New order #${orderLabel} (${tableLabel})${waiter} — waiting for kitchen`);
         break;
       case OrderStatus.CONFIRMED:
-        toWaiter(`Order #${order.id} (${tableLabel}) was received by the kitchen`);
+        toWaiter(`Order #${orderLabel} (${tableLabel}) was received by the kitchen`);
         break;
       case OrderStatus.PREPARING:
-        toWaiter(`Order #${order.id} (${tableLabel}) is now being prepared`);
+        toWaiter(`Order #${orderLabel} (${tableLabel}) is now being prepared`);
         break;
       case OrderStatus.READY:
-        toWaiter(`Order #${order.id} (${tableLabel}) is READY — please serve it`);
-        toRoles(['coordinator'], `Order #${order.id} (${tableLabel})${waiter} is ready for serving`);
+        toWaiter(`Order #${orderLabel} (${tableLabel}) is READY — please serve it`);
+        toRoles(['coordinator'], `Order #${orderLabel} (${tableLabel})${waiter} is ready for serving`);
         break;
       case OrderStatus.SERVED:
-        toRoles(['cashier'], `Order #${order.id} (${tableLabel})${waiter} was served — awaiting payment`);
+        toRoles(['cashier'], `Order #${orderLabel} (${tableLabel})${waiter} was served — awaiting payment`);
         break;
       case OrderStatus.PAID:
-        toWaiter(`Order #${order.id} (${tableLabel}) has been paid — completed`);
-        toRoles(['manager'], `Order #${order.id} (${tableLabel})${waiter} completed and paid`);
+        toWaiter(`Order #${orderLabel} (${tableLabel}) has been paid — completed`);
+        toRoles(['manager'], `Order #${orderLabel} (${tableLabel})${waiter} completed and paid`);
         break;
       case OrderStatus.CANCELLED:
-        toWaiter(`Order #${order.id} (${tableLabel}) was cancelled`);
-        toRoles(['chef', 'coordinator'], `Order #${order.id} (${tableLabel}) was cancelled`);
+        toWaiter(`Order #${orderLabel} (${tableLabel}) was cancelled`);
+        toRoles(['chef', 'coordinator'], `Order #${orderLabel} (${tableLabel}) was cancelled`);
         break;
     }
     await this.push(rows);

@@ -1,16 +1,16 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { OrdersService } from '../orders/orders.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Order } from '../../entities/order.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
-import { NotificationsService } from '../notifications/notifications.service';
+import { OrderItemStatus } from '../../common/enums/order-item-status.enum';
 
 @Injectable()
 export class KitchenService {
   constructor(
     @InjectRepository(Order) private repo: Repository<Order>,
-    private notifications: NotificationsService,
+    private ordersService: OrdersService,
   ) {}
 
   getBoard(branchId?: number) {
@@ -25,8 +25,14 @@ export class KitchenService {
       .leftJoinAndSelect('o.items', 'items')
       .leftJoinAndSelect('items.menuItem', 'menuItem')
       .where(
-        '(o.status IN (:...active) OR (o.status IN (:...done) AND o.updatedAt >= :todayStart))',
+        '(items.status IN (:...activeItems) OR o.status IN (:...active) OR (o.status IN (:...done) AND o.updatedAt >= :todayStart))',
         {
+          activeItems: [
+            OrderItemStatus.PENDING,
+            OrderItemStatus.CONFIRMED,
+            OrderItemStatus.ACCEPTED,
+            OrderItemStatus.PREPARING,
+          ],
           active: [OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PREPARING],
           done: [OrderStatus.READY, OrderStatus.SERVED],
           todayStart,
@@ -37,32 +43,40 @@ export class KitchenService {
     return qb.getMany();
   }
 
-  private async setStatus(id: number, status: OrderStatus, branchId?: number) {
-    const order = await this.repo.findOne({ where: { id } });
+  private async setItemStatus(
+    id: number,
+    from: OrderItemStatus,
+    status: OrderItemStatus,
+    user: { id: number; role: string },
+    branchId?: number,
+  ) {
+    const order = await this.repo.findOne({ where: { id }, relations: ['items'] });
     if (!order) throw new NotFoundException('Order not found');
     if (branchId && order.branchId && order.branchId !== branchId) {
       throw new ForbiddenException('This order belongs to another branch');
     }
-    if (order.status !== status && !OrdersService.TRANSITIONS[order.status]?.includes(status)) {
-      throw new BadRequestException(`Cannot move an order from "${order.status}" to "${status}"`);
+    const eligible = order.items.filter((item) => item.status === from);
+    if (!eligible.length) throw new BadRequestException(`No "${from}" items are available for this action`);
+    let updated: Order = order;
+    for (const item of eligible) {
+      updated = await this.ordersService.updateItemStatus(id, item.id, status, user);
     }
-    await this.repo.update(id, { status });
-    if (order.status !== status) {
-      const full = await this.repo.findOne({ where: { id }, relations: ['table', 'waiter'] });
-      if (full) await this.notifications.orderEvent(full, status);
-    }
-    return { affected: 1 };
+    return updated;
   }
 
-  acceptOrder(id: number, branchId?: number) {
-    return this.setStatus(id, OrderStatus.CONFIRMED, branchId);
+  confirmOrder(id: number, user: { id: number; role: string }, branchId?: number) {
+    return this.setItemStatus(id, OrderItemStatus.PENDING, OrderItemStatus.CONFIRMED, user, branchId);
   }
 
-  startPreparing(id: number, branchId?: number) {
-    return this.setStatus(id, OrderStatus.PREPARING, branchId);
+  acceptOrder(id: number, user: { id: number; role: string }, branchId?: number) {
+    return this.setItemStatus(id, OrderItemStatus.CONFIRMED, OrderItemStatus.ACCEPTED, user, branchId);
   }
 
-  markReady(id: number, branchId?: number) {
-    return this.setStatus(id, OrderStatus.READY, branchId);
+  startPreparing(id: number, user: { id: number; role: string }, branchId?: number) {
+    return this.setItemStatus(id, OrderItemStatus.ACCEPTED, OrderItemStatus.PREPARING, user, branchId);
+  }
+
+  markReady(id: number, user: { id: number; role: string }, branchId?: number) {
+    return this.setItemStatus(id, OrderItemStatus.PREPARING, OrderItemStatus.READY, user, branchId);
   }
 }
