@@ -13,7 +13,6 @@ const fmt = (n: number) => `${Number(n || 0).toLocaleString(undefined, { minimum
 const pad = (n: number) => String(n).padStart(2, '0');
 const localDate = (d: Date = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const localDateTime = (d: Date, h = 0, m = 0) => `${localDate(d)}T${pad(h)}:${pad(m)}`;
-const prettyRange = (start: string, end: string) => `${start.replace('T', ' ')} to ${end.replace('T', ' ')}`;
 
 // --- Generic PDF/Excel Helpers ---
 async function exportPDF(title: string, file: string, head: string[], rows: any[][]) {
@@ -44,6 +43,8 @@ async function exportGenericExcel(title: string, file: string, head: string[], r
   );
 }
 
+const SENSITIVE_EXPORT_FIELD = /(^|[._])(password|passwordhash|passcode|pin|secret|token|accesstoken|refreshtoken|apikey|credential|session|salt|hash)([._]|$)/i;
+
 function flattenExportRecord(value: unknown, prefix = '', output: Record<string, string | number> = {}) {
   if (value === null || value === undefined) {
     if (prefix) output[prefix] = '—';
@@ -57,7 +58,10 @@ function flattenExportRecord(value: unknown, prefix = '', output: Record<string,
   if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>);
     if (entries.length === 0 && prefix) output[prefix] = '—';
-    entries.forEach(([key, entry]) => flattenExportRecord(entry, prefix ? `${prefix}.${key}` : key, output));
+    entries.forEach(([key, entry]) => {
+      const field = prefix ? `${prefix}.${key}` : key;
+      if (!SENSITIVE_EXPORT_FIELD.test(field)) flattenExportRecord(entry, field, output);
+    });
     return output;
   }
   output[prefix || 'value'] = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value as string | number;
@@ -76,14 +80,6 @@ function withCompleteDetails(data: { title: string; file: string; head: string[]
       ...detailFields.map(field => flattened[index]?.[field] ?? '—'),
     ]),
   };
-}
-
-// --- Service Reports Specific Export Helpers ---
-async function loadPdf() {
-  const { default: jsPDF } = await import('jspdf');
-  const at: any = await import('jspdf-autotable');
-  const autoTable = at.autoTable ?? at.default;
-  return { jsPDF, autoTable };
 }
 
 function itemRows(detail: any[]) {
@@ -107,108 +103,70 @@ function itemRows(detail: any[]) {
   return { rows, total: Math.round(total * 100) / 100 };
 }
 
-const PDF_HEAD = ['Order', 'Table', 'Item', 'Qty', 'Unit Price (ETB)', 'Amount (ETB)'];
-const toPdfBody = (rows: any[]) => rows.map((r) => [r.Order, r.Table, r.Item, r.Qty, r['Unit Price (ETB)'] === '' ? '' : Number(r['Unit Price (ETB)']).toFixed(2), Number(r['Amount (ETB)'] || 0).toFixed(2)]);
-
 async function exportSummaryPdf(summary: any, range: { start: string; end: string }, waiterName?: string) {
-  const { jsPDF, autoTable } = await loadPdf();
-  const doc = new jsPDF();
-  doc.setFontSize(16);
-  doc.text('Service Summary', 14, 16);
-  doc.setFontSize(10);
-  doc.text(`Period: ${prettyRange(range.start, range.end)}${waiterName ? `  ·  Waiter: ${waiterName}` : ''}`, 14, 23);
-  doc.text(`Orders: ${summary.totals.orders}   Items: ${summary.totals.items}   Revenue: ${fmt(summary.totals.revenue)}`, 14, 29);
-  let y = 34;
-  if (summary.byWaiter?.length) {
-    autoTable(doc, {
-      startY: y, head: [['Waiter', 'Orders', 'Items', 'Revenue (ETB)']],
-      body: summary.byWaiter.map((w: any) => [w.name, w.orders, w.items, Number(w.revenue).toFixed(2)]),
-      headStyles: { fillColor: [15, 118, 110] },
-      alternateRowStyles: { fillColor: [245, 250, 248] },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-  }
-  const body: any[] = [];
-  for (const t of summary.byTable || []) {
-    body.push([{ content: `${t.label} — ${t.orders} orders · ${t.items} items · ${Number(t.revenue).toFixed(2)} ETB`, colSpan: 3, styles: { fontStyle: 'bold', fillColor: [245, 250, 248], textColor: [15, 118, 110] } }]);
-    for (const d of t.itemDetail || []) body.push([d.name, d.quantity, Number(d.amount).toFixed(2)]);
-  }
-  autoTable(doc, { startY: y, head: [['Item', 'Qty', 'Amount (ETB)']], body, headStyles: { fillColor: [15, 118, 110] } });
-  doc.save(`service-summary-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}.pdf`);
+  const data = buildSummaryExportData(summary, range, waiterName);
+  await exportPDF(data.title, data.file, data.head, data.rows);
 }
 
 async function exportSummaryExcel(summary: any, range: { start: string; end: string }, waiterName?: string) {
-  const totals = [
-    ['Service Summary'],
-    ['Period', prettyRange(range.start, range.end)],
-    ...(waiterName ? [['Waiter', waiterName]] : []),
-    [],
-    ['Orders', summary.totals.orders],
-    ['Items', summary.totals.items],
-    ['Revenue (ETB)', Number(summary.totals.revenue)],
-  ];
-  const sheets: Array<{ name: string; rows: any[][] }> = [{ name: 'Totals', rows: totals }];
-  if (summary.byWaiter?.length) {
-    sheets.push({
-      name: 'By Waiter',
-      rows: [
-        ['Waiter', 'Orders', 'Items', 'Revenue (ETB)'],
-        ...summary.byWaiter.map((w: any) => [w.name, w.orders, w.items, Number(w.revenue)]),
-      ],
-    });
-  }
-  const rows: any[][] = [['Table', 'Item', 'Qty', 'Amount (ETB)']];
-  for (const t of summary.byTable || []) {
-    for (const d of t.itemDetail || []) rows.push([t.label, d.name, d.quantity, Number(d.amount)]);
-  }
-  sheets.push({ name: 'Table Detail', rows: rows.length > 1 ? rows : [['No data']] });
-  await downloadExcelFile(`service-summary-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}.xlsx`, sheets);
+  const data = buildSummaryExportData(summary, range, waiterName);
+  await exportGenericExcel(data.title, data.file, data.head, data.rows);
 }
 
 async function exportReportsPdf(subs: any[], range: { start: string; end: string }, waiterName?: string) {
-  const { jsPDF, autoTable } = await loadPdf();
-  const doc = new jsPDF();
-  doc.setFontSize(16);
-  doc.text('Daily Service Reports', 14, 16);
-  doc.setFontSize(10);
-  doc.text(`Period: ${prettyRange(range.start, range.end)}${waiterName ? `  ·  Waiter: ${waiterName}` : ''}`, 14, 23);
-  let y = 28;
-  let grand = 0;
-  for (const s of subs) {
-    const { rows, total } = itemRows(s.detail);
-    grand += total;
-    autoTable(doc, {
-      startY: y + 3,
-      head: [[{ content: `Report #${s.id} — ${s.serviceDate} · ${s.ordersCount} orders · ${s.status === 'confirmed' ? 'Confirmed' : 'Awaiting cashier'}`, colSpan: 6, styles: { fillColor: [240, 245, 245], textColor: [15, 118, 110] } }], PDF_HEAD],
-      body: [...toPdfBody(rows), ['', '', '', '', 'TOTAL', total.toFixed(2)]],
-      headStyles: { fillColor: [15, 118, 110] },
-    });
-    y = (doc as any).lastAutoTable.finalY + 2;
-  }
-  doc.setFontSize(11);
-  doc.text(`Grand total: ${fmt(grand)}`, 14, y + 8);
-  doc.save(`service-reports-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}.pdf`);
+  const data = buildReportsExportData(subs, range, waiterName);
+  await exportPDF(data.title, data.file, data.head, data.rows);
 }
 
 async function exportReportsExcel(subs: any[], range: { start: string; end: string }, waiterName?: string) {
-  const aoa: any[] = [
-    ['Daily Service Reports'],
-    ['Period', prettyRange(range.start, range.end)],
-    ...(waiterName ? [['Waiter', waiterName]] : []),
-    [],
+  const data = buildReportsExportData(subs, range, waiterName);
+  await exportGenericExcel(data.title, data.file, data.head, data.rows);
+}
+
+function buildSummaryExportData(summary: any, range: { start: string; end: string }, waiterName?: string) {
+  const filters = { periodStart: range.start, periodEnd: range.end, waiter: waiterName || 'All waiters' };
+  const records: unknown[] = [
+    { section: 'Totals', filters, totals: summary?.totals || {} },
+    ...(summary?.byWaiter || []).map((waiter: any) => ({ section: 'Waiter', filters, waiter })),
+    ...(summary?.byTable || []).flatMap((table: any) => {
+      const items = table.itemDetail?.length ? table.itemDetail : [null];
+      return items.map((item: any) => ({ section: 'Table and item', filters, table: { ...table, itemDetail: undefined }, item }));
+    }),
   ];
-  let grand = 0;
-  for (const s of subs) {
-    const { rows, total } = itemRows(s.detail);
-    grand += total;
-    aoa.push([`Report #${s.id}`, s.serviceDate, s.status === 'confirmed' ? 'Confirmed' : 'Awaiting cashier']);
-    aoa.push(PDF_HEAD);
-    for (const r of rows) aoa.push([r.Order, r.Table, r.Item, r.Qty, r['Unit Price (ETB)'], r['Amount (ETB)']]);
-    aoa.push(['', '', '', '', 'TOTAL', total]);
-    aoa.push([]);
-  }
-  aoa.push(['', '', '', '', 'GRAND TOTAL', Math.round(grand * 100) / 100]);
-  await downloadExcelFile(`service-reports-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}.xlsx`, [{ name: 'Reports', rows: aoa }]);
+  return withCompleteDetails({
+    title: 'Service Summary — Complete Details',
+    file: `service-summary-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}`,
+    head: ['Section'],
+    rows: records.map((record: any) => [record.section]),
+    records,
+  });
+}
+
+function buildReportsExportData(subs: any[], range: { start: string; end: string }, waiterName?: string) {
+  const filters = { periodStart: range.start, periodEnd: range.end, waiter: waiterName || 'All waiters' };
+  const records = subs.flatMap((submission: any) => {
+    const details = submission.detail?.length ? submission.detail : [null];
+    return details.flatMap((detail: any) => {
+      const items = detail?.items?.length ? detail.items : [null];
+      return items.map((item: any) => ({
+        filters,
+        submission: { ...submission, detail: undefined },
+        orderDetail: detail ? { ...detail, items: undefined } : null,
+        item,
+      }));
+    });
+  });
+  return withCompleteDetails({
+    title: 'Daily Service Reports — Complete Details',
+    file: `service-reports-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}`,
+    head: ['Report', 'Service Date', 'Status'],
+    rows: records.map((record: any) => [
+      record.submission?.id ? `#${record.submission.id}` : '—',
+      record.submission?.serviceDate || '—',
+      record.submission?.status || '—',
+    ]),
+    records,
+  });
 }
 
 // --- Constants & Config ---
@@ -737,7 +695,7 @@ function GenericTab({ tabId, sharedData }: { tabId: string, sharedData: { loadin
       return {
         title: 'Items Purchased Report', file: 'items_purchased', head: ['Date', 'Item', 'Category', 'Quantity', 'Unit Price (ETB)', 'Total (ETB)', 'Order'],
         rows: rows.map(r => [r.date, r.name, r.category, r.qty, r.unit, r.qty * r.unit, r.order]),
-        records: rows.map(r => ({ order: { ...r.orderRecord, items: undefined }, item: r.itemRecord, payments: r.orderRecord.payments || [] })),
+        records: rows.map(r => ({ order: r.orderRecord, item: r.itemRecord, payments: r.orderRecord.payments || [] })),
       };
     }
     if (t === 'orders') {
