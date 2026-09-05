@@ -9,7 +9,7 @@ import clsx from 'clsx';
 import {
   LayoutDashboard, ShoppingCart, ChefHat, Table2, UtensilsCrossed,
   Package, Users, BarChart3, Building2, LogOut, Columns3, Send, PackageOpen, Menu, X,
-  ChevronsLeft, ClipboardList, Wine, Warehouse, ArrowDownToLine
+  ChevronsLeft, Wine, Warehouse, ArrowDownToLine
 } from 'lucide-react';
 
 const navItems = [
@@ -26,8 +26,7 @@ const navItems = [
   { href: '/dashboard/item-requests', label: 'Item Requests', managerLabel: 'Item Requested', icon: PackageOpen, roles: DASHBOARD_ROUTE_ROLES['/dashboard/item-requests'] },
   { href: '/dashboard/staff', label: 'Staff', icon: Users, roles: DASHBOARD_ROUTE_ROLES['/dashboard/staff'] },
   { href: '/dashboard/branches', label: 'Branches and Restaurants', icon: Building2, roles: DASHBOARD_ROUTE_ROLES['/dashboard/branches'] },
-  { href: '/dashboard/summary', label: 'Summary', icon: ClipboardList, roles: DASHBOARD_ROUTE_ROLES['/dashboard/summary'] },
-  { href: '/dashboard/reports', label: 'Reports', icon: BarChart3, roles: DASHBOARD_ROUTE_ROLES['/dashboard/reports'] },
+  { href: '/dashboard/reports', label: 'Summary & Reports', icon: BarChart3, roles: DASHBOARD_ROUTE_ROLES['/dashboard/reports'] },
 ];
 
 export default function Sidebar() {
@@ -37,10 +36,8 @@ export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  // Close the mobile drawer whenever the route changes
   useEffect(() => { setOpen(false); }, [pathname]);
 
-  // Keep the drawer dismissible from the keyboard as well as its visible controls.
   useEffect(() => {
     if (!open) return;
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -50,7 +47,6 @@ export default function Sidebar() {
     return () => document.removeEventListener('keydown', closeOnEscape);
   }, [open]);
 
-  // Remember collapsed preference
   useEffect(() => {
     if (typeof window !== 'undefined' && localStorage.getItem('sidebar-collapsed') === '1') {
       setCollapsed(true);
@@ -70,15 +66,12 @@ export default function Sidebar() {
 
   const visible = navItems.filter((item) => {
     if (!user?.role || !item.roles.includes(user.role)) return false;
-    if (item.href === '/dashboard/inventory' && user.role === 'cashier') {
-      return false;
-    }
+    if (item.href === '/dashboard/inventory' && user.role === 'cashier') return false;
     return true;
   });
 
   const renderNav = (isCollapsed: boolean) => (
     <>
-      {/* Logo Area */}
       <div className={clsx('relative flex items-center h-20 flex-shrink-0', isCollapsed ? 'px-4 justify-center' : 'px-6')}>
         <div className="absolute bottom-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-teal-700 to-transparent opacity-50" />
         <div className={clsx('flex items-center gap-3', isCollapsed && 'justify-center')}>
@@ -94,7 +87,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className={clsx('flex-1 space-y-1 overflow-y-auto custom-scrollbar py-6', isCollapsed ? 'px-3' : 'px-4')}>
         <div className={clsx("mb-4 px-2", isCollapsed && "hidden")}>
           <p className="text-xs font-semibold text-teal-600 uppercase tracking-widest">Main Menu</p>
@@ -132,7 +124,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* User Area */}
       <div className={clsx('flex-shrink-0 border-t border-teal-800/50 bg-teal-900/50', isCollapsed ? 'p-3' : 'p-4')}>
         {!isCollapsed && (
           <div className="flex items-center gap-3 px-3 py-2 mb-3 rounded-xl bg-teal-800/30 border border-teal-700/30">
@@ -166,7 +157,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-40 bg-teal-950 border-b border-teal-900 flex items-center justify-between px-4 h-16 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-gold-400 to-gold-600 rounded-lg flex items-center justify-center shadow-sm">
@@ -184,13 +174,10 @@ export default function Sidebar() {
 
       {open && (
         <>
-          {/* Mobile drawer overlay */}
           <div
             className="lg:hidden fixed inset-0 z-[60] bg-teal-950/80 backdrop-blur-sm animate-in fade-in duration-200"
             onPointerDown={() => setOpen(false)}
           />
-
-          {/* Mobile drawer panel */}
           <aside className="lg:hidden fixed left-0 top-0 h-full w-[280px] bg-teal-950 flex flex-col shadow-2xl z-[60] animate-in slide-in-from-left duration-200">
             <button
               type="button"
@@ -205,7 +192,6 @@ export default function Sidebar() {
         </>
       )}
 
-      {/* Desktop sidebar */}
       <aside
         className={clsx(
           'hidden lg:flex bg-teal-950 text-cream-50 flex-col h-screen sticky top-0 transition-all duration-300 ease-out flex-shrink-0 border-r border-teal-900/50 shadow-xl shadow-teal-950/20 z-30',
@@ -213,8 +199,6 @@ export default function Sidebar() {
         )}
       >
         {renderNav(collapsed)}
-
-        {/* Desktop Collapse Toggle */}
         <button
           onClick={toggleCollapsed}
           aria-label={collapsed ? 'Expand menu' : 'Collapse menu'}

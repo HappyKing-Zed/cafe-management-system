@@ -104,7 +104,7 @@ export default function NotificationBell() {
         ? '/dashboard/main-store'
         : '/dashboard/inventory-transfers';
     }
-    else if (m.includes('service report') || m.includes('daily report') || m.includes('submission') || m.includes('confirmed your')) target = '/dashboard/summary';
+    else if (m.includes('service report') || m.includes('daily report') || m.includes('submission') || m.includes('confirmed your')) target = '/dashboard/reports';
     else if (m.includes('requisition') || m.includes('item request') || m.includes('request')) target = '/dashboard/item-requests';
     else if (m.includes('purchase order') || m.includes('po #') || m.includes('stock') || m.includes('expir') || m.includes('supplier') || m.includes('inventory')) target = '/dashboard/inventory';
     else if (m.includes('order') || m.includes('payment') || m.includes('paid')) target = orderPage;
