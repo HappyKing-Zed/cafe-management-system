@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuthStore } from '@/store/auth';
-import { getSummary, getServiceSubmissions, submitDailyService, confirmServiceSubmission, getWaiters } from '@/lib/api';
+import { getSummary, getServiceSubmissions, submitDailyService, confirmServiceSubmission, getWaiters, getPayments } from '@/lib/api';
 import { ClipboardList, ChevronDown, ChevronUp, Send, CheckCircle2, Clock, FileDown, FileSpreadsheet } from 'lucide-react';
 import { downloadExcelFile } from '@/lib/excel-export';
 
@@ -169,6 +169,7 @@ export default function SummaryPage() {
   const [loading, setLoading] = useState(!reportsOnly);
 
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [subOpen, setSubOpen] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -196,11 +197,27 @@ export default function SummaryPage() {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchPayments = useCallback(async () => {
+    if (isWaiter) return;
+    try {
+      const res = await getPayments();
+      setPayments(res.data || []);
+    } catch {
+      setPayments([]);
+    }
+  }, [isWaiter]);
+
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
   useEffect(() => {
     fetchSubmissions();
     if (!isWaiter) getWaiters().then((r) => setWaiters(r.data || [])).catch(() => {});
   }, [fetchSubmissions, isWaiter]);
+  useEffect(() => {
+    fetchPayments();
+    if (isWaiter) return;
+    const timer = setInterval(fetchPayments, 10000);
+    return () => clearInterval(timer);
+  }, [fetchPayments, isWaiter]);
 
   // Reports within the selected date & time range (by when the report was sent)
   const visibleSubs = useMemo(() => {
@@ -215,6 +232,18 @@ export default function SummaryPage() {
       return true;
     });
   }, [submissions, startDate, endDate, statusFilter, waiterFilter, isWaiter]);
+
+  const visiblePayments = useMemo(() => {
+    const from = new Date(startDate);
+    const to = new Date(endDate);
+    to.setMinutes(to.getMinutes() + 1);
+    return payments.filter((payment) => {
+      const paidAt = new Date(payment.createdAt);
+      if (paidAt < from || paidAt >= to) return false;
+      if (waiterFilter && String(payment.order?.waiterId || '') !== waiterFilter) return false;
+      return true;
+    });
+  }, [payments, startDate, endDate, waiterFilter]);
 
   // Pagination for the reports table
   const PAGE_SIZE = 10;
@@ -472,6 +501,53 @@ export default function SummaryPage() {
           </div>
         </>
       ))}
+
+      {!isWaiter && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <p className="font-semibold text-sm text-gray-900">Confirmed Payment Records</p>
+            <p className="text-xs text-gray-500 mt-0.5">Orders confirmed as paid by the cashier remain here as permanent records.</p>
+          </div>
+          {visiblePayments.length === 0 ? (
+            <p className="p-4 text-sm text-gray-500">No confirmed payments in this date range.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-500 border-b border-gray-100">
+                    <th className="px-4 py-2">Date</th>
+                    <th className="px-4 py-2">Order</th>
+                    <th className="px-4 py-2">Cashier</th>
+                    <th className="px-4 py-2">Method</th>
+                    <th className="px-4 py-2 text-right">Order Total</th>
+                    <th className="px-4 py-2 text-right">Received</th>
+                    <th className="px-4 py-2 text-right">Change</th>
+                    <th className="px-4 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visiblePayments.map((payment) => (
+                    <tr key={payment.id} className="border-b border-gray-50">
+                      <td className="px-4 py-2.5 whitespace-nowrap">{new Date(payment.createdAt).toLocaleString()}</td>
+                      <td className="px-4 py-2.5 font-medium text-gray-900">#{payment.order?.orderNumber ?? payment.orderId}</td>
+                      <td className="px-4 py-2.5">{payment.cashier?.name || `Cashier #${payment.cashierId}`}</td>
+                      <td className="px-4 py-2.5 capitalize">{payment.method === 'mobile' ? 'Wallet' : payment.method}</td>
+                      <td className="px-4 py-2.5 text-right">{fmt(payment.order?.totalAmount)}</td>
+                      <td className="px-4 py-2.5 text-right">{fmt(payment.amount)}</td>
+                      <td className="px-4 py-2.5 text-right">{fmt(payment.changeGiven)}</td>
+                      <td className="px-4 py-2.5">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2.5 py-1">
+                          <CheckCircle2 size={13} /> Paid
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Aggregate totals of the filtered reports */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">

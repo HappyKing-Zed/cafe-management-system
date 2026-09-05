@@ -16,6 +16,7 @@ export class PaymentsController {
   constructor(private service: PaymentsService) {}
 
   @Get()
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.CASHIER)
   findAll(@Req() req: any, @Query('cashierId') cid?: number, @Query('branchId') branchId?: string) {
     return this.service.findAll(cid ? +cid : undefined, effectiveBranch(req.user, branchId));
   }
