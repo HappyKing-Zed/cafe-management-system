@@ -6,6 +6,7 @@ import { ItemKitchenAssignments1720000000000 } from './migrations/1720000000000-
 import { ItemPayments1730000000000 } from './migrations/1730000000000-ItemPayments';
 import { ReconcileItemPayments1740000000000 } from './migrations/1740000000000-ReconcileItemPayments';
 import { StoreKeeperRoles1750000000000 } from './migrations/1750000000000-StoreKeeperRoles';
+import { PaymentAuthenticityVerification1760000000000 } from './migrations/1760000000000-PaymentAuthenticityVerification';
 
 export function createDatabaseOptions(databaseUrl?: string, nodeEnv = process.env.NODE_ENV, allowSynchronize = process.env.DATABASE_SYNCHRONIZE === 'true'): TypeOrmModuleOptions {
   const isProduction = nodeEnv === 'production';
@@ -18,7 +19,7 @@ export function createDatabaseOptions(databaseUrl?: string, nodeEnv = process.en
     entities: DATABASE_ENTITIES,
     // synchronize is only for explicitly disposable development databases.
     synchronize,
-    migrations: [OrderLifecycle1710000000000, ItemKitchenAssignments1720000000000, ItemPayments1730000000000, ReconcileItemPayments1740000000000, StoreKeeperRoles1750000000000],
+    migrations: [OrderLifecycle1710000000000, ItemKitchenAssignments1720000000000, ItemPayments1730000000000, ReconcileItemPayments1740000000000, StoreKeeperRoles1750000000000, PaymentAuthenticityVerification1760000000000],
     migrationsTransactionMode: 'each',
     // Never combine schema synchronization and migrations in one startup.
     migrationsRun: !synchronize,

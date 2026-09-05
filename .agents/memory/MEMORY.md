@@ -5,3 +5,4 @@
 - [Item-assigned kitchen workflow](item-assigned-kitchen-workflow.md) — keep one parent order while kitchen, service, and settlement progress independently per item.
 - [Next.js build/dev race](next-build-dev-race.md) — verify production builds away from a running `next dev`; both commands share `.next` and can create false failures.
 - [PostgreSQL parent-row locks](postgres-parent-row-locks.md) — lock orders without outer joins, then load children in the same transaction to serialize item changes and payment.
+- [Electronic payment verification](electronic-payment-verification.md) — verify externally on the server and reject reused transaction IDs before confirming electronic payments.

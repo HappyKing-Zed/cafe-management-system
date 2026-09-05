@@ -26,6 +26,24 @@ export class Payment {
   @Column({ nullable: true })
   reference: string;
 
+  @Column({ default: false })
+  authenticityVerified: boolean;
+
+  @Column({ nullable: true })
+  verificationProvider: string;
+
+  @Column({ nullable: true })
+  verificationStatus: string;
+
+  @Column({ nullable: true })
+  verificationMode: string;
+
+  @Column({ nullable: true })
+  verificationRequestId: string;
+
+  @Column({ nullable: true })
+  verificationReferenceId: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

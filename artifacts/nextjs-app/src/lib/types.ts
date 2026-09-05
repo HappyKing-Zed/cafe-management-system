@@ -113,6 +113,12 @@ export interface Payment {
   orderId: number;
   cashierId?: number;
   paymentItems?: PaymentItem[];
+  authenticityVerified?: boolean;
+  verificationProvider?: string;
+  verificationStatus?: string;
+  verificationMode?: string;
+  verificationRequestId?: string;
+  verificationReferenceId?: string;
 }
 
 export interface PaymentItem {

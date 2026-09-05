@@ -60,7 +60,92 @@ export class PaymentsService {
     return new Map(sorted.map((item, index) => [item.id, allocated[index] / 100]));
   }
 
-  async processPayment(data: { orderId: number; orderItemIds?: number[]; method: any; amount: number; cashierId?: number; reference?: string }, branchId?: number, cashierUserId?: number, actorRole?: string) {
+  private async verifyWithShegerPay(data: {
+    provider: string;
+    transactionId: string;
+    amount: number;
+    phoneNumber?: string;
+    senderAccount?: string;
+    expectedSenderName?: string;
+  }) {
+    const apiKey = process.env.SHEGERPAY_API_KEY;
+    if (!apiKey) throw new BadRequestException('ShegerPay verification is not configured');
+
+    const provider = String(data.provider || '').trim().toLowerCase();
+    const transactionId = String(data.transactionId || '').trim();
+    if (!provider || !transactionId) {
+      throw new BadRequestException('Provider and transaction ID are required for authenticity verification');
+    }
+    if (provider === 'mpesa' && !data.phoneNumber?.trim()) {
+      throw new BadRequestException('Phone number is required for M-Pesa verification');
+    }
+    if (provider === 'boa' && !data.senderAccount?.trim()) {
+      throw new BadRequestException('Sender account is required for Bank of Abyssinia verification');
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let response: Response;
+    let body: any;
+    try {
+      response = await fetch('https://api.shegerpay.com/api/v1/ethiopian/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey,
+        },
+        body: JSON.stringify({
+          provider,
+          transaction_id: transactionId,
+          amount: data.amount,
+          ...(data.phoneNumber?.trim() ? { phone_number: data.phoneNumber.trim() } : {}),
+          ...(data.senderAccount?.trim() ? { sender_account: data.senderAccount.trim() } : {}),
+          ...(data.expectedSenderName?.trim() ? { expected_sender_name: data.expectedSenderName.trim() } : {}),
+        }),
+        signal: controller.signal,
+      });
+      body = await response.json().catch(() => ({}));
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        throw new BadRequestException('ShegerPay verification timed out. Payment was not confirmed');
+      }
+      throw new BadRequestException('ShegerPay verification is temporarily unavailable. Payment was not confirmed');
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (!response.ok) {
+      const messages: Record<number, string> = {
+        400: 'ShegerPay could not verify these payment details',
+        401: 'ShegerPay authentication failed. Contact an administrator',
+        402: 'ShegerPay verification quota is unavailable',
+        429: 'Too many verification attempts. Please wait and try again',
+        503: 'ShegerPay is temporarily unavailable. Payment was not confirmed',
+      };
+      throw new BadRequestException(messages[response.status] || body?.message || 'Payment authenticity verification failed');
+    }
+    if (body?.verified !== true) {
+      throw new BadRequestException(`Payment was not verified by ShegerPay${body?.status ? ` (${body.status})` : ''}`);
+    }
+    return body;
+  }
+
+  async processPayment(data: {
+    orderId: number;
+    orderItemIds?: number[];
+    method: any;
+    amount: number;
+    cashierId?: number;
+    reference?: string;
+    authenticityVerification?: {
+      enabled: boolean;
+      provider: string;
+      transactionId: string;
+      phoneNumber?: string;
+      senderAccount?: string;
+      expectedSenderName?: string;
+    };
+  }, branchId?: number, cashierUserId?: number, actorRole?: string) {
     if (actorRole && !['cashier', 'admin', 'owner'].includes(actorRole)) {
       throw new ForbiddenException('Only a cashier can confirm payment');
     }
@@ -108,11 +193,32 @@ export class PaymentsService {
       if (Number(data.amount) < paymentTotal) {
         throw new BadRequestException('Amount received is less than the selected total');
       }
+      let verification: any = null;
+      const verificationInput = data.authenticityVerification;
+      if (verificationInput?.enabled) {
+        if (data.method === 'cash') throw new BadRequestException('Cash payments cannot use electronic authenticity verification');
+        const transactionId = String(verificationInput.transactionId || '').trim();
+        const existing = transactionId
+          ? await manager.getRepository(Payment).findOne({ where: { reference: transactionId, authenticityVerified: true } })
+          : null;
+        if (existing) throw new BadRequestException('This transaction ID has already been used for a verified payment');
+        verification = await this.verifyWithShegerPay({
+          ...verificationInput,
+          transactionId,
+          amount: paymentTotal,
+        });
+      }
       const change = Number(data.amount) - paymentTotal;
       const payment = manager.getRepository(Payment).create({
         orderId: data.orderId, method: data.method, amount: paymentTotal,
         changeGiven: change > 0 ? change : 0, cashierId: cashierUserId ?? data.cashierId,
-        reference: data.reference,
+        reference: verificationInput?.enabled ? verificationInput.transactionId.trim() : data.reference,
+        authenticityVerified: verification?.verified === true,
+        verificationProvider: verificationInput?.enabled ? verificationInput.provider : null,
+        verificationStatus: verification?.status || null,
+        verificationMode: verification?.mode || null,
+        verificationRequestId: verification?.request_id || null,
+        verificationReferenceId: verification?.reference_id || null,
       });
       const savedPayment = await manager.getRepository(Payment).save(payment);
       await manager.getRepository(PaymentItem).save(selectedItems.map((item) => manager.getRepository(PaymentItem).create({

@@ -98,6 +98,12 @@ export default function OrdersPage() {
   const [payMethod, setPayMethod] = useState<'cash' | 'card' | 'mobile'>('cash');
   const [payAmount, setPayAmount] = useState('');
   const [selectedPaymentItemIds, setSelectedPaymentItemIds] = useState<number[]>([]);
+  const [verifyAuthenticity, setVerifyAuthenticity] = useState(false);
+  const [verificationProvider, setVerificationProvider] = useState('');
+  const [transactionId, setTransactionId] = useState('');
+  const [payerPhone, setPayerPhone] = useState('');
+  const [senderAccount, setSenderAccount] = useState('');
+  const [expectedSenderName, setExpectedSenderName] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -259,10 +265,26 @@ export default function OrdersPage() {
         orderItemIds: selectedPaymentItemIds,
         method: payMethod,
         amount: parseFloat(payAmount) || selectedPaymentTotal,
+        ...(verifyAuthenticity ? {
+          authenticityVerification: {
+            enabled: true,
+            provider: verificationProvider,
+            transactionId,
+            ...(payerPhone.trim() ? { phoneNumber: payerPhone.trim() } : {}),
+            ...(senderAccount.trim() ? { senderAccount: senderAccount.trim() } : {}),
+            ...(expectedSenderName.trim() ? { expectedSenderName: expectedSenderName.trim() } : {}),
+          },
+        } : {}),
       });
       setPayingOrder(null);
       setPayAmount('');
       setSelectedPaymentItemIds([]);
+      setVerifyAuthenticity(false);
+      setVerificationProvider('');
+      setTransactionId('');
+      setPayerPhone('');
+      setSenderAccount('');
+      setExpectedSenderName('');
       await fetchData();
     } catch (e: any) {
       alert(e?.response?.data?.message || 'Could not process this payment');
@@ -282,6 +304,13 @@ export default function OrdersPage() {
     const total = ids.reduce((sum, id) => sum + (allocations.get(id) || 0), 0);
     setSelectedPaymentItemIds(ids);
     setPayAmount(total.toFixed(2));
+    setPayMethod('cash');
+    setVerifyAuthenticity(false);
+    setVerificationProvider('');
+    setTransactionId('');
+    setPayerPhone('');
+    setSenderAccount('');
+    setExpectedSenderName('');
     setPayingOrder(order);
   };
   const togglePaymentItem = (itemId: number) => {
@@ -805,9 +834,15 @@ export default function OrdersPage() {
               <div className="bg-green-50 rounded-lg p-3 mb-4 text-sm">
                 <p className="text-xs text-green-700 font-semibold mb-1">Payment</p>
                 {(detailOrder as any).payments.map((p: any) => (
-                  <p key={p.id} className="text-green-800">
-                    {p.method} · ETB {Number(p.amount).toLocaleString()}{Number(p.changeGiven) > 0 ? ` (change ETB ${Number(p.changeGiven).toLocaleString()})` : ''}
-                  </p>
+                  <div key={p.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-green-800">
+                    <span>{p.method} · ETB {Number(p.amount).toLocaleString()}{Number(p.changeGiven) > 0 ? ` (change ETB ${Number(p.changeGiven).toLocaleString()})` : ''}</span>
+                    {p.authenticityVerified && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                        <CheckCircle size={12} /> ShegerPay verified
+                      </span>
+                    )}
+                    {p.reference && <span className="w-full text-xs text-green-700">Reference: {p.reference}</span>}
+                  </div>
                 ))}
               </div>
             )}
@@ -856,7 +891,10 @@ export default function OrdersPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
                 <div className="grid grid-cols-3 gap-2">
                   {(['cash', 'card', 'mobile'] as const).map((m) => (
-                    <button key={m} onClick={() => setPayMethod(m)}
+                    <button key={m} onClick={() => {
+                      setPayMethod(m);
+                      if (m === 'cash') setVerifyAuthenticity(false);
+                    }}
                       className={clsx('py-2 rounded-lg text-sm font-medium border-2 transition-colors', payMethod === m ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-gray-200 text-gray-600 hover:border-gray-300')}>
                       {m === 'cash' ? '' : m === 'card' ? '' : ''} {m.charAt(0).toUpperCase() + m.slice(1)}
                     </button>
@@ -872,9 +910,68 @@ export default function OrdersPage() {
                   <p className="text-sm text-green-700">Change: <span className="font-bold">ETB {(parseFloat(payAmount) - selectedPaymentTotal).toLocaleString()}</span></p>
                 </div>
               )}
+              {payMethod !== 'cash' && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={verifyAuthenticity}
+                      onChange={e => setVerifyAuthenticity(e.target.checked)}
+                      className="mt-1 h-4 w-4 accent-brand-500"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-gray-900">Verify payment authenticity with ShegerPay</span>
+                      <span className="block text-xs text-gray-500">The payment will only be confirmed if ShegerPay verifies the transaction and amount.</span>
+                    </span>
+                  </label>
+                  {verifyAuthenticity && (
+                    <div className="mt-4 space-y-3 border-t border-gray-200 pt-4">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Payment provider</label>
+                        <select value={verificationProvider} onChange={e => setVerificationProvider(e.target.value)} className="input">
+                          <option value="">Select provider…</option>
+                          <option value="cbe">CBE</option>
+                          <option value="telebirr">Telebirr</option>
+                          <option value="mpesa">M-Pesa</option>
+                          <option value="boa">Bank of Abyssinia</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Transaction ID</label>
+                        <input value={transactionId} onChange={e => setTransactionId(e.target.value)} className="input" placeholder="Enter the payment transaction ID" />
+                      </div>
+                      {verificationProvider === 'mpesa' && (
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-700">Payer phone number</label>
+                          <input type="tel" value={payerPhone} onChange={e => setPayerPhone(e.target.value)} className="input" placeholder="Required for M-Pesa" />
+                        </div>
+                      )}
+                      {verificationProvider === 'boa' && (
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-700">Sender account</label>
+                          <input value={senderAccount} onChange={e => setSenderAccount(e.target.value)} className="input" placeholder="Required for Bank of Abyssinia" />
+                        </div>
+                      )}
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Expected sender name <span className="font-normal text-gray-400">(optional)</span></label>
+                        <input value={expectedSenderName} onChange={e => setExpectedSenderName(e.target.value)} className="input" placeholder="Name shown on the payment" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <button onClick={handlePayment} disabled={submitting || selectedPaymentItemIds.length === 0 || Number(payAmount) < selectedPaymentTotal} className="btn-primary w-full mt-5 py-3 disabled:opacity-50">
-              {submitting ? 'Processing...' : 'Confirm Payment'}
+            <button
+              onClick={handlePayment}
+              disabled={
+                submitting ||
+                selectedPaymentItemIds.length === 0 ||
+                Number(payAmount) < selectedPaymentTotal ||
+                (verifyAuthenticity && (!verificationProvider || !transactionId.trim() || (verificationProvider === 'mpesa' && !payerPhone.trim()) || (verificationProvider === 'boa' && !senderAccount.trim())))
+              }
+              className="btn-primary w-full mt-5 py-3 disabled:opacity-50"
+            >
+              {submitting ? (verifyAuthenticity ? 'Verifying...' : 'Processing...') : verifyAuthenticity ? 'Verify & Confirm Payment' : 'Confirm Payment'}
             </button>
           </div>
         </div>
