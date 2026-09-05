@@ -1,0 +1,96 @@
+# ShegerPay API Integration Context
+
+You are helping a developer integrate ShegerPay.
+
+Base URL: https://api.shegerpay.com/api/v1
+Authentication: send the secret key in the X-API-Key header.
+Example header: X-API-Key: sk_test_YOUR_KEY
+
+Important rules:
+- Use X-API-Key for server-to-server requests. Example: X-API-Key: sk_test_YOUR_KEY.
+- Test keys and live keys use the same endpoints and response shapes. Replace sk_test_ with sk_live_ when going live.
+- Core public products: Ethiopian payment verification, receipt image OCR verification, payment links, crypto verification, PayPal checkout/payouts, webhooks, API keys, and transaction history.
+- Non-PayPal international rails are private/assisted and intentionally hidden from public docs until setup is user-ready.
+- New integrations should read the verified field. The valid field is also returned for compatibility.
+
+Standard verification response fields:
+- verified: boolean result for new integrations
+- valid: compatibility alias for verified
+- status: verified, failed, pending, or processing
+- mode: test or live
+- request_id: support/debug request ID
+- reference_id: payment/reference ID when available
+- saved: whether the verification was saved to the merchant account
+
+Common errors:
+- 400: bad request, missing fields, or unreadable/no transaction in receipt image
+- 401: invalid, missing, revoked, or wrong API key
+- 402: subscription or quota does not allow this action
+- 429: rate limit exceeded
+- 503: provider/OCR service temporarily unavailable
+
+Public endpoints:
+## ethiopian
+POST /verify: Verify Ethiopian payment [provider, transaction_id, amount, merchant_name, phone_number (required for mpesa), sender_account (required for boa), expected_sender_name (optional)]
+POST /verify-image: Upload image/PDF, OCR auto-detect + verify payment [amount, screenshot, provider (optional), merchant_name (optional), transaction_id (optional), phone_number (required when provider=mpesa), sender_account (required when provider=boa), expected_sender_name (optional)]
+POST /quick-verify: Auto-detect provider and verify (parallel low-confidence checks + async processing) [transaction_id, amount, expected_provider (optional), sender_account (required for boa), expected_sender_name (optional)]
+GET /verify/jobs/{job_id}: Poll async verification job status [job_id]
+GET /history: Get verification history
+GET /providers: List supported Ethiopian providers
+
+## crypto
+GET /crypto/rates: Get all crypto rates
+GET /crypto/rate/{symbol}: Get single crypto rate [symbol]
+POST /crypto/generate-intent: Generate crypto payment intent [amount_usd, currency, wallet_address, chain]
+POST /crypto/verify: Verify crypto transaction [tx_hash, network, expected_amount]
+POST /crypto/verify-reference: Verify by reference ID [reference_id, transaction_hash]
+GET /crypto/status: Check crypto service status
+
+## paypal
+GET /paypal/status: Check PayPal service status
+GET /paypal/client-token: Get browser client token for PayPal checkout
+POST /paypal/create-order: Create PayPal order [amount, currency, description]
+POST /paypal/capture-order: Capture PayPal order [order_id]
+GET /paypal/order/{order_id}: Get order details [order_id]
+POST /paypal/refund: Refund PayPal payment [capture_id, amount, currency]
+POST /paypal/payment-links: Create PayPal checkout link [title, amount, currency]
+GET /paypal/payment-links: List PayPal checkout links
+GET /paypal/wallet/balance: Get PayPal wallet balance
+GET /paypal/wallet/transactions: List PayPal wallet transactions [limit]
+POST /paypal/payouts/request: Request PayPal payout [amount, currency, recipient_email]
+GET /paypal/payouts: List PayPal payout requests
+POST /paypal/payout-accounts: Add payout account [account_type, email]
+GET /paypal/payout-accounts: List payout accounts
+DELETE /paypal/payout-accounts/{account_type}: Remove payout account [account_type]
+
+## paymentLinks
+POST /payment-links: Create payment link [title, amount, currency, enable_cbe, enable_telebirr, enable_mpesa, enable_crypto]
+GET /payment-links: List payment links
+GET /payment-links/{short_code}: Get public payment link details [short_code]
+GET /payment-links/{short_code}/qr: Get payment link QR code [short_code]
+GET /payment-links/{short_code}/status: Check payment link status [short_code]
+POST /payment-links/{short_code}/submit: Submit customer payment proof [short_code, payment_method, transaction_id]
+POST /payment-links/{short_code}/verify: Verify submitted payment [short_code, transaction_id]
+DELETE /payment-links/{link_id}: Delete payment link [link_id]
+
+## webhooks
+POST /webhooks: Create webhook [url, events]
+GET /webhooks: List webhooks
+DELETE /webhooks/{id}: Delete webhook [id]
+POST /webhooks/test: Send test webhook (supports event_type param) [webhook_id, event_type]
+GET /webhooks/events: List supported events
+GET /webhooks/{id}/deliveries: Get delivery logs (last 10) [limit]
+
+## transactions
+GET /transactions/history: Get transaction history [status, provider, from, to, limit]
+GET /transactions/analytics: Get transaction analytics [period]
+GET /transactions/export: Export transactions as CSV [format]
+
+## apiKeys
+POST /api-keys/generate: Generate API key [name, mode, webhook_url]
+POST /api-keys/generate-full-set: Generate test+live key pair
+GET /api-keys: List API keys
+POST /api-keys/validate: Validate API key [api_key]
+POST /api-keys/{id}/rotate: Rotate API key [id]
+DELETE /api-keys/{id}: Delete API key [id]
+
