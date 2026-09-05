@@ -21,6 +21,7 @@ export default function StaffPage() {
   const [editUser, setEditUser] = useState<User | null>(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'waiter', phone: '', restaurantId: 1, branchId: '', isActive: true });
   const [submitting, setSubmitting] = useState(false);
+  const [accessChangeUser, setAccessChangeUser] = useState<User | null>(null);
   const [filterRole, setFilterRole] = useState('all');
   const [error, setError] = useState('');
 
@@ -112,8 +113,7 @@ export default function StaffPage() {
 
   const toggleAccess = async (staffMember: User) => {
     const nextActive = !staffMember.isActive;
-    const action = nextActive ? 'turn ON' : 'turn OFF';
-    if (!window.confirm(`${action} system access for ${staffMember.name}? ${nextActive ? 'They will be able to sign in during their working hours.' : 'They will be signed out and cannot access the system.'}`)) return;
+    const action = nextActive ? 'turn on' : 'turn off';
     setError('');
     setSubmitting(true);
     try {
@@ -125,6 +125,7 @@ export default function StaffPage() {
       setError(e?.response?.data?.message || `Could not ${action} this staff member.`);
     } finally {
       setSubmitting(false);
+      setAccessChangeUser(null);
     }
   };
 
@@ -196,7 +197,7 @@ export default function StaffPage() {
                 <button
                   type="button"
                   disabled={submitting || user.id === currentUser?.id}
-                  onClick={() => void toggleAccess(user)}
+                  onClick={() => setAccessChangeUser(user)}
                   title={user.id === currentUser?.id ? 'You cannot switch off your own account' : `Turn ${user.isActive ? 'OFF' : 'ON'} system access`}
                   className={clsx(
                     'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
@@ -287,6 +288,53 @@ export default function StaffPage() {
               <button onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
               <button onClick={save} disabled={submitting} className="btn-primary flex-1 disabled:opacity-50">
                 {submitting ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {accessChangeUser && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="access-change-title"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className={clsx(
+              'mb-4 flex h-12 w-12 items-center justify-center rounded-full',
+              accessChangeUser.isActive ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700',
+            )}>
+              <Power size={22} />
+            </div>
+            <h3 id="access-change-title" className="text-lg font-bold text-gray-900">
+              Turn {accessChangeUser.isActive ? 'OFF' : 'ON'} system access?
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              {accessChangeUser.isActive
+                ? `${accessChangeUser.name} will be signed out and will not be able to access the system.`
+                : `${accessChangeUser.name} will be able to sign in during assigned working hours.`}
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setAccessChangeUser(null)}
+                disabled={submitting}
+                className="btn-secondary flex-1 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void toggleAccess(accessChangeUser)}
+                disabled={submitting}
+                className={clsx(
+                  'flex-1 rounded-lg px-4 py-2 font-semibold text-white disabled:opacity-50',
+                  accessChangeUser.isActive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700',
+                )}
+              >
+                {submitting ? 'Updating...' : `Turn ${accessChangeUser.isActive ? 'OFF' : 'ON'}`}
               </button>
             </div>
           </div>
