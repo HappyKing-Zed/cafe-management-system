@@ -8,7 +8,7 @@ import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth';
 import clsx from 'clsx';
 import { useAuthStore } from '@/store/auth';
 
-const ROLES = ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'cashier', 'storekeeper'];
+const ROLES = ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'chef_main_kitchen', 'bar_man', 'juice_maker', 'coffee_lady', 'cashier', 'storekeeper'];
 
 export default function StaffPage() {
   const router = useRouter();

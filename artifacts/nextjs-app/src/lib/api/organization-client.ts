@@ -15,6 +15,7 @@ export const getUsers = (restaurantId?: number) =>
   api.get('/users', { params: { restaurantId } });
 export const getWaiters = () => api.get('/users/waiters');
 export const getChefs = () => api.get('/users/chefs');
+export const getKitchenWorkers = () => api.get('/users/kitchen-workers');
 export const getStaffList = () => api.get('/users/staff-list');
 export const createUser = (data: any) => api.post('/users', data);
 export const updateUser = (id: number, data: any) => api.patch(`/users/${id}`, data);

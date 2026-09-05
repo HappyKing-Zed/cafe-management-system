@@ -1,5 +1,4 @@
 import { Controller, Get, Patch, Param, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
-import { branchScope } from '../../common/utils/branch-scope';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -15,22 +14,24 @@ export class KitchenController {
   constructor(private service: KitchenService) {}
 
   @Get('board')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.CHEF)
-  getBoard(@Req() req: any) { return this.service.getBoard(branchScope(req.user)); }
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.CHEF, Role.CHEF_MAIN_KITCHEN, Role.BAR_MAN, Role.JUICE_MAKER, Role.COFFEE_LADY)
+  getBoard(@Req() req: any) {
+    return this.service.getBoard(req.user);
+  }
 
   @Patch('orders/:id/accept')
-  @Roles(Role.ADMIN, Role.OWNER, Role.COORDINATOR)
-  accept(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.confirmOrder(id, req.user, branchScope(req.user)); }
+  @Roles(Role.COORDINATOR)
+  accept(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.confirmOrder(id, req.user); }
 
   @Patch('orders/:id/accepted')
-  @Roles(Role.ADMIN, Role.OWNER, Role.CHEF)
-  accepted(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.acceptOrder(id, req.user, branchScope(req.user)); }
+  @Roles(Role.COORDINATOR, Role.CHEF, Role.CHEF_MAIN_KITCHEN, Role.BAR_MAN, Role.JUICE_MAKER, Role.COFFEE_LADY)
+  accepted(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.acceptOrder(id, req.user); }
 
   @Patch('orders/:id/preparing')
-  @Roles(Role.ADMIN, Role.OWNER, Role.CHEF)
-  preparing(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.startPreparing(id, req.user, branchScope(req.user)); }
+  @Roles(Role.COORDINATOR, Role.CHEF, Role.CHEF_MAIN_KITCHEN, Role.BAR_MAN, Role.JUICE_MAKER, Role.COFFEE_LADY)
+  preparing(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.startPreparing(id, req.user); }
 
   @Patch('orders/:id/ready')
-  @Roles(Role.ADMIN, Role.OWNER, Role.CHEF)
-  ready(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.markReady(id, req.user, branchScope(req.user)); }
+  @Roles(Role.COORDINATOR, Role.CHEF, Role.CHEF_MAIN_KITCHEN, Role.BAR_MAN, Role.JUICE_MAKER, Role.COFFEE_LADY)
+  ready(@Req() req: any, @Param('id', ParseIntPipe) id: number) { return this.service.markReady(id, req.user); }
 }

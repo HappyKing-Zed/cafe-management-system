@@ -1,16 +1,15 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../../entities/user.entity';
 import { Branch } from '../../entities/branch.entity';
 import { assignDefined } from '../../common/utils/assign-defined';
-import { Role } from '../../common/enums/roles.enum';
+import { KITCHEN_WORKER_ROLES, Role } from '../../common/enums/roles.enum';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 const USER_FIELDS: readonly (keyof User)[] = ['name', 'email', 'role', 'isActive', 'phone', 'restaurantId', 'branchId'];
-
 @Injectable()
 export class UsersService {
   constructor(
@@ -49,8 +48,26 @@ export class UsersService {
 
   findChefs(branchId?: number, restaurantId?: number) {
     return this.repo.find({
-      where: { role: 'chef' as any, isActive: true, ...(branchId ? { branchId } : {}), ...(restaurantId ? { restaurantId } : {}) },
+      where: {
+        role: Role.CHEF,
+        isActive: true,
+        ...(branchId ? { branchId } : {}),
+        ...(restaurantId ? { restaurantId } : {}),
+      },
       select: ['id', 'name'],
+      order: { name: 'ASC' },
+    });
+  }
+
+  findKitchenWorkers(branchId?: number, restaurantId?: number) {
+    return this.repo.find({
+      where: {
+        role: In(KITCHEN_WORKER_ROLES),
+        isActive: true,
+        ...(branchId ? { branchId } : {}),
+        ...(restaurantId ? { restaurantId } : {}),
+      },
+      select: ['id', 'name', 'role', 'branchId', 'restaurantId'],
       order: { name: 'ASC' },
     });
   }

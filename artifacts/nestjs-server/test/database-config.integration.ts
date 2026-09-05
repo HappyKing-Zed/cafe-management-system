@@ -47,7 +47,15 @@ test('loads database options after a fixture .env file is initialized', async ()
     assert.deepEqual(options.ssl, { rejectUnauthorized: false });
     assert.ok(Array.isArray(options.entities) && options.entities.length > 0);
     assert.equal(options.migrationsRun, false);
-    assert.equal(Array.isArray(options.migrations) ? options.migrations.length : 0, 1);
+    assert.deepEqual(
+      Array.isArray(options.migrations)
+        ? options.migrations.map((migration: any) => migration.name)
+        : [],
+      ['OrderLifecycle1710000000000', 'ItemKitchenAssignments1720000000000'],
+    );
+    const persistentDevelopmentOptions = createDatabaseOptions(fixtureUrl, 'development', false);
+    assert.equal(persistentDevelopmentOptions.synchronize, false);
+    assert.equal(persistentDevelopmentOptions.migrationsRun, true);
     const productionOptions = createDatabaseOptions(fixtureUrl, 'production', true);
     assert.equal(productionOptions.synchronize, false);
     assert.equal(productionOptions.migrationsRun, true);

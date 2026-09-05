@@ -36,7 +36,7 @@ export class OrdersController {
 
   @Get('alerts')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CHEF_MAIN_KITCHEN, Role.BAR_MAN, Role.JUICE_MAKER, Role.COFFEE_LADY)
   getAlerts(@Req() req: any) { return this.service.getAlerts(branchScope(req.user)); }
 
   @Get(':id')
@@ -46,7 +46,7 @@ export class OrdersController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CHEF_MAIN_KITCHEN, Role.BAR_MAN, Role.JUICE_MAKER, Role.COFFEE_LADY)
   create(@Req() req: any, @Body() body: any) {
     // Orders created by a waiter are always attributed to that waiter
     if (req.user?.role === Role.WAITER) body.waiterId = req.user.id;
@@ -54,8 +54,8 @@ export class OrdersController {
   }
 
   @Patch(':id/status')
-  updateStatus(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body('status') status: OrderStatus, @Body('chefId') chefId?: number) {
-    return this.service.updateStatus(id, status, req.user, chefId ? +chefId : undefined);
+  updateStatus(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body('status') status: OrderStatus) {
+    return this.service.updateStatus(id, status, req.user);
   }
 
   @Patch(':id/items')
@@ -74,7 +74,7 @@ export class OrdersController {
 
   @Patch(':id/items/:itemId/status')
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN, Role.OWNER, Role.COORDINATOR, Role.CHEF, Role.WAITER)
+  @Roles(Role.COORDINATOR, Role.CHEF, Role.CHEF_MAIN_KITCHEN, Role.BAR_MAN, Role.JUICE_MAKER, Role.COFFEE_LADY, Role.WAITER)
   updateItemStatus(
     @Req() req: any,
     @Param('id', ParseIntPipe) id: number,
@@ -82,6 +82,17 @@ export class OrdersController {
     @Body('status') status: any,
   ) {
     return this.service.updateItemStatus(id, itemId, status, req.user);
+  }
+
+  @Patch(':id/items/assignments')
+  @UseGuards(RolesGuard)
+  @Roles(Role.COORDINATOR)
+  assignKitchenWorkers(
+    @Req() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Body('assignments') assignments: Array<{ itemId: number; workerId: number }>,
+  ) {
+    return this.service.assignKitchenWorkers(id, assignments, req.user);
   }
 
 }

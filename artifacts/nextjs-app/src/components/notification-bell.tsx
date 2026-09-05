@@ -24,7 +24,8 @@ interface AppNotification {
   createdAt: string;
 }
 
-const ALERT_ROLES = ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef'];
+const KITCHEN_ROLES = ['chef', 'chef_main_kitchen', 'bar_man', 'juice_maker', 'coffee_lady'];
+const ALERT_ROLES = ['admin', 'owner', 'manager', 'coordinator', 'waiter', ...KITCHEN_ROLES];
 
 function timeAgo(dateStr: string) {
   const m = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
@@ -46,7 +47,7 @@ export default function NotificationBell() {
   const seesAlerts = !!user && ALERT_ROLES.includes(user.role);
   const visibleAlerts = alerts.filter(a =>
     user?.role === 'waiter' ? a.side === 'waiter' :
-    user?.role === 'chef' ? a.side === 'kitchen' : true
+    user?.role && KITCHEN_ROLES.includes(user.role) ? a.side === 'kitchen' : true
   );
 
   useEffect(() => {
@@ -91,7 +92,7 @@ export default function NotificationBell() {
   const badgeCount = unread.length + visibleAlerts.length;
 
   const allowed = (path: string) => canAccessDashboardPath(path, user.role, user.branchId);
-  const orderPage = user.role === 'chef' ? '/dashboard/kitchen'
+  const orderPage = KITCHEN_ROLES.includes(user.role) ? '/dashboard/kitchen'
     : allowed('/dashboard/orders') ? '/dashboard/orders' : '/dashboard/order-board';
 
   const notifTarget = (n: AppNotification): string | null => {

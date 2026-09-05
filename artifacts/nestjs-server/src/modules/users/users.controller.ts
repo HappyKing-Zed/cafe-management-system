@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseIntPipe, Req, ForbiddenException } from '@nestjs/common';
-import { branchScope } from '../../common/utils/branch-scope';
+import { branchScope, effectiveBranch } from '../../common/utils/branch-scope';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -30,7 +30,7 @@ export class UsersController {
 
   // Lightweight list for the item-request form (name + role only) — available to all staff
   @Get('staff-list')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CASHIER, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CHEF_MAIN_KITCHEN, Role.BAR_MAN, Role.JUICE_MAKER, Role.COFFEE_LADY, Role.CASHIER, Role.STOREKEEPER)
   staffList(@Req() req: any) {
     // Always constrain to the caller's restaurant (and branch when scoped)
     if (!req.user?.restaurantId) throw new ForbiddenException('Your account is not assigned to a restaurant');
@@ -49,6 +49,25 @@ export class UsersController {
   findChefs(@Req() req: any) {
     if (!req.user?.restaurantId) throw new ForbiddenException('Your account is not assigned to a restaurant');
     return this.service.findChefs(branchScope(req.user), req.user.restaurantId);
+  }
+
+  @Get('kitchen-workers')
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR)
+  findKitchenWorkers(
+    @Req() req: any,
+    @Query('branchId') branchId?: string,
+    @Query('restaurantId') restaurantId?: string,
+  ) {
+    const scopedRestaurant = req.user.role === Role.ADMIN
+      ? (restaurantId ? +restaurantId : req.user.restaurantId)
+      : req.user.restaurantId;
+    if (!scopedRestaurant) {
+      throw new ForbiddenException('A restaurant scope is required to list kitchen workers');
+    }
+    return this.service.findKitchenWorkers(
+      effectiveBranch(req.user, branchId),
+      scopedRestaurant,
+    );
   }
 
   @Get(':id')

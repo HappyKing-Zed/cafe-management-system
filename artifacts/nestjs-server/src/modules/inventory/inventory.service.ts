@@ -27,6 +27,8 @@ const SUPPLIER_FIELDS: readonly (keyof Supplier)[] = [
 const ROLE_DEPARTMENT: Record<string, string> = {
   admin: 'Management', owner: 'Management', manager: 'Management',
   coordinator: 'Coordination', waiter: 'Service', chef: 'Kitchen',
+  chef_main_kitchen: 'Kitchen', bar_man: 'Kitchen',
+  juice_maker: 'Kitchen', coffee_lady: 'Kitchen',
   cashier: 'Finance', storekeeper: 'Store',
 };
 

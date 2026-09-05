@@ -15,6 +15,8 @@ export const removeOrderItems = (id: number, orderItemIds: number[]) =>
   api.patch(`/orders/${id}/items/remove`, { orderItemIds });
 export const updateOrderItemStatus = (orderId: number, orderItemId: number, status: string) =>
   api.patch(`/orders/${orderId}/items/${orderItemId}/status`, { status });
+export const assignOrderItems = (orderId: number, assignments: { itemId: number; workerId: number }[]) =>
+  api.patch(`/orders/${orderId}/items/assignments`, { assignments });
 export const getOrderAlerts = () => api.get('/orders/alerts');
 
 export const getKitchenBoard = () => api.get('/kitchen/board');

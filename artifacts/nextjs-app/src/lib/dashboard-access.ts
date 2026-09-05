@@ -4,7 +4,7 @@ export const DASHBOARD_ROUTE_ROLES: Record<string, readonly Role[]> = {
   '/dashboard/orders': ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'cashier'],
   '/dashboard/order-board': ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'cashier', 'storekeeper'],
   '/dashboard/requests': ['admin', 'chef'],
-  '/dashboard/kitchen': ['admin', 'owner', 'manager', 'coordinator', 'chef'],
+  '/dashboard/kitchen': ['admin', 'owner', 'manager', 'coordinator', 'chef', 'chef_main_kitchen', 'bar_man', 'juice_maker', 'coffee_lady'],
   '/dashboard/tables': ['admin', 'owner', 'manager', 'coordinator', 'waiter'],
   '/dashboard/menu': ['admin', 'owner', 'manager'],
   '/dashboard/inventory': ['admin', 'owner', 'manager', 'storekeeper'],
@@ -41,5 +41,6 @@ export function canAccessDashboardPath(pathname: string, role: Role, branchId?: 
 }
 
 export function dashboardHomeForRole(role: Role) {
+  if (['chef_main_kitchen', 'bar_man', 'juice_maker', 'coffee_lady'].includes(role)) return '/dashboard/kitchen';
   return DASHBOARD_ROUTE_ROLES['/dashboard'].includes(role) ? '/dashboard' : '/dashboard/orders';
 }

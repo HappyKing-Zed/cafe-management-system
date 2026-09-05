@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Order } from './order.entity';
 import { MenuItem } from './menu-item.entity';
+import { User } from './user.entity';
 import { OrderItemStatus } from '../common/enums/order-item-status.enum';
 
 @Entity('order_items')
@@ -35,4 +36,11 @@ export class OrderItem {
 
   @Column()
   menuItemId: number;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'assignedKitchenWorkerId' })
+  assignedKitchenWorker: User;
+
+  @Column({ nullable: true })
+  assignedKitchenWorkerId: number;
 }

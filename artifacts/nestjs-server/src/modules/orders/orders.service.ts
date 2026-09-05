@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Order } from '../../entities/order.entity';
 import { OrderItem } from '../../entities/order-item.entity';
 import { MenuItem } from '../../entities/menu-item.entity';
@@ -10,6 +10,9 @@ import { OrderStatus } from '../../common/enums/order-status.enum';
 import { TableStatus } from '../../common/enums/table-status.enum';
 import { OrderItemStatus } from '../../common/enums/order-item-status.enum';
 import { NotificationsService } from '../notifications/notifications.service';
+import { Branch } from '../../entities/branch.entity';
+import { isKitchenWorkerRole, KITCHEN_WORKER_ROLES, Role } from '../../common/enums/roles.enum';
+import { In } from 'typeorm';
 
 @Injectable()
 export class OrdersService {
@@ -32,7 +35,7 @@ export class OrdersService {
     if (branchId) where.branchId = branchId;
     const orders = await this.orderRepo.find({
       where,
-      relations: ['table', 'waiter', 'chef', 'items', 'items.menuItem', 'payments'],
+      relations: ['table', 'waiter', 'chef', 'items', 'items.menuItem', 'items.assignedKitchenWorker', 'payments'],
       order: { createdAt: 'DESC' },
     });
     if (user?.role === 'cashier') {
@@ -44,7 +47,7 @@ export class OrdersService {
   async findOne(id: number) {
     const o = await this.orderRepo.findOne({
       where: { id },
-      relations: ['table', 'waiter', 'chef', 'items', 'items.menuItem', 'payments'],
+      relations: ['table', 'waiter', 'chef', 'items', 'items.menuItem', 'items.assignedKitchenWorker', 'payments'],
     });
     if (!o) throw new NotFoundException('Order not found');
     // Production-safe compatibility for pre-lifecycle rows. The nullable
@@ -74,6 +77,34 @@ export class OrdersService {
     if (user && !['admin', 'owner'].includes(user.role) && user.branchId && order.branchId && order.branchId !== user.branchId) {
       throw new ForbiddenException('This order belongs to another branch');
     }
+  }
+
+  /**
+   * Kitchen actions are always scoped from current database identity, rather
+   * than trusting the potentially stale/minimal JWT payload. Orders without a
+   * branch cannot be safely tied to a restaurant and are deliberately not
+   * mutable through kitchen APIs.
+   */
+  private async assertKitchenScope(
+    order: Order,
+    claimedActor: { id: number; role: string; branchId?: number; restaurantId?: number },
+    manager?: EntityManager,
+  ): Promise<User> {
+    const users = manager ? manager.getRepository(User) : this.userRepo;
+    const branches = manager ? manager.getRepository(Branch) : this.dataSource.getRepository(Branch);
+    const actor = await users.findOne({ where: { id: claimedActor.id } });
+    if (!actor || !actor.isActive) throw new ForbiddenException('Your account is not active');
+    if (!order.branchId) {
+      throw new ForbiddenException('Kitchen actions require an order assigned to a branch');
+    }
+    const orderBranch = await branches.findOne({ where: { id: order.branchId } });
+    if (!orderBranch || !actor.restaurantId || orderBranch.restaurantId !== actor.restaurantId) {
+      throw new ForbiddenException('This order belongs to another restaurant');
+    }
+    if (!actor.branchId || actor.branchId !== order.branchId) {
+      throw new ForbiddenException('This order belongs to another branch');
+    }
+    return actor;
   }
 
   async findOneAuthorized(id: number, user?: { id: number; role: string }) {
@@ -225,13 +256,17 @@ export class OrdersService {
   // Explicit allowlist: an absent role must never mean unrestricted access.
   private static readonly ROLE_STATUS: Record<string, OrderStatus[]> = {
     waiter: [OrderStatus.SERVED, OrderStatus.CANCELLED],
-    coordinator: [OrderStatus.CONFIRMED],
-    chef: [OrderStatus.PREPARING, OrderStatus.READY],
-    cashier: [OrderStatus.PAID],
+    coordinator: [],
+    chef: [],
+    chef_main_kitchen: [],
+    bar_man: [],
+    juice_maker: [],
+    coffee_lady: [],
+    cashier: [],
     manager: [],
     storekeeper: [],
-    admin: Object.values(OrderStatus),
-    owner: Object.values(OrderStatus),
+    admin: [],
+    owner: [],
   };
 
   // Valid lifecycle transitions (applies to everyone, kitchen included)
@@ -245,36 +280,33 @@ export class OrdersService {
     [OrderStatus.CANCELLED]: [],
   };
 
-  async updateStatus(id: number, status: OrderStatus, user?: { id: number; role: string }, chefId?: number) {
-    if (status === OrderStatus.CANCELLED && user?.role !== 'waiter') {
+  async updateStatus(id: number, status: OrderStatus, user?: { id: number; role: string }) {
+    if (status === OrderStatus.PAID) {
+      throw new ForbiddenException('Payments must be finalized through the payment endpoint');
+    }
+    if (!user) {
+      throw new ForbiddenException('An authenticated user is required to update an order');
+    }
+    if (status === OrderStatus.CANCELLED && user.role !== 'waiter') {
       throw new ForbiddenException('Only the owning waiter can cancel an order');
     }
-    if (user) {
-      const existing = await this.findOne(id);
-      this.assertCanAccess(existing, user);
-      const allowed = OrdersService.ROLE_STATUS[user.role] || [];
-      if (!allowed.includes(status)) {
-        throw new ForbiddenException(`Your role cannot set an order to "${status}"`);
-      }
-      // Only the cashier (or admin/owner) may confirm payment
-      if (status === OrderStatus.PAID && !['cashier', 'admin', 'owner'].includes(user.role)) {
-        throw new ForbiddenException('Only the cashier can confirm payment');
-      }
-      if (
-        status === OrderStatus.CANCELLED &&
-        user.role === 'waiter' &&
-        (existing.status !== OrderStatus.PENDING ||
-          existing.items.some((item) => item.status !== OrderItemStatus.PENDING))
-      ) {
-        throw new ForbiddenException('An order can only be cancelled before any coordinator confirmation');
-      }
+    const existing = await this.findOne(id);
+    this.assertCanAccess(existing, user);
+    const allowed = OrdersService.ROLE_STATUS[user.role] || [];
+    if (!allowed.includes(status)) {
+      throw new ForbiddenException(`Your role cannot set an order to "${status}"`);
+    }
+    if (
+      status === OrderStatus.CANCELLED &&
+      user.role === 'waiter' &&
+      (existing.status !== OrderStatus.PENDING ||
+        existing.items.some((item) => item.status !== OrderItemStatus.PENDING))
+    ) {
+      throw new ForbiddenException('An order can only be cancelled before any coordinator confirmation');
     }
     const before = await this.findOne(id);
     if (before.status !== status && !OrdersService.TRANSITIONS[before.status]?.includes(status)) {
       throw new BadRequestException(`Cannot move an order from "${before.status}" to "${status}"`);
-    }
-    if (status === OrderStatus.PAID && before.items.some((item) => item.status !== OrderItemStatus.SERVED)) {
-      throw new BadRequestException('Only fully served orders can be paid');
     }
     if (status === OrderStatus.SERVED) {
       const unfinished = before.items.filter((item) => item.status !== OrderItemStatus.SERVED);
@@ -282,24 +314,13 @@ export class OrdersService {
         throw new BadRequestException('All outstanding items must be ready before the order can be served');
       }
       if (unfinished.length) await this.itemRepo.update(unfinished.map((item) => item.id), { status: OrderItemStatus.SERVED });
-    } else if (status === OrderStatus.CONFIRMED) {
-      const pending = before.items.filter((item) => item.status === OrderItemStatus.PENDING);
-      if (pending.length) await this.itemRepo.update(pending.map((item) => item.id), { status: OrderItemStatus.CONFIRMED });
-    } else if (status === OrderStatus.PREPARING) {
-      const accepted = before.items.filter((item) => item.status === OrderItemStatus.ACCEPTED);
-      if (!accepted.length) throw new BadRequestException('Items must be accepted before preparation');
-      await this.itemRepo.update(accepted.map((item) => item.id), { status: OrderItemStatus.PREPARING });
-    } else if (status === OrderStatus.READY) {
-      const preparing = before.items.filter((item) => item.status === OrderItemStatus.PREPARING);
-      if (!preparing.length) throw new BadRequestException('Items must be preparing before they can be ready');
-      await this.itemRepo.update(preparing.map((item) => item.id), { status: OrderItemStatus.READY });
     }
-    await this.orderRepo.update(id, { status, ...(chefId ? { chefId } : {}) });
+    await this.orderRepo.update(id, { status });
     const order = await this.findOne(id);
     if (before.status !== status) await this.notifications.orderEvent(order, status);
 
     // Free table when order is paid/cancelled
-    if ((status === OrderStatus.PAID || status === OrderStatus.CANCELLED) && order.tableId) {
+    if (status === OrderStatus.CANCELLED && order.tableId) {
       await this.tableRepo.update(order.tableId, { status: TableStatus.CLEANING });
     }
     return order;
@@ -314,6 +335,98 @@ export class OrdersService {
     [OrderItemStatus.SERVED]: [],
   };
 
+  private aggregateItemStatuses(statuses: OrderItemStatus[]): OrderStatus {
+    if (statuses.length && statuses.every((value) => value === OrderItemStatus.SERVED)) return OrderStatus.SERVED;
+    if (statuses.length && statuses.every((value) => [OrderItemStatus.READY, OrderItemStatus.SERVED].includes(value))) return OrderStatus.READY;
+    if (statuses.some((value) => value === OrderItemStatus.PREPARING)) return OrderStatus.PREPARING;
+    if (statuses.some((value) => value !== OrderItemStatus.PENDING)) return OrderStatus.CONFIRMED;
+    return OrderStatus.PENDING;
+  }
+
+  async assignKitchenWorkers(
+    orderId: number,
+    assignments: Array<{ itemId: number; workerId: number }>,
+    actor: { id: number; role: string; branchId?: number; restaurantId?: number },
+  ) {
+    if (!Array.isArray(assignments) || assignments.length === 0) {
+      throw new BadRequestException('At least one assignment is required');
+    }
+    const itemIds = assignments.map((value) => Number(value.itemId));
+    const workerIds = assignments.map((value) => Number(value.workerId));
+    if ([...itemIds, ...workerIds].some((id) => !Number.isInteger(id) || id <= 0)) {
+      throw new BadRequestException('itemId and workerId must be positive integers');
+    }
+    if (new Set(itemIds).size !== itemIds.length) {
+      throw new BadRequestException('Each item may only appear once');
+    }
+
+    let previousStatus: OrderStatus;
+    const assignedWorkerIds = new Set<number>();
+    await this.dataSource.transaction(async (manager) => {
+      const order = await manager.getRepository(Order).createQueryBuilder('order')
+        .setLock('pessimistic_write')
+        .where('order.id = :orderId', { orderId })
+        .getOne();
+      if (!order) throw new NotFoundException('Order not found');
+      previousStatus = order.status;
+      const scopedActor = await this.assertKitchenScope(order, actor, manager);
+      if (scopedActor.role !== Role.COORDINATOR) {
+        throw new ForbiddenException('Only a coordinator can assign kitchen items');
+      }
+      if (order.status === OrderStatus.PAID || order.status === OrderStatus.CANCELLED) {
+        throw new BadRequestException('Cannot assign items on a paid or cancelled order');
+      }
+      if (!order.branchId) {
+        throw new BadRequestException('The order must belong to a branch before kitchen assignment');
+      }
+      const branch = await manager.getRepository(Branch).findOne({ where: { id: order.branchId } });
+      if (!branch) throw new BadRequestException('The order branch no longer exists');
+
+      const items = await manager.getRepository(OrderItem).find({ where: { id: In(itemIds), orderId } });
+      if (items.length !== itemIds.length) {
+        throw new BadRequestException('Every item must belong to the specified order');
+      }
+      const workers = await manager.getRepository(User).find({ where: { id: In([...new Set(workerIds)]) } });
+      if (workers.length !== new Set(workerIds).size) {
+        throw new BadRequestException('One or more kitchen workers do not exist');
+      }
+      const workersById = new Map(workers.map((worker) => [worker.id, worker]));
+      const itemsById = new Map(items.map((item) => [item.id, item]));
+
+      for (const assignment of assignments) {
+        const item = itemsById.get(Number(assignment.itemId))!;
+        const worker = workersById.get(Number(assignment.workerId))!;
+        if (![OrderItemStatus.PENDING, OrderItemStatus.CONFIRMED, OrderItemStatus.ACCEPTED].includes(item.status)) {
+          throw new BadRequestException(`Item ${item.id} can no longer be assigned`);
+        }
+        if (!worker.isActive || !KITCHEN_WORKER_ROLES.includes(worker.role)) {
+          throw new BadRequestException(`User ${worker.id} is not an active kitchen worker`);
+        }
+        if (worker.branchId !== order.branchId || worker.restaurantId !== branch.restaurantId) {
+          throw new BadRequestException(`Kitchen worker ${worker.id} is outside this order's branch or restaurant`);
+        }
+        item.assignedKitchenWorkerId = worker.id;
+        if (item.status === OrderItemStatus.PENDING) item.status = OrderItemStatus.CONFIRMED;
+        assignedWorkerIds.add(worker.id);
+      }
+      await manager.getRepository(OrderItem).save(items);
+      const allItems = await manager.getRepository(OrderItem).find({ where: { orderId } });
+      const aggregate = this.aggregateItemStatuses(allItems.map((item) => item.status || this.legacyItemStatus(order.status)));
+      if (aggregate !== order.status) await manager.getRepository(Order).update(orderId, { status: aggregate });
+    });
+
+    const full = await this.findOne(orderId);
+    if (full.status !== previousStatus!) await this.notifications.orderEvent(full, full.status);
+    for (const workerId of assignedWorkerIds) {
+      await this.notifications.notify({
+        userId: workerId,
+        branchId: full.branchId,
+        message: `Kitchen items from order #${full.orderNumber || full.id} were assigned to you`,
+      });
+    }
+    return full;
+  }
+
   async updateItemStatus(
     orderId: number,
     itemId: number,
@@ -321,22 +434,29 @@ export class OrdersService {
     user?: { id: number; role: string },
   ) {
     const order = await this.findOne(orderId);
-    this.assertCanAccess(order, user);
+    if (!user) throw new ForbiddenException(`Your role cannot set an item to "${status}"`);
+    const scopedActor = await this.assertKitchenScope(order, user);
+    this.assertCanAccess(order, scopedActor);
     if (order.status === OrderStatus.PAID || order.status === OrderStatus.CANCELLED) {
       throw new BadRequestException('Cannot update items on a paid or cancelled order');
     }
     const item = order.items.find((candidate) => candidate.id === itemId);
     if (!item) throw new NotFoundException('Order item not found');
 
-    const permittedRoles: Record<OrderItemStatus, string[]> = {
-      [OrderItemStatus.PENDING]: [],
-      [OrderItemStatus.CONFIRMED]: ['coordinator', 'admin', 'owner'],
-      [OrderItemStatus.ACCEPTED]: ['chef', 'admin', 'owner'],
-      [OrderItemStatus.PREPARING]: ['chef', 'admin', 'owner'],
-      [OrderItemStatus.READY]: ['chef', 'admin', 'owner'],
-      [OrderItemStatus.SERVED]: ['waiter', 'admin', 'owner'],
-    };
-    if (!user || !permittedRoles[status]?.includes(user.role)) {
+    if (status === OrderItemStatus.CONFIRMED) {
+      throw new ForbiddenException('Pending items can only be confirmed through coordinator assignment');
+    }
+    if ([OrderItemStatus.ACCEPTED, OrderItemStatus.PREPARING, OrderItemStatus.READY].includes(status)) {
+      const coordinator = scopedActor.role === Role.COORDINATOR;
+      const assignedWorker = isKitchenWorkerRole(scopedActor.role) && item.assignedKitchenWorkerId === scopedActor.id;
+      if (!coordinator && !assignedWorker) {
+        throw new ForbiddenException('Only the coordinator or this item’s assigned kitchen worker may update it');
+      }
+    } else if (status === OrderItemStatus.SERVED) {
+      if (scopedActor.role !== Role.WAITER || order.waiterId !== scopedActor.id) {
+        throw new ForbiddenException('Only the owning waiter can serve this item');
+      }
+    } else {
       throw new ForbiddenException(`Your role cannot set an item to "${status}"`);
     }
     if (item.status !== status && !OrdersService.ITEM_TRANSITIONS[item.status]?.includes(status)) {
@@ -345,15 +465,9 @@ export class OrdersService {
     if (item.status !== status) await this.itemRepo.update(item.id, { status });
 
     const updated = await this.findOne(orderId);
-    const statuses = updated.items.map((candidate) => candidate.status);
-    let aggregate = updated.status;
-    if (statuses.every((value) => value === OrderItemStatus.SERVED)) aggregate = OrderStatus.SERVED;
-    else if (statuses.every((value) => [OrderItemStatus.READY, OrderItemStatus.SERVED].includes(value))) aggregate = OrderStatus.READY;
-    else if (statuses.some((value) => value === OrderItemStatus.PREPARING)) aggregate = OrderStatus.PREPARING;
-    else if (statuses.every((value) => value !== OrderItemStatus.PENDING)) aggregate = OrderStatus.CONFIRMED;
+    const aggregate = this.aggregateItemStatuses(updated.items.map((candidate) => candidate.status));
 
-    // Never move a previously-served order backwards when a waiter adds items.
-    if (updated.status !== OrderStatus.SERVED && aggregate !== updated.status) {
+    if (aggregate !== updated.status) {
       await this.orderRepo.update(orderId, { status: aggregate });
       const full = await this.findOne(orderId);
       await this.notifications.orderEvent(full, aggregate);

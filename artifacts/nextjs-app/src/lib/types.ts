@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'owner' | 'manager' | 'coordinator' | 'waiter' | 'chef' | 'cashier' | 'storekeeper';
+export type Role = 'admin' | 'owner' | 'manager' | 'coordinator' | 'waiter' | 'chef' | 'chef_main_kitchen' | 'bar_man' | 'juice_maker' | 'coffee_lady' | 'cashier' | 'storekeeper';
 
 export interface User {
   id: number;
@@ -76,6 +76,8 @@ export interface OrderItem {
   menuItem: MenuItem;
   orderId: number;
   status?: OrderItemStatus;
+  assignedKitchenWorkerId?: number | null;
+  assignedKitchenWorker?: User | null;
 }
 
 export interface Order {

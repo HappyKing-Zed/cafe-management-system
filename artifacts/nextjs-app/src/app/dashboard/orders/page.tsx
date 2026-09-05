@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getOrders, getOrder, createOrder, addOrderItems, removeOrderItems, updateOrderStatus, updateOrderItemStatus, processPayment, getMenuCategories, getTables, getWaiters, getChefs } from '@/lib/api';
+import { getOrders, getOrder, createOrder, addOrderItems, removeOrderItems, updateOrderStatus, updateOrderItemStatus, processPayment, getMenuCategories, getTables, getWaiters, getKitchenWorkers, assignOrderItems } from '@/lib/api';
 import { Order, OrderItem, OrderItemStatus, MenuItem, MenuCategory, RestaurantTable, User } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
 import { ShoppingCart, Plus, X, CreditCard, CheckCircle } from 'lucide-react';
@@ -30,8 +30,6 @@ export default function OrdersPage() {
   const isWaiter = user?.role === 'waiter';
   const isCoordinator = user?.role === 'coordinator';
   const isCashier = user?.role === 'cashier';
-  const canConfirmItems = isCoordinator;
-  const canAdvanceKitchenItems = !!user && ['chef', 'admin', 'owner'].includes(user.role);
   const ownsOrder = (order: Order) => isWaiter && order.waiterId === user?.id;
   const canCreateOrder = !!user && !['coordinator', 'manager', 'owner', 'cashier'].includes(user.role);
 
@@ -97,11 +95,18 @@ export default function OrdersPage() {
   }, [isWaiter]);
 
   useEffect(() => {
-    if (!user || !['admin', 'owner', 'manager', 'coordinator'].includes(user.role)) return;
-    getChefs()
-      .then(res => setChefs(res.data || []))
-      .catch(() => setChefs([]));
-  }, [user]);
+    if (!isCoordinator) return;
+    getKitchenWorkers()
+      .then(res => {
+        setKitchenWorkers(res.data || []);
+        setKitchenWorkerError('');
+      })
+      .catch((e: any) => {
+        setKitchenWorkers([]);
+        const message = e?.response?.data?.message;
+        setKitchenWorkerError(Array.isArray(message) ? message.join(', ') : message || 'Could not load eligible kitchen workers.');
+      });
+  }, [isCoordinator]);
 
   const addToCart = (item: MenuItem) => {
     setCart(prev => {
@@ -135,9 +140,10 @@ export default function OrdersPage() {
 
   // Cancel dialog: whole order or selected items
   const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
-  const [chefs, setChefs] = useState<User[]>([]);
+  const [kitchenWorkers, setKitchenWorkers] = useState<User[]>([]);
+  const [kitchenWorkerError, setKitchenWorkerError] = useState('');
   const [confirmOrder, setConfirmOrder] = useState<Order | null>(null);
-  const [chefSel, setChefSel] = useState('');
+  const [itemAssignments, setItemAssignments] = useState<Record<number, string>>({});
   const [cancelSel, setCancelSel] = useState<number[]>([]);
 
   // Clear all POS state so stale carts/amounts never leak into the next order
@@ -311,7 +317,7 @@ export default function OrdersPage() {
               <tr>
                 <th className="table-header !px-2.5 !py-2">#</th>
                 <th className="table-header !px-2.5 !py-2">Table</th>
-                <th className="table-header !px-2.5 !py-2">Chef</th>
+                 <th className="table-header !px-2.5 !py-2">Kitchen</th>
                 <th className="table-header !px-2.5 !py-2">Items</th>
                 <th className="table-header !px-2.5 !py-2">Time</th>
                 <th className="table-header !px-2.5 !py-2">Total</th>
@@ -340,7 +346,9 @@ export default function OrdersPage() {
                     {order.table?.number ? <span className="text-xs font-medium">{order.table.number}</span> : <span className="text-xs text-gray-500">Take Away</span>}
                     {!isWaiter && order.waiter?.name && <p className="text-[10px] text-gray-400 truncate max-w-[90px]">{order.waiter.name}</p>}
                   </td>
-                  <td className="table-cell !px-2.5 !py-2 text-gray-500 text-xs truncate max-w-[90px]">{order.chef?.name || '—'}</td>
+                   <td className="table-cell !px-2.5 !py-2 text-gray-500 text-xs max-w-[130px]">
+                     {[...new Set(order.items?.map(item => item.assignedKitchenWorker?.name).filter(Boolean))].join(', ') || '—'}
+                   </td>
                   <td className="table-cell !px-2.5 !py-2 text-gray-500 text-xs whitespace-nowrap">{order.items?.length || 0}</td>
                   <td className="table-cell !px-2.5 !py-2 text-xs whitespace-nowrap">
                     <p className="text-gray-700">{new Date(order.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -368,12 +376,19 @@ export default function OrdersPage() {
                           className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded hover:bg-brand-200 whitespace-nowrap">+ Add Items</button>
                       )}
                       {isCoordinator && order.status === 'pending' && (
-                        <button onClick={() => { setChefSel(''); setConfirmOrder(order); }} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Confirm</button>
+                         <button onClick={() => { setItemAssignments({}); setConfirmOrder(order); }} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Confirm</button>
                       )}
                       {isCoordinator && order.status !== 'pending' && order.items?.some(item => item.status === 'pending') && (
                         <button
                           onClick={async () => {
-                            try { setDetailOrder((await getOrder(order.id)).data); } catch { setDetailOrder(order); }
+                             try {
+                               const fresh = (await getOrder(order.id)).data;
+                               setItemAssignments({});
+                               setConfirmOrder(fresh);
+                             } catch {
+                               setItemAssignments({});
+                               setConfirmOrder(order);
+                             }
                           }}
                           className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 whitespace-nowrap"
                         >
@@ -581,33 +596,61 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Confirm & Assign Chef Modal (coordinator) */}
+      {/* Assign each pending item to its kitchen worker (coordinator) */}
       {confirmOrder && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setConfirmOrder(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold">Confirm Order #{orderNumber(confirmOrder)}</h2>
+              <h2 className="text-lg font-bold">Assign Order #{orderNumber(confirmOrder)}</h2>
               <button onClick={() => setConfirmOrder(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
             </div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Assign Chef</label>
-            <select value={chefSel} onChange={e => setChefSel(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mb-4 bg-white">
-              <option value="">Select a chef…</option>
-              {chefs.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-            </select>
-            <button disabled={!chefSel || submitting}
+            <p className="text-sm text-gray-500 mb-4">Choose an eligible kitchen worker for every pending item.</p>
+            {kitchenWorkerError && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{kitchenWorkerError}</div>}
+            <div className="space-y-3 mb-5">
+              {confirmOrder.items?.filter(item => !item.status || item.status === 'pending').map(item => (
+                <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+                  <div className="flex justify-between gap-3 mb-2">
+                    <div>
+                      <p className="font-medium text-gray-900">{item.menuItem?.name || `Item ${item.menuItemId}`}</p>
+                      {item.notes && <p className="text-xs text-amber-700 mt-0.5">{item.notes}</p>}
+                    </div>
+                    <span className="text-sm font-semibold text-gray-600">×{item.quantity}</span>
+                  </div>
+                  <select
+                    required
+                    aria-label={`Kitchen worker for ${item.menuItem?.name || `item ${item.id}`}`}
+                    value={itemAssignments[item.id] || ''}
+                    onChange={e => setItemAssignments(previous => ({ ...previous, [item.id]: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="">Select kitchen worker…</option>
+                    {kitchenWorkers.map(worker => (
+                      <option key={worker.id} value={String(worker.id)}>
+                        {worker.name} — {worker.role === 'chef_main_kitchen' ? 'Chef – Main Kitchen' : worker.role === 'bar_man' ? 'Bar Man' : worker.role === 'juice_maker' ? 'Juice Maker' : worker.role === 'coffee_lady' ? 'Coffee Lady' : 'Chef'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <button disabled={submitting || !confirmOrder.items?.some(item => !item.status || item.status === 'pending') || !confirmOrder.items?.filter(item => !item.status || item.status === 'pending').every(item => itemAssignments[item.id])}
               onClick={async () => {
                 setSubmitting(true);
                 try {
-                  await updateOrderStatus(confirmOrder.id, 'confirmed', Number(chefSel));
+                  const pendingItems = confirmOrder.items?.filter(item => !item.status || item.status === 'pending') || [];
+                  await assignOrderItems(confirmOrder.id, pendingItems.map(item => ({
+                    itemId: item.id,
+                    workerId: Number(itemAssignments[item.id]),
+                  })));
                   setConfirmOrder(null);
                   await fetchData();
                 } catch (e: any) {
-                  alert(e?.response?.data?.message || 'Could not confirm the order');
+                  const message = e?.response?.data?.message;
+                  alert(Array.isArray(message) ? message.join(', ') : message || 'Could not assign the pending items');
                 } finally { setSubmitting(false); }
               }}
               className="btn-primary w-full disabled:opacity-50">
-              Confirm & Assign
+              {submitting ? 'Assigning…' : 'Confirm & Assign Items'}
             </button>
           </div>
         </div>
@@ -640,12 +683,7 @@ export default function OrdersPage() {
               {detailOrder.items?.map((item: OrderItem) => {
                 const itemStatus = item.status || detailOrder.status;
                 const nextItemStatus: OrderItemStatus | null =
-                  canConfirmItems && itemStatus === 'pending' ? 'confirmed'
-                    : canAdvanceKitchenItems && itemStatus === 'confirmed' ? 'accepted'
-                      : canAdvanceKitchenItems && itemStatus === 'accepted' ? 'preparing'
-                        : canAdvanceKitchenItems && itemStatus === 'preparing' ? 'ready'
-                          : ownsOrder(detailOrder) && itemStatus === 'ready' ? 'served'
-                            : null;
+                  ownsOrder(detailOrder) && itemStatus === 'ready' ? 'served' : null;
                 return (
                 <div key={item.id} className="flex justify-between items-center gap-3 px-3 py-2 text-sm">
                   <div>
@@ -656,13 +694,14 @@ export default function OrdersPage() {
                     <p className="font-medium">×{item.quantity}</p>
                     <p className="text-xs text-gray-400">ETB {(Number(item.unitPrice) * item.quantity).toLocaleString()}</p>
                     <span className={`status-badge mt-1 ${STATUS_COLORS[itemStatus] || 'bg-gray-100 text-gray-700'}`}>{itemStatus}</span>
+                    {item.assignedKitchenWorker && <p className="text-[10px] text-gray-500 mt-1">{item.assignedKitchenWorker.name}</p>}
                     {nextItemStatus && (
                       <button
                         disabled={submitting}
                         onClick={() => handleItemStatusChange(detailOrder.id, item.id, nextItemStatus)}
                         className="block ml-auto mt-1 text-[11px] px-2 py-1 rounded bg-brand-100 text-brand-700 hover:bg-brand-200 disabled:opacity-50"
                       >
-                        {nextItemStatus === 'confirmed' ? 'Confirm item' : nextItemStatus === 'accepted' ? 'Accept item' : nextItemStatus === 'preparing' ? 'Start preparing' : nextItemStatus === 'ready' ? 'Mark ready' : 'Mark served'}
+                        Mark served
                       </button>
                     )}
                   </div>

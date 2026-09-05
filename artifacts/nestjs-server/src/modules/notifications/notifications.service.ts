@@ -96,7 +96,7 @@ export class NotificationsService {
 
     switch (event) {
       case 'created':
-        toRoles(['chef', 'coordinator'], `New order #${orderLabel} (${tableLabel})${waiter} — waiting for kitchen`);
+        toRoles(['coordinator'], `New order #${orderLabel} (${tableLabel})${waiter} — waiting for kitchen assignment`);
         break;
       case OrderStatus.CONFIRMED:
         toWaiter(`Order #${orderLabel} (${tableLabel}) was received by the kitchen`);
@@ -117,7 +117,10 @@ export class NotificationsService {
         break;
       case OrderStatus.CANCELLED:
         toWaiter(`Order #${orderLabel} (${tableLabel}) was cancelled`);
-        toRoles(['chef', 'coordinator'], `Order #${orderLabel} (${tableLabel}) was cancelled`);
+        toRoles(['coordinator'], `Order #${orderLabel} (${tableLabel}) was cancelled`);
+        for (const workerId of new Set((order.items || []).map((item) => item.assignedKitchenWorkerId).filter(Boolean))) {
+          rows.push({ ...base, targetUserId: workerId, message: `Order #${orderLabel} (${tableLabel}) was cancelled` });
+        }
         break;
     }
     await this.push(rows);

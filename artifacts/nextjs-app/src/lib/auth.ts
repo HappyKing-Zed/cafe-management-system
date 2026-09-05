@@ -35,6 +35,10 @@ export const ROLE_LABELS: Record<string, string> = {
   coordinator: 'Order Coordinator',
   waiter: 'Waiter',
   chef: 'Chef',
+  chef_main_kitchen: 'Chef – Main Kitchen',
+  bar_man: 'Bar Man',
+  juice_maker: 'Juice Maker',
+  coffee_lady: 'Coffee Lady',
   cashier: 'Cashier',
   storekeeper: 'Storekeeper',
 };
@@ -49,6 +53,10 @@ export const ROLE_COLORS: Record<string, string> = {
   coordinator: 'bg-green-100 text-green-800',
   waiter: 'bg-blue-100 text-blue-800',
   chef: 'bg-purple-100 text-purple-800',
+  chef_main_kitchen: 'bg-orange-100 text-orange-800',
+  bar_man: 'bg-cyan-100 text-cyan-800',
+  juice_maker: 'bg-lime-100 text-lime-800',
+  coffee_lady: 'bg-amber-100 text-amber-800',
   cashier: 'bg-gray-100 text-gray-800',
   storekeeper: 'bg-amber-100 text-amber-800',
 };
