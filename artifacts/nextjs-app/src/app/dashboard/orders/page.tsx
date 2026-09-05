@@ -104,6 +104,15 @@ export default function OrdersPage() {
   const [payerPhone, setPayerPhone] = useState('');
   const [senderAccount, setSenderAccount] = useState('');
   const [expectedSenderName, setExpectedSenderName] = useState('');
+  const [paymentError, setPaymentError] = useState('');
+  const [verificationSuccess, setVerificationSuccess] = useState<{
+    orderNumber: number;
+    amount: number;
+    provider?: string;
+    reference?: string;
+    mode?: string;
+    requestId?: string;
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -258,9 +267,10 @@ export default function OrdersPage() {
 
   const handlePayment = async () => {
     if (!payingOrder || selectedPaymentItemIds.length === 0) return;
+    setPaymentError('');
     setSubmitting(true);
     try {
-      await processPayment({
+      const response = await processPayment({
         orderId: payingOrder.id,
         orderItemIds: selectedPaymentItemIds,
         method: payMethod,
@@ -276,6 +286,16 @@ export default function OrdersPage() {
           },
         } : {}),
       });
+      if (verifyAuthenticity && response.data?.authenticityVerified) {
+        setVerificationSuccess({
+          orderNumber: orderNumber(payingOrder),
+          amount: Number(response.data.amount),
+          provider: response.data.verificationProvider,
+          reference: response.data.reference,
+          mode: response.data.verificationMode,
+          requestId: response.data.verificationRequestId,
+        });
+      }
       setPayingOrder(null);
       setPayAmount('');
       setSelectedPaymentItemIds([]);
@@ -287,7 +307,8 @@ export default function OrdersPage() {
       setExpectedSenderName('');
       await fetchData();
     } catch (e: any) {
-      alert(e?.response?.data?.message || 'Could not process this payment');
+      const message = e?.response?.data?.message;
+      setPaymentError(Array.isArray(message) ? message.join(', ') : message || 'Could not process this payment');
     } finally {
       setSubmitting(false);
     }
@@ -311,6 +332,7 @@ export default function OrdersPage() {
     setPayerPhone('');
     setSenderAccount('');
     setExpectedSenderName('');
+    setPaymentError('');
     setPayingOrder(order);
   };
   const togglePaymentItem = (itemId: number) => {
@@ -837,8 +859,11 @@ export default function OrdersPage() {
                   <div key={p.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-green-800">
                     <span>{p.method} · ETB {Number(p.amount).toLocaleString()}{Number(p.changeGiven) > 0 ? ` (change ETB ${Number(p.changeGiven).toLocaleString()})` : ''}</span>
                     {p.authenticityVerified && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                        <CheckCircle size={12} /> ShegerPay verified
+                      <span className={clsx(
+                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold',
+                        p.verificationMode === 'test' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800',
+                      )}>
+                        <CheckCircle size={12} /> ShegerPay {p.verificationMode === 'test' ? 'test verified' : 'verified'}
                       </span>
                     )}
                     {p.reference && <span className="w-full text-xs text-green-700">Reference: {p.reference}</span>}
@@ -960,6 +985,12 @@ export default function OrdersPage() {
                   )}
                 </div>
               )}
+              {paymentError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+                  <p className="font-semibold">Payment was not confirmed</p>
+                  <p className="mt-0.5">{paymentError}</p>
+                </div>
+              )}
             </div>
             <button
               onClick={handlePayment}
@@ -972,6 +1003,54 @@ export default function OrdersPage() {
               className="btn-primary w-full mt-5 py-3 disabled:opacity-50"
             >
               {submitting ? (verifyAuthenticity ? 'Verifying...' : 'Processing...') : verifyAuthenticity ? 'Verify & Confirm Payment' : 'Confirm Payment'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {verificationSuccess && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <div className={clsx(
+              'mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full',
+              verificationSuccess.mode === 'test' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700',
+            )}>
+              <CheckCircle size={30} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900">
+              {verificationSuccess.mode === 'test' ? 'Test verification passed' : 'Payment verified'}
+            </h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Order #{verificationSuccess.orderNumber} · {fmtCurrency(verificationSuccess.amount)}
+            </p>
+            {verificationSuccess.mode === 'test' ? (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-sm text-amber-800">
+                <p className="font-semibold">Test mode only</p>
+                <p className="mt-1">The test key returned a successful simulation. This does not prove that a real bank or mobile-money transfer occurred.</p>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                ShegerPay confirmed the transaction and selected payment amount.
+              </div>
+            )}
+            <dl className="mt-4 space-y-2 rounded-xl bg-gray-50 p-3 text-left text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-gray-500">Provider</dt>
+                <dd className="font-medium uppercase text-gray-900">{verificationSuccess.provider || '—'}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-gray-500">Transaction ID</dt>
+                <dd className="break-all text-right font-medium text-gray-900">{verificationSuccess.reference || '—'}</dd>
+              </div>
+              {verificationSuccess.requestId && (
+                <div className="flex justify-between gap-3">
+                  <dt className="text-gray-500">Request ID</dt>
+                  <dd className="break-all text-right font-medium text-gray-900">{verificationSuccess.requestId}</dd>
+                </div>
+              )}
+            </dl>
+            <button onClick={() => setVerificationSuccess(null)} className="btn-primary mt-5 w-full py-3">
+              Continue
             </button>
           </div>
         </div>
