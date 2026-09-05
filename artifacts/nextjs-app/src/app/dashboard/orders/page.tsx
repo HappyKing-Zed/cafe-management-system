@@ -92,6 +92,10 @@ export default function OrdersPage() {
       setCategories(catsRes.data || []);
       setTables(tablesRes.data?.filter((t: RestaurantTable) => t.status === 'available') || []);
       if (catsRes.data?.length) setSelectedCat(catsRes.data[0].id);
+    } catch (error: any) {
+      // The shared API client clears expired authentication and redirects to login.
+      // Consume that expected rejection here so Next.js does not show its runtime overlay.
+      if (error?.response?.status !== 401) throw error;
     } finally {
       setLoading(false);
     }
