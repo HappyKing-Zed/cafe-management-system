@@ -61,6 +61,7 @@ export default function MainStoreRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState('');
+  const [confirmation, setConfirmation] = useState<{ action: 'approve' | 'reject' | 'fulfill'; transfer: Transfer } | null>(null);
 
   // Request Modal State
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -129,10 +130,6 @@ export default function MainStoreRequestsPage() {
   };
 
   const decide = async (id: number, decision: 'approve' | 'reject') => {
-    const prompt = decision === 'approve'
-      ? 'Approve this Main Store request? Approval does not change stock. The Main Store Keeper will be notified to prepare and transfer the approved items.'
-      : 'Reject this request?';
-    if (!window.confirm(prompt)) return;
     setBusyId(id);
     try {
       if (decision === 'approve') await approveMainStoreTransfer(id);
@@ -149,7 +146,6 @@ export default function MainStoreRequestsPage() {
   };
 
   const fulfill = async (id: number) => {
-    if (!window.confirm('Fulfill this approved request? Main Store and destination branch stock will update together.')) return;
     setBusyId(id);
     setMessage('');
     try {
@@ -165,6 +161,14 @@ export default function MainStoreRequestsPage() {
 
   const active = transfers.filter((transfer) => transfer.status === 'pending' || transfer.status === 'approved');
   const history = transfers.filter((transfer) => transfer.status === 'transferred' || transfer.status === 'rejected');
+
+  const confirmSelectedAction = async () => {
+    if (!confirmation) return;
+    const { action, transfer } = confirmation;
+    setConfirmation(null);
+    if (action === 'fulfill') await fulfill(transfer.id);
+    else await decide(transfer.id, action);
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 w-full max-w-[1600px] mx-auto">
@@ -279,7 +283,7 @@ export default function MainStoreRequestsPage() {
                           type="button"
                           className="btn-primary flex items-center justify-center gap-2"
                           disabled={busyId === transfer.id}
-                          onClick={() => void decide(transfer.id, 'approve')}
+                          onClick={() => setConfirmation({ action: 'approve', transfer })}
                         >
                           <CheckCircle2 size={16} /> Approve
                         </button>
@@ -287,7 +291,7 @@ export default function MainStoreRequestsPage() {
                           type="button"
                           className="btn-secondary flex items-center justify-center gap-2 text-red-700"
                           disabled={busyId === transfer.id}
-                          onClick={() => void decide(transfer.id, 'reject')}
+                          onClick={() => setConfirmation({ action: 'reject', transfer })}
                         >
                           <XCircle size={16} /> Reject
                         </button>
@@ -305,7 +309,7 @@ export default function MainStoreRequestsPage() {
                         type="button"
                         className="btn-primary mt-4 flex w-full items-center justify-center gap-2"
                         disabled={busyId === transfer.id}
-                        onClick={() => void fulfill(transfer.id)}
+                        onClick={() => setConfirmation({ action: 'fulfill', transfer })}
                       >
                         <ArrowRightLeft size={16} /> Fulfill Approved Request
                       </button>
@@ -377,6 +381,61 @@ export default function MainStoreRequestsPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {confirmation && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-teal-950/60 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="main-store-confirm-title" className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="border-b border-cream-200 bg-cream-50 px-6 py-5">
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-teal-100">
+                {confirmation.action === 'reject'
+                  ? <XCircle className="text-red-600" size={23} />
+                  : <ArrowRightLeft className="text-teal-700" size={23} />}
+              </div>
+              <h2 id="main-store-confirm-title" className="font-display text-xl font-bold text-teal-950">
+                {confirmation.action === 'approve' && 'Approve Main Store Request?'}
+                {confirmation.action === 'reject' && 'Reject Main Store Request?'}
+                {confirmation.action === 'fulfill' && 'Transfer Stock to Branch?'}
+              </h2>
+              <p className="mt-1 text-sm font-medium text-teal-700">
+                REQ-{String(confirmation.transfer.id).padStart(4, '0')} · {confirmation.transfer.destinationBranch?.name || `Branch #${confirmation.transfer.destinationBranchId}`}
+              </p>
+            </div>
+            <div className="space-y-3 px-6 py-5 text-sm leading-6 text-coffee-600">
+              {confirmation.action === 'approve' && (
+                <>
+                  <p>Approve this request and send it to the Main Store Keeper for transfer?</p>
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 font-medium text-amber-900">
+                    No stock will change during approval. Inventory changes only after the Main Store Keeper completes the transfer.
+                  </p>
+                </>
+              )}
+              {confirmation.action === 'reject' && (
+                <p>Reject this request? The Branch Store Keeper will be notified and no stock will change.</p>
+              )}
+              {confirmation.action === 'fulfill' && (
+                <>
+                  <p>Transfer the approved items from Main Store to this branch now?</p>
+                  <p className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 font-medium text-blue-900">
+                    This action immediately deducts Main Store stock and adds the quantities to branch stock. The transaction will be recorded in transfer history.
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 border-t border-cream-200 bg-cream-50 px-6 py-4">
+              <button type="button" className="btn-secondary px-5" onClick={() => setConfirmation(null)}>Cancel</button>
+              <button
+                type="button"
+                className={clsx('px-5', confirmation.action === 'reject' ? 'btn-secondary text-red-700' : 'btn-primary')}
+                onClick={() => void confirmSelectedAction()}
+              >
+                {confirmation.action === 'approve' && 'Approve Request'}
+                {confirmation.action === 'reject' && 'Reject Request'}
+                {confirmation.action === 'fulfill' && 'Transfer Stock'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

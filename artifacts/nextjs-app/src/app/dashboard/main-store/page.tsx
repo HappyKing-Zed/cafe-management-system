@@ -59,6 +59,7 @@ export default function MainStorePage() {
   const [transfers, setTransfers] = useState<MainStoreTransfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [transferConfirmation, setTransferConfirmation] = useState<MainStoreTransfer | null>(null);
 
   const [searchStock, setSearchStock] = useState('');
 
@@ -126,7 +127,6 @@ export default function MainStorePage() {
   };
 
   const handleExecuteTransfer = async (id: number) => {
-    if (!window.confirm("Fulfill this approved request? Main Store and destination branch stock will update together, and post-transfer balances will be recorded in the audit history.")) return;
     setBusyId(id);
     try {
       await transferMainStoreTransfer(id);
@@ -332,7 +332,7 @@ export default function MainStorePage() {
                           {isApproved && isStorekeeper && (
                             <div className="mt-4 flex justify-end">
                               <button
-                                onClick={() => handleExecuteTransfer(t.id)}
+                                onClick={() => setTransferConfirmation(t)}
                                 disabled={busyId === t.id}
                                 className="btn-primary w-full flex justify-center items-center gap-2"
                               >
@@ -429,6 +429,42 @@ export default function MainStorePage() {
             </div>
           )}
         </>
+      )}
+
+      {transferConfirmation && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-teal-950/60 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="transfer-confirm-title" className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="border-b border-cream-200 bg-cream-50 px-6 py-5">
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-teal-100">
+                <ArrowRightLeft className="text-teal-700" size={23} />
+              </div>
+              <h2 id="transfer-confirm-title" className="font-display text-xl font-bold text-teal-950">Transfer Stock to Branch?</h2>
+              <p className="mt-1 text-sm font-medium text-teal-700">
+                REQ-{String(transferConfirmation.id).padStart(4, '0')} · {transferConfirmation.destinationBranch?.name || `Branch #${transferConfirmation.destinationBranchId}`}
+              </p>
+            </div>
+            <div className="space-y-3 px-6 py-5 text-sm leading-6 text-coffee-600">
+              <p>Transfer the approved items from Main Store to this branch now?</p>
+              <p className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 font-medium text-blue-900">
+                This action immediately deducts Main Store stock and adds the quantities to branch stock. The transaction will be recorded in transfer history.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 border-t border-cream-200 bg-cream-50 px-6 py-4">
+              <button type="button" className="btn-secondary px-5" onClick={() => setTransferConfirmation(null)}>Cancel</button>
+              <button
+                type="button"
+                className="btn-primary px-5"
+                onClick={() => {
+                  const id = transferConfirmation.id;
+                  setTransferConfirmation(null);
+                  void handleExecuteTransfer(id);
+                }}
+              >
+                Transfer Stock
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Receive Modal */}
