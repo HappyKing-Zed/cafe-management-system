@@ -48,11 +48,12 @@ export class OrderLifecycle1710000000000 implements MigrationInterface {
     `);
     await queryRunner.query(`ALTER TABLE "orders" ALTER COLUMN "orderNumber" SET DEFAULT nextval('"orders_orderNumber_seq"')`);
     await queryRunner.query(`ALTER TABLE "orders" ALTER COLUMN "orderNumber" SET NOT NULL`);
+    // synchronize may already have created the unique backing index with this
+    // name. IF NOT EXISTS handles both that case and a fresh database without
+    // relying on PostgreSQL exception classes for different relation types.
     await queryRunner.query(`
-      DO $$ BEGIN
-        ALTER TABLE "orders" ADD CONSTRAINT "UQ_orders_orderNumber" UNIQUE ("orderNumber");
-      EXCEPTION WHEN duplicate_object THEN NULL;
-      END $$;
+      CREATE UNIQUE INDEX IF NOT EXISTS "UQ_orders_orderNumber"
+      ON "orders" ("orderNumber")
     `);
 
     await queryRunner.query(`ALTER TABLE "order_items" ADD COLUMN IF NOT EXISTS "status" "order_items_status_enum"`);
