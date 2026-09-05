@@ -10,7 +10,7 @@ const COLUMNS = [
   { key: 'confirmed', label: 'New Orders', color: 'border-yellow-400 bg-yellow-50', badge: 'bg-yellow-500' },
   { key: 'accepted', label: 'Accepted', color: 'border-indigo-400 bg-indigo-50', badge: 'bg-indigo-500' },
   { key: 'preparing', label: 'Preparing', color: 'border-orange-400 bg-orange-50', badge: 'bg-orange-500' },
-  { key: 'ready', label: 'Completed', color: 'border-green-400 bg-green-50', badge: 'bg-green-500' },
+  { key: 'ready', label: 'Ready to Serve', color: 'border-green-400 bg-green-50', badge: 'bg-green-500' },
 ] as const;
 
 function elapsed(dateStr: string) {
@@ -31,7 +31,7 @@ const KITCHEN_STATUS_LABELS: Record<string, string> = {
   confirmed: 'New Order',
   accepted: 'Accepted',
   preparing: 'Preparing',
-  ready: 'Completed',
+  ready: 'Ready to Serve',
 };
 
 export default function KitchenPage() {
@@ -209,7 +209,7 @@ export default function KitchenPage() {
                                   disabled={actionLoading === item.id}
                                   className="mt-1 w-full rounded bg-orange-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-orange-600 disabled:opacity-50"
                                 >
-                                  {actionLoading === item.id ? '...' : nextStatus === 'accepted' ? 'Accept item' : nextStatus === 'preparing' ? 'Start preparing' : 'Mark completed'}
+                                  {actionLoading === item.id ? '...' : nextStatus === 'accepted' ? 'Accept item' : nextStatus === 'preparing' ? 'Start preparing' : 'Mark ready to serve'}
                                 </button>
                               )}
                             </div>
@@ -219,7 +219,7 @@ export default function KitchenPage() {
                       {order.notes && (
                         <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-1 mt-1"> {order.notes}</p>
                       )}
-                       {col.key === 'ready' && <p className="mt-1.5 rounded-lg bg-green-100 px-2 py-1 text-center text-xs font-medium text-green-700">Completed — awaiting waiter</p>}
+                       {col.key === 'ready' && <p className="mt-1.5 rounded-lg bg-green-100 px-2 py-1 text-center text-xs font-medium text-green-700">Ready to serve — awaiting waiter</p>}
                     </div>
                   ))}
                 </div>

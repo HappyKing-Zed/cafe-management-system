@@ -21,7 +21,7 @@ const STATUS_LABELS: Record<string, string> = {
   confirmed: 'New Orders',
   accepted: 'Accepted',
   preparing: 'Preparing',
-  ready: 'Completed',
+  ready: 'Ready to Serve',
   served: 'Served',
   paid: 'Paid',
   cancelled: 'Cancelled',
@@ -503,9 +503,9 @@ export default function OrdersPage() {
                         })}
                         {order.status === 'ready' && ownsOrder(order) && (
                           <button onClick={() => handleStatusChange(order.id, 'served')}
-                            title="Click to mark completed items as served"
+                            title="Click to mark ready items as served"
                             className={`status-badge ${STATUS_COLORS.ready} cursor-pointer hover:ring-2 hover:ring-purple-300`}>
-                            Serve completed items
+                            Serve ready items
                           </button>
                         )}
                       </div>
