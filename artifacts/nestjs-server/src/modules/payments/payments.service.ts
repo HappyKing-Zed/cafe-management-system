@@ -88,7 +88,7 @@ export class PaymentsService {
     let response: Response;
     let body: any;
     try {
-      response = await fetch('https://api.shegerpay.com/api/v1/ethiopian/verify', {
+      response = await fetch('https://api.shegerpay.com/api/v1/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,6 +119,7 @@ export class PaymentsService {
         400: 'ShegerPay could not verify these payment details',
         401: 'ShegerPay authentication failed. Contact an administrator',
         402: 'ShegerPay verification quota is unavailable',
+        404: 'ShegerPay verification endpoint was not found. Contact an administrator',
         429: 'Too many verification attempts. Please wait and try again',
         503: 'ShegerPay is temporarily unavailable. Payment was not confirmed',
       };
