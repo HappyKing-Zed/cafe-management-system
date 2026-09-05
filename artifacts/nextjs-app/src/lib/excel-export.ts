@@ -29,7 +29,8 @@ export async function downloadExcelFile(filename: string, sheets: SpreadsheetShe
       const lengths = column.values
         ?.slice(1)
         .map((value) => String(value ?? '').length) ?? [];
-      column.width = Math.min(50, Math.max(12, ...lengths) + 2);
+      const longest = lengths.reduce((maximum, length) => Math.max(maximum, length), 12);
+      column.width = Math.min(50, longest + 2);
     });
   }
 
@@ -42,5 +43,5 @@ export async function downloadExcelFile(filename: string, sheets: SpreadsheetShe
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

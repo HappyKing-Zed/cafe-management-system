@@ -17,21 +17,38 @@ const localDateTime = (d: Date, h = 0, m = 0) => `${localDate(d)}T${pad(h)}:${pa
 // --- Generic PDF/Excel Helpers ---
 async function exportPDF(title: string, file: string, head: string[], rows: any[][]) {
   const { default: jsPDF } = await import('jspdf');
-  const { default: autoTable } = await import('jspdf-autotable');
+  const autoTableModule: any = await import('jspdf-autotable');
+  const autoTable = autoTableModule.autoTable ?? autoTableModule.default;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
-  doc.setFontSize(14);
-  doc.text(`Jima · CARAVAN Lounge — ${title}`, 14, 16);
-  doc.setFontSize(10);
-  doc.text(`Generated ${new Date().toLocaleString()}`, 14, 22);
-  autoTable(doc, {
-    head: [head],
-    body: rows.map(r => r.map(String)),
-    startY: 27,
-    theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
-    headStyles: { fillColor: [15, 118, 110], textColor: 255 },
-    alternateRowStyles: { fillColor: [245, 250, 248] },
-    margin: { left: 10, right: 10 },
+  const columnsPerPage = 8;
+  const columnGroups = Array.from(
+    { length: Math.max(1, Math.ceil(head.length / columnsPerPage)) },
+    (_, index) => ({
+      start: index * columnsPerPage,
+      end: Math.min((index + 1) * columnsPerPage, head.length),
+    }),
+  );
+
+  columnGroups.forEach((group, index) => {
+    if (index > 0) doc.addPage();
+    doc.setFontSize(14);
+    doc.text(`Jima · CARAVAN Lounge — ${title}`, 14, 16);
+    doc.setFontSize(9);
+    doc.text(
+      `Generated ${new Date().toLocaleString()} · Columns ${group.start + 1}–${group.end} of ${head.length}`,
+      14,
+      22,
+    );
+    autoTable(doc, {
+      head: [head.slice(group.start, group.end)],
+      body: rows.map(row => row.slice(group.start, group.end).map(value => String(value ?? '—'))),
+      startY: 27,
+      theme: 'grid',
+      styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
+      headStyles: { fillColor: [15, 118, 110], textColor: 255 },
+      alternateRowStyles: { fillColor: [245, 250, 248] },
+      margin: { left: 10, right: 10 },
+    });
   });
   doc.save(`${file}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
