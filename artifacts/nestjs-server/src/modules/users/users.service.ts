@@ -124,6 +124,10 @@ export class UsersService {
       target.password = await bcrypt.hash(target.password, 10);
     }
     assignDefined(user, target, USER_FIELDS);
+    // findOne() loads these relations. When their FK IDs change, retaining the
+    // old relation objects can cause TypeORM to persist the previous assignment.
+    if (target.restaurantId !== undefined) user.restaurant = undefined;
+    if (target.branchId !== undefined) user.branch = undefined;
     if (target.password) user.password = target.password;
     try {
       await this.repo.save(user);
