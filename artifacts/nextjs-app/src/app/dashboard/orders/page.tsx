@@ -431,20 +431,32 @@ export default function OrdersPage() {
                     <p className="text-[10px] text-gray-400 capitalize">{order.payments?.length ? (order.payments[order.payments.length - 1].method === 'mobile' ? 'wallet' : order.payments[order.payments.length - 1].method) : '—'}</p>
                   </td>
                   <td className="table-cell !px-2.5 !py-2" onClick={(e) => e.stopPropagation()}>
-                    {order.status === 'ready' && ownsOrder(order) ? (
-                      <button onClick={() => handleStatusChange(order.id, 'served')}
-                        title="Click to mark as served"
-                        className={`status-badge ${STATUS_COLORS[order.status]} cursor-pointer hover:ring-2 hover:ring-purple-300`}>
-                        Completed → serve
-                      </button>
+                    {order.status === 'paid' || order.status === 'cancelled' ? (
+                      <span className={`status-badge ${STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-700'}`}>
+                        {statusLabel(order.status)}
+                      </span>
                     ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {(order.status === 'paid' || order.status === 'cancelled'
-                          ? [order.status]
-                          : [...new Set((order.items || []).map((item) => isItemPaid(item) ? 'paid' : (item.status || order.status)))]
-                        ).map((status) => (
-                          <span key={status} className={`status-badge ${STATUS_COLORS[status] || 'bg-gray-100 text-gray-700'}`}>{statusLabel(status)}</span>
-                        ))}
+                      <div className="min-w-[190px] space-y-1.5">
+                        {(order.items || []).map((item) => {
+                          const itemStatus = isItemPaid(item) ? 'paid' : (item.status || order.status);
+                          return (
+                            <div key={item.id} className="flex items-center justify-between gap-2">
+                              <span className="max-w-[120px] truncate text-[11px] text-gray-600" title={item.menuItem?.name}>
+                                {item.quantity}× {item.menuItem?.name || `Item ${item.menuItemId}`}
+                              </span>
+                              <span className={`status-badge shrink-0 ${STATUS_COLORS[itemStatus] || 'bg-gray-100 text-gray-700'}`}>
+                                {statusLabel(itemStatus)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {order.status === 'ready' && ownsOrder(order) && (
+                          <button onClick={() => handleStatusChange(order.id, 'served')}
+                            title="Click to mark completed items as served"
+                            className={`status-badge ${STATUS_COLORS.ready} cursor-pointer hover:ring-2 hover:ring-purple-300`}>
+                            Serve completed items
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>
