@@ -16,6 +16,23 @@ const STATUS_COLORS: Record<string, string> = {
   paid: 'bg-gray-100 text-gray-800',
   cancelled: 'bg-red-100 text-red-800',
 };
+const STATUS_LABELS: Record<string, string> = {
+  confirmed: 'New Orders',
+  accepted: 'Accepted',
+  preparing: 'Preparing',
+  ready: 'Completed',
+};
+
+const statusLabel = (status: string) => STATUS_LABELS[status] || status;
+
+const visibleOrderStatus = (order: Order) => {
+  if (!['confirmed', 'preparing', 'ready'].includes(order.status)) return order.status;
+  if (order.status === 'ready') return 'ready';
+  const itemStatuses = (order.items || []).map(item => item.status || order.status);
+  if (itemStatuses.some(status => status === 'preparing')) return 'preparing';
+  if (itemStatuses.some(status => status === 'accepted')) return 'accepted';
+  return 'confirmed';
+};
 
 interface CartItem { menuItem: MenuItem; quantity: number; notes?: string; }
 
@@ -262,7 +279,7 @@ export default function OrdersPage() {
             onClick={() => setFilter(s)}
             className={clsx('px-4 py-1.5 rounded-full text-sm font-medium transition-colors', filter === s ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
           >
-            {s.charAt(0).toUpperCase() + s.slice(1)} {s === 'all' ? `(${roleOrders.length})` : `(${roleOrders.filter(o => o.status === s).length})`}
+             {s === 'all' ? 'All' : statusLabel(s)} {s === 'all' ? `(${roleOrders.length})` : `(${roleOrders.filter(o => o.status === s).length})`}
           </button>
         ))}
       </div>}
@@ -363,10 +380,10 @@ export default function OrdersPage() {
                       <button onClick={() => handleStatusChange(order.id, 'served')}
                         title="Click to mark as served"
                         className={`status-badge ${STATUS_COLORS[order.status]} cursor-pointer hover:ring-2 hover:ring-purple-300`}>
-                        ready → serve
+                        Completed → serve
                       </button>
                     ) : (
-                      <span className={`status-badge ${STATUS_COLORS[order.status]}`}>{order.status}</span>
+                      <span className={`status-badge ${STATUS_COLORS[visibleOrderStatus(order)]}`}>{statusLabel(visibleOrderStatus(order))}</span>
                     )}
                   </td>
                   <td className="table-cell !px-2.5 !py-2" onClick={(e) => e.stopPropagation()}>
@@ -665,7 +682,7 @@ export default function OrdersPage() {
               <button onClick={() => setDetailOrder(null)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
             </div>
             <div className="flex items-center gap-2 mb-4">
-              <span className={`status-badge ${STATUS_COLORS[detailOrder.status]}`}>{detailOrder.status === 'paid' ? 'completed (paid)' : detailOrder.status}</span>
+              <span className={`status-badge ${STATUS_COLORS[visibleOrderStatus(detailOrder)]}`}>{detailOrder.status === 'paid' ? 'completed (paid)' : statusLabel(visibleOrderStatus(detailOrder))}</span>
               <span className="text-xs text-gray-400">{new Date(detailOrder.createdAt).toLocaleString()}</span>
             </div>
             <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
@@ -693,7 +710,7 @@ export default function OrdersPage() {
                   <div className="text-right shrink-0">
                     <p className="font-medium">×{item.quantity}</p>
                     <p className="text-xs text-gray-400">ETB {(Number(item.unitPrice) * item.quantity).toLocaleString()}</p>
-                    <span className={`status-badge mt-1 ${STATUS_COLORS[itemStatus] || 'bg-gray-100 text-gray-700'}`}>{itemStatus}</span>
+                    <span className={`status-badge mt-1 ${STATUS_COLORS[itemStatus] || 'bg-gray-100 text-gray-700'}`}>{statusLabel(itemStatus)}</span>
                     {item.assignedKitchenWorker && <p className="text-[10px] text-gray-500 mt-1">{item.assignedKitchenWorker.name}</p>}
                     {nextItemStatus && (
                       <button

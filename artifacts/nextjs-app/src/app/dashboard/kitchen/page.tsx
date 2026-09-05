@@ -7,11 +7,10 @@ import { useAuthStore } from '@/store/auth';
 import { ROLE_LABELS } from '@/lib/auth';
 
 const COLUMNS = [
-  { key: 'pending', label: 'Pending', color: 'border-red-400 bg-red-50', badge: 'bg-red-500' },
-  { key: 'confirmed', label: 'New', color: 'border-yellow-400 bg-yellow-50', badge: 'bg-yellow-500' },
+  { key: 'confirmed', label: 'New Orders', color: 'border-yellow-400 bg-yellow-50', badge: 'bg-yellow-500' },
   { key: 'accepted', label: 'Accepted', color: 'border-indigo-400 bg-indigo-50', badge: 'bg-indigo-500' },
-  { key: 'preparing', label: ' Preparing', color: 'border-orange-400 bg-orange-50', badge: 'bg-orange-500' },
-  { key: 'ready', label: 'Ready', color: 'border-green-400 bg-green-50', badge: 'bg-green-500' },
+  { key: 'preparing', label: 'Preparing', color: 'border-orange-400 bg-orange-50', badge: 'bg-orange-500' },
+  { key: 'ready', label: 'Completed', color: 'border-green-400 bg-green-50', badge: 'bg-green-500' },
 ] as const;
 
 function elapsed(dateStr: string) {
@@ -27,6 +26,12 @@ const ITEM_STATUS_COLORS: Record<string, string> = {
   preparing: 'bg-orange-100 text-orange-800',
   ready: 'bg-green-100 text-green-800',
   served: 'bg-purple-100 text-purple-800',
+};
+const KITCHEN_STATUS_LABELS: Record<string, string> = {
+  confirmed: 'New Order',
+  accepted: 'Accepted',
+  preparing: 'Preparing',
+  ready: 'Completed',
 };
 
 export default function KitchenPage() {
@@ -171,7 +176,7 @@ export default function KitchenPage() {
                             <div key={item.id} className="rounded-md bg-gray-50 px-1.5 py-1 text-xs text-gray-700">
                               <div className="flex items-center justify-between gap-1">
                                 <span>{item.quantity}× {item.menuItem?.name || 'Item'}</span>
-                                {status && <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${ITEM_STATUS_COLORS[status] || 'bg-gray-100 text-gray-700'}`}>{status}</span>}
+                                {status && <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${ITEM_STATUS_COLORS[status] || 'bg-gray-100 text-gray-700'}`}>{KITCHEN_STATUS_LABELS[status] || status}</span>}
                               </div>
                                {item.notes && <p className="mt-1 text-[10px] text-amber-700">{item.notes}</p>}
                                <p className="mt-1 text-[10px] text-gray-500">
@@ -204,7 +209,7 @@ export default function KitchenPage() {
                                   disabled={actionLoading === item.id}
                                   className="mt-1 w-full rounded bg-orange-500 px-2 py-1 text-[10px] font-medium text-white hover:bg-orange-600 disabled:opacity-50"
                                 >
-                                  {actionLoading === item.id ? '...' : nextStatus === 'accepted' ? 'Accept item' : nextStatus === 'preparing' ? 'Start preparing' : 'Mark item ready'}
+                                  {actionLoading === item.id ? '...' : nextStatus === 'accepted' ? 'Accept item' : nextStatus === 'preparing' ? 'Start preparing' : 'Mark completed'}
                                 </button>
                               )}
                             </div>
@@ -214,7 +219,7 @@ export default function KitchenPage() {
                       {order.notes && (
                         <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-1 mt-1"> {order.notes}</p>
                       )}
-                       {col.key === 'ready' && <p className="mt-1.5 rounded-lg bg-green-100 px-2 py-1 text-center text-xs font-medium text-green-700">Ready — awaiting waiter</p>}
+                       {col.key === 'ready' && <p className="mt-1.5 rounded-lg bg-green-100 px-2 py-1 text-center text-xs font-medium text-green-700">Completed — awaiting waiter</p>}
                     </div>
                   ))}
                 </div>
