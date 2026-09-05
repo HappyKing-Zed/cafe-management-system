@@ -7,6 +7,7 @@ import { Notification } from '../entities/notification.entity';
 import { OrderItem } from '../entities/order-item.entity';
 import { Order } from '../entities/order.entity';
 import { Payment } from '../entities/payment.entity';
+import { PaymentItem } from '../entities/payment-item.entity';
 import { PurchaseOrderItem } from '../entities/purchase-order-item.entity';
 import { PurchaseOrder } from '../entities/purchase-order.entity';
 import { Restaurant } from '../entities/restaurant.entity';
@@ -33,6 +34,7 @@ export const DATABASE_ENTITIES = [
   Order,
   OrderItem,
   Payment,
+  PaymentItem,
   Shift,
   InventoryItem,
   Supplier,

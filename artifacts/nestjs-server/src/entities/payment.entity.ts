@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn, CreateDateColumn } from 'typeorm';
 import { Order } from './order.entity';
 import { User } from './user.entity';
+import { PaymentItem } from './payment-item.entity';
 
 export enum PaymentMethod {
   CASH = 'cash',
@@ -41,4 +42,7 @@ export class Payment {
 
   @Column({ nullable: true })
   cashierId: number;
+
+  @OneToMany(() => PaymentItem, (paymentItem) => paymentItem.payment, { eager: true })
+  paymentItems: PaymentItem[];
 }

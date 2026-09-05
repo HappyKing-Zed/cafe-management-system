@@ -18,7 +18,7 @@ export class PaymentsController {
   @Get()
   @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.CASHIER)
   findAll(@Req() req: any, @Query('cashierId') cid?: number, @Query('branchId') branchId?: string) {
-    return this.service.findAll(cid ? +cid : undefined, effectiveBranch(req.user, branchId));
+    return this.service.findAll(cid ? +cid : undefined, effectiveBranch(req.user, branchId), req.user?.role, req.user?.id);
   }
 
   @Post()
@@ -36,7 +36,7 @@ export class PaymentsController {
     @Query('method') method?: string,
     @Query('branchId') branchId?: string,
   ) {
-    return this.service.getDailyReport(from || date, effectiveBranch(req.user, branchId), to, method);
+    return this.service.getDailyReport(from || date, effectiveBranch(req.user, branchId), to, method, req.user?.role, req.user?.id);
   }
 
   @Get('shifts')

@@ -13,6 +13,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { Branch } from '../../entities/branch.entity';
 import { isKitchenWorkerRole, KITCHEN_WORKER_ROLES, Role } from '../../common/enums/roles.enum';
 import { In } from 'typeorm';
+import { PaymentItem } from '../../entities/payment-item.entity';
 
 @Injectable()
 export class OrdersService {
@@ -26,8 +27,14 @@ export class OrdersService {
     private dataSource: DataSource,
   ) {}
 
-  async findAll(status?: OrderStatus, tableId?: number, waiterId?: number, branchId?: number, user?: { role: string }) {
-    if (user?.role === 'cashier') status = OrderStatus.SERVED;
+  async findAll(status?: OrderStatus, tableId?: number, waiterId?: number, branchId?: number, user?: { role: string; branchId?: number }) {
+    if (user?.role === 'cashier') {
+      const actor = await this.userRepo.findOne({ where: { id: (user as any).id } });
+      branchId = actor?.branchId;
+    }
+    if (user?.role === 'cashier' && !branchId) {
+      throw new ForbiddenException('Cashier order access requires a branch assignment');
+    }
     const where: any = {};
     if (status) where.status = status;
     if (tableId) where.tableId = tableId;
@@ -35,11 +42,13 @@ export class OrdersService {
     if (branchId) where.branchId = branchId;
     const orders = await this.orderRepo.find({
       where,
-      relations: ['table', 'waiter', 'chef', 'items', 'items.menuItem', 'items.assignedKitchenWorker', 'payments'],
+      relations: ['table', 'waiter', 'chef', 'items', 'items.menuItem', 'items.assignedKitchenWorker', 'items.paymentItems', 'payments', 'payments.paymentItems'],
       order: { createdAt: 'DESC' },
     });
     if (user?.role === 'cashier') {
-      return orders.filter((order) => order.items.every((item) => !item.status || item.status === OrderItemStatus.SERVED));
+      return orders.filter((order) => order.items.some((item) =>
+        item.status === OrderItemStatus.SERVED && !(item.paymentItems?.length),
+      ));
     }
     return orders;
   }
@@ -47,7 +56,7 @@ export class OrdersService {
   async findOne(id: number) {
     const o = await this.orderRepo.findOne({
       where: { id },
-      relations: ['table', 'waiter', 'chef', 'items', 'items.menuItem', 'items.assignedKitchenWorker', 'payments'],
+      relations: ['table', 'waiter', 'chef', 'items', 'items.menuItem', 'items.assignedKitchenWorker', 'items.paymentItems', 'payments', 'payments.paymentItems'],
     });
     if (!o) throw new NotFoundException('Order not found');
     // Production-safe compatibility for pre-lifecycle rows. The nullable
@@ -109,12 +118,17 @@ export class OrdersService {
 
   async findOneAuthorized(id: number, user?: { id: number; role: string }) {
     const order = await this.findOne(id);
-    this.assertCanAccess(order, user);
-    if (user?.role === 'cashier' && order.status !== OrderStatus.SERVED) {
-      throw new ForbiddenException('Cashiers can only access served orders awaiting payment');
+    if (user?.role === 'cashier') {
+      const actor = await this.userRepo.findOne({ where: { id: user.id } });
+      if (!actor?.branchId) throw new ForbiddenException('Cashier order access requires a branch assignment');
+      if (order.branchId !== actor.branchId) throw new ForbiddenException('This order belongs to another branch');
+      user = { ...user, branchId: actor.branchId } as any;
     }
-    if (user?.role === 'cashier' && order.items.some((item) => item.status !== OrderItemStatus.SERVED)) {
-      throw new ForbiddenException('Cashiers can only access fully served orders');
+    this.assertCanAccess(order, user);
+    if (user?.role === 'cashier' && !order.items.some((item) =>
+      item.status === OrderItemStatus.SERVED && !(item.paymentItems?.length),
+    )) {
+      throw new ForbiddenException('Cashiers can only access orders with served items awaiting payment');
     }
     return order;
   }
@@ -204,6 +218,10 @@ export class OrdersService {
       // Lock the parent first, then read its items in the same transaction.
       order.items = await manager.getRepository(OrderItem).find({ where: { orderId } });
       this.assertCanAccess(order, user);
+      const settledItems = order.items.length
+        ? await manager.getRepository(PaymentItem).count({ where: { orderItemId: In(order.items.map((item) => item.id)) } })
+        : 0;
+      if (settledItems > 0) throw new BadRequestException('Cannot add items after payment has started');
       if (order.status === OrderStatus.PAID || order.status === OrderStatus.CANCELLED) {
         throw new BadRequestException('Cannot modify a paid or cancelled order');
       }
@@ -232,6 +250,9 @@ export class OrdersService {
     }
     const order = await this.findOne(orderId);
     this.assertCanAccess(order, user);
+    if (order.items.some((item) => item.paymentItems?.length)) {
+      throw new BadRequestException('Cannot remove items after payment has started');
+    }
     if (order.status === OrderStatus.PAID || order.status === OrderStatus.CANCELLED) {
       throw new BadRequestException('Cannot modify a paid or cancelled order');
     }

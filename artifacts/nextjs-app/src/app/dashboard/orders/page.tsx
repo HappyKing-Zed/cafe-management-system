@@ -17,13 +17,18 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-800',
 };
 const STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
   confirmed: 'New Orders',
   accepted: 'Accepted',
   preparing: 'Preparing',
   ready: 'Completed',
+  served: 'Served',
+  paid: 'Paid',
+  cancelled: 'Cancelled',
 };
 
 const statusLabel = (status: string) => STATUS_LABELS[status] || status;
+const fmtCurrency = (value: number) => `ETB ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const visibleOrderStatus = (order: Order) => {
   if (!['confirmed', 'preparing', 'ready'].includes(order.status)) return order.status;
@@ -32,6 +37,25 @@ const visibleOrderStatus = (order: Order) => {
   if (itemStatuses.some(status => status === 'preparing')) return 'preparing';
   if (itemStatuses.some(status => status === 'accepted')) return 'accepted';
   return 'confirmed';
+};
+
+const isItemPaid = (item: OrderItem) => Boolean(item.paymentItems?.length);
+const payableItems = (order: Order) => (order.items || []).filter((item) => item.status === 'served' && !isItemPaid(item));
+
+const itemPaymentAllocations = (order: Order) => {
+  const items = [...(order.items || [])].sort((a, b) => a.id - b.id);
+  const lineCents = items.map((item) => Math.round(Number(item.unitPrice) * item.quantity * 100));
+  const subtotalCents = lineCents.reduce((sum, value) => sum + value, 0);
+  const totalCents = Math.round(Number(order.totalAmount) * 100);
+  if (!subtotalCents) return new Map<number, number>();
+  const raw = lineCents.map((value) => totalCents * value / subtotalCents);
+  const allocated = raw.map(Math.floor);
+  const remainder = totalCents - allocated.reduce((sum, value) => sum + value, 0);
+  const orderByRemainder = raw
+    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+    .sort((a, b) => b.fraction - a.fraction || items[a.index].id - items[b.index].id);
+  for (let index = 0; index < remainder; index += 1) allocated[orderByRemainder[index].index] += 1;
+  return new Map(items.map((item, index) => [item.id, allocated[index] / 100]));
 };
 
 interface CartItem { menuItem: MenuItem; quantity: number; notes?: string; }
@@ -73,6 +97,7 @@ export default function OrdersPage() {
   const [payingOrder, setPayingOrder] = useState<Order | null>(null);
   const [payMethod, setPayMethod] = useState<'cash' | 'card' | 'mobile'>('cash');
   const [payAmount, setPayAmount] = useState('');
+  const [selectedPaymentItemIds, setSelectedPaymentItemIds] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -226,21 +251,47 @@ export default function OrdersPage() {
   };
 
   const handlePayment = async () => {
-    if (!payingOrder) return;
+    if (!payingOrder || selectedPaymentItemIds.length === 0) return;
     setSubmitting(true);
     try {
-      await processPayment({ orderId: payingOrder.id, method: payMethod, amount: parseFloat(payAmount) || payingOrder.totalAmount });
+      await processPayment({
+        orderId: payingOrder.id,
+        orderItemIds: selectedPaymentItemIds,
+        method: payMethod,
+        amount: parseFloat(payAmount) || selectedPaymentTotal,
+      });
       setPayingOrder(null);
       setPayAmount('');
+      setSelectedPaymentItemIds([]);
       await fetchData();
+    } catch (e: any) {
+      alert(e?.response?.data?.message || 'Could not process this payment');
     } finally {
       setSubmitting(false);
     }
   };
 
   const roleOrders = isCashier
-    ? orders.filter(o => o.status === 'served' && (!o.items?.length || o.items.every(item => !item.status || item.status === 'served')))
+    ? orders.filter((order) => payableItems(order).length > 0)
     : orders;
+  const selectedPaymentAllocations = payingOrder ? itemPaymentAllocations(payingOrder) : new Map<number, number>();
+  const selectedPaymentTotal = selectedPaymentItemIds.reduce((sum, id) => sum + (selectedPaymentAllocations.get(id) || 0), 0);
+  const openPayment = (order: Order) => {
+    const ids = payableItems(order).map((item) => item.id);
+    const allocations = itemPaymentAllocations(order);
+    const total = ids.reduce((sum, id) => sum + (allocations.get(id) || 0), 0);
+    setSelectedPaymentItemIds(ids);
+    setPayAmount(total.toFixed(2));
+    setPayingOrder(order);
+  };
+  const togglePaymentItem = (itemId: number) => {
+    setSelectedPaymentItemIds((current) => {
+      const next = current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId];
+      const total = next.reduce((sum, id) => sum + (selectedPaymentAllocations.get(id) || 0), 0);
+      setPayAmount(total.toFixed(2));
+      return next;
+    });
+  };
   const statusFiltered = filter === 'all' ? roleOrders : roleOrders.filter(o => o.status === filter);
   const filteredOrders = statusFiltered.filter((o) => {
     if (!isWaiter && fWaiter && String(o.waiterId || o.waiter?.id || '') !== fWaiter) return false;
@@ -387,12 +438,19 @@ export default function OrdersPage() {
                         Completed → serve
                       </button>
                     ) : (
-                      <span className={`status-badge ${STATUS_COLORS[visibleOrderStatus(order)]}`}>{statusLabel(visibleOrderStatus(order))}</span>
+                      <div className="flex flex-wrap gap-1">
+                        {(order.status === 'paid' || order.status === 'cancelled'
+                          ? [order.status]
+                          : [...new Set((order.items || []).map((item) => isItemPaid(item) ? 'paid' : (item.status || order.status)))]
+                        ).map((status) => (
+                          <span key={status} className={`status-badge ${STATUS_COLORS[status] || 'bg-gray-100 text-gray-700'}`}>{statusLabel(status)}</span>
+                        ))}
+                      </div>
                     )}
                   </td>
                   <td className="table-cell !px-2.5 !py-2" onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-1 flex-wrap">
-                      {ownsOrder(order) && !['paid', 'cancelled'].includes(order.status) && (
+                      {ownsOrder(order) && !['paid', 'cancelled'].includes(order.status) && !(order.payments?.length) && (
                         <button onClick={() => { resetPOS(); setAppendOrder(order); setShowPOS(true); }}
                           className="text-xs px-2 py-1 bg-brand-100 text-brand-700 rounded hover:bg-brand-200 whitespace-nowrap">+ Add Items</button>
                       )}
@@ -419,8 +477,8 @@ export default function OrdersPage() {
                       {ownsOrder(order) && order.status === 'ready' && (
                         <button onClick={() => handleStatusChange(order.id, 'served')} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200">Served</button>
                       )}
-                      {!isWaiter && !isCoordinator && order.status === 'served' && (canPay ? (
-                        <button onClick={() => { setPayingOrder(order); setPayAmount(String(order.totalAmount)); }} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 flex items-center gap-1">
+                      {!isWaiter && !isCoordinator && payableItems(order).length > 0 && (canPay ? (
+                        <button onClick={() => openPayment(order)} className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 flex items-center gap-1">
                           <CreditCard size={12} /> Pay
                         </button>
                       ) : (
@@ -715,6 +773,7 @@ export default function OrdersPage() {
                     <p className="font-medium">×{item.quantity}</p>
                     <p className="text-xs text-gray-400">ETB {(Number(item.unitPrice) * item.quantity).toLocaleString()}</p>
                     <span className={`status-badge mt-1 ${STATUS_COLORS[itemStatus] || 'bg-gray-100 text-gray-700'}`}>{statusLabel(itemStatus)}</span>
+                    {isItemPaid(item) && <span className="status-badge mt-1 ml-1 bg-emerald-100 text-emerald-800">Paid</span>}
                     {item.assignedKitchenWorker && <p className="text-[10px] text-gray-500 mt-1">{item.assignedKitchenWorker.name}</p>}
                     {nextItemStatus && (
                       <button
@@ -751,13 +810,36 @@ export default function OrdersPage() {
       {/* Payment Modal */}
       {payingOrder && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold">Process Payment</h3>
               <button onClick={() => setPayingOrder(null)} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
-            <p className="text-sm text-gray-500 mb-4">Order #{orderNumber(payingOrder)} · ETB {Number(payingOrder.totalAmount).toLocaleString()}</p>
+            <p className="text-sm text-gray-500 mb-4">Order #{orderNumber(payingOrder)} · select one served item or combine several</p>
             <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Served items available for payment</label>
+                {payingOrder.items.map((item) => {
+                  const payable = item.status === 'served' && !isItemPaid(item);
+                  const selected = selectedPaymentItemIds.includes(item.id);
+                  return (
+                    <label key={item.id} className={clsx('flex items-center justify-between gap-3 rounded-lg border p-3', payable ? 'cursor-pointer bg-white' : 'bg-gray-50 opacity-60')}>
+                      <span className="flex items-center gap-3">
+                        <input type="checkbox" checked={selected} disabled={!payable} onChange={() => togglePaymentItem(item.id)} />
+                        <span>
+                          <span className="block text-sm font-medium text-gray-900">{item.quantity}× {item.menuItem?.name || `Item ${item.menuItemId}`}</span>
+                          <span className="block text-xs text-gray-500">{isItemPaid(item) ? 'Paid' : statusLabel(item.status || payingOrder.status)}</span>
+                        </span>
+                      </span>
+                      <span className="text-sm font-semibold text-gray-800">{fmtCurrency(selectedPaymentAllocations.get(item.id) || 0)}</span>
+                    </label>
+                  );
+                })}
+                <div className="flex justify-between rounded-lg bg-brand-50 px-3 py-2 font-semibold text-brand-800">
+                  <span>Selected total</span>
+                  <span>{fmtCurrency(selectedPaymentTotal)}</span>
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -773,13 +855,13 @@ export default function OrdersPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount Received</label>
                 <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} className="input" placeholder="Enter amount" />
               </div>
-              {payMethod === 'cash' && parseFloat(payAmount) > payingOrder.totalAmount && (
+              {payMethod === 'cash' && parseFloat(payAmount) > selectedPaymentTotal && (
                 <div className="bg-green-50 rounded-lg p-3 text-center">
-                  <p className="text-sm text-green-700">Change: <span className="font-bold">ETB {(parseFloat(payAmount) - Number(payingOrder.totalAmount)).toLocaleString()}</span></p>
+                  <p className="text-sm text-green-700">Change: <span className="font-bold">ETB {(parseFloat(payAmount) - selectedPaymentTotal).toLocaleString()}</span></p>
                 </div>
               )}
             </div>
-            <button onClick={handlePayment} disabled={submitting} className="btn-primary w-full mt-5 py-3">
+            <button onClick={handlePayment} disabled={submitting || selectedPaymentItemIds.length === 0 || Number(payAmount) < selectedPaymentTotal} className="btn-primary w-full mt-5 py-3 disabled:opacity-50">
               {submitting ? 'Processing...' : 'Confirm Payment'}
             </button>
           </div>

@@ -3,6 +3,8 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DATABASE_ENTITIES } from './database.entities';
 import { OrderLifecycle1710000000000 } from './migrations/1710000000000-OrderLifecycle';
 import { ItemKitchenAssignments1720000000000 } from './migrations/1720000000000-ItemKitchenAssignments';
+import { ItemPayments1730000000000 } from './migrations/1730000000000-ItemPayments';
+import { ReconcileItemPayments1740000000000 } from './migrations/1740000000000-ReconcileItemPayments';
 
 export function createDatabaseOptions(databaseUrl?: string, nodeEnv = process.env.NODE_ENV, allowSynchronize = process.env.DATABASE_SYNCHRONIZE === 'true'): TypeOrmModuleOptions {
   const isProduction = nodeEnv === 'production';
@@ -15,7 +17,7 @@ export function createDatabaseOptions(databaseUrl?: string, nodeEnv = process.en
     entities: DATABASE_ENTITIES,
     // synchronize is only for explicitly disposable development databases.
     synchronize,
-    migrations: [OrderLifecycle1710000000000, ItemKitchenAssignments1720000000000],
+    migrations: [OrderLifecycle1710000000000, ItemKitchenAssignments1720000000000, ItemPayments1730000000000, ReconcileItemPayments1740000000000],
     // Never combine schema synchronization and migrations in one startup.
     migrationsRun: !synchronize,
     ssl: databaseUrl?.includes('sslmode=require')

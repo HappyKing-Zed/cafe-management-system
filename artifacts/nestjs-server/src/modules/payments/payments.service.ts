@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Payment } from '../../entities/payment.entity';
+import { PaymentItem } from '../../entities/payment-item.entity';
 import { Shift } from '../../entities/shift.entity';
 import { Order } from '../../entities/order.entity';
 import { OrderItem } from '../../entities/order-item.entity';
@@ -9,6 +10,7 @@ import { RestaurantTable } from '../../entities/table.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 import { TableStatus } from '../../common/enums/table-status.enum';
 import { NotificationsService } from '../notifications/notifications.service';
+import { User } from '../../entities/user.entity';
 
 @Injectable()
 export class PaymentsService {
@@ -17,12 +19,22 @@ export class PaymentsService {
     @InjectRepository(Payment) private payRepo: Repository<Payment>,
     @InjectRepository(Shift) private shiftRepo: Repository<Shift>,
     @InjectRepository(Order) private orderRepo: Repository<Order>,
+    @InjectRepository(User) private userRepo: Repository<User>,
     private dataSource: DataSource,
   ) {}
 
-  findAll(cashierId?: number, branchId?: number) {
+  async findAll(cashierId?: number, branchId?: number, actorRole?: string, actorId?: number) {
+    if (actorRole && !['admin', 'owner'].includes(actorRole)) {
+      const actor = actorId ? await this.userRepo.findOne({ where: { id: actorId } }) : null;
+      branchId = actor?.branchId;
+    }
+    if (actorRole && !['admin', 'owner'].includes(actorRole) && !branchId) {
+      throw new ForbiddenException('Payment records require a branch assignment');
+    }
     const qb = this.payRepo.createQueryBuilder('p')
       .leftJoinAndSelect('p.order', 'order')
+      .leftJoinAndSelect('p.paymentItems', 'paymentItems')
+      .leftJoinAndSelect('paymentItems.orderItem', 'paidOrderItem')
       .leftJoinAndSelect('p.cashier', 'cashier')
       .orderBy('p.createdAt', 'DESC');
     if (cashierId) qb.andWhere('p.cashierId = :cashierId', { cashierId });
@@ -30,7 +42,25 @@ export class PaymentsService {
     return qb.getMany();
   }
 
-  async processPayment(data: { orderId: number; method: any; amount: number; cashierId?: number; reference?: string }, branchId?: number, cashierUserId?: number, actorRole?: string) {
+  private itemAllocations(order: Order, items: OrderItem[]) {
+    const sorted = [...items].sort((a, b) => a.id - b.id);
+    const lineCents = sorted.map((item) => Math.round(Number(item.unitPrice) * item.quantity * 100));
+    const subtotalCents = lineCents.reduce((sum, value) => sum + value, 0);
+    const totalCents = Math.round(Number(order.totalAmount) * 100);
+    if (subtotalCents <= 0) throw new BadRequestException('Order items have no payable value');
+
+    const raw = lineCents.map((value) => totalCents * value / subtotalCents);
+    const allocated = raw.map(Math.floor);
+    let remainder = totalCents - allocated.reduce((sum, value) => sum + value, 0);
+    const remainderOrder = raw
+      .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+      .sort((a, b) => b.fraction - a.fraction || sorted[a.index].id - sorted[b.index].id);
+    for (let index = 0; index < remainder; index += 1) allocated[remainderOrder[index].index] += 1;
+
+    return new Map(sorted.map((item, index) => [item.id, allocated[index] / 100]));
+  }
+
+  async processPayment(data: { orderId: number; orderItemIds?: number[]; method: any; amount: number; cashierId?: number; reference?: string }, branchId?: number, cashierUserId?: number, actorRole?: string) {
     if (actorRole && !['cashier', 'admin', 'owner'].includes(actorRole)) {
       throw new ForbiddenException('Only a cashier can confirm payment');
     }
@@ -40,37 +70,68 @@ export class PaymentsService {
         .where('order.id = :id', { id: data.orderId })
         .getOne();
       if (!order) throw new NotFoundException('Order not found');
+      if (actorRole && !['admin', 'owner'].includes(actorRole)) {
+        const actor = cashierUserId ? await manager.getRepository(User).findOne({ where: { id: cashierUserId } }) : null;
+        branchId = actor?.branchId;
+        if (!branchId) throw new ForbiddenException('Payment confirmation requires a branch assignment');
+      }
       // Acquire the shared serialization lock without an outer join, then load
       // items separately through this transaction's manager.
       order.items = await manager.getRepository(OrderItem).find({ where: { orderId: order.id } });
-      if (branchId && order.branchId && order.branchId !== branchId) {
+      const existingLinks = order.items.length
+        ? await manager.getRepository(PaymentItem).createQueryBuilder('paymentItem')
+          .where('paymentItem.orderItemId IN (:...itemIds)', { itemIds: order.items.map((item) => item.id) })
+          .getMany()
+        : [];
+      const paidItemIds = new Set(existingLinks.map((link) => link.orderItemId));
+      if (branchId && order.branchId !== branchId) {
         throw new ForbiddenException('This order belongs to another branch');
       }
       if (order.status === OrderStatus.PAID) throw new BadRequestException('Order already paid');
       if (order.status === OrderStatus.CANCELLED) throw new BadRequestException('Order is cancelled');
-      // A null item status is only valid legacy data on an already-served order.
-      if (order.status !== OrderStatus.SERVED || order.items.some((item) => item.status && item.status !== 'served')) {
-        throw new BadRequestException('Only fully served orders can be paid');
+      const requestedIds = data.orderItemIds?.length
+        ? data.orderItemIds.map(Number)
+        : order.items.filter((item) => item.status === 'served' && !paidItemIds.has(item.id)).map((item) => item.id);
+      if (!requestedIds.length || requestedIds.some((id) => !Number.isInteger(id) || id <= 0)) {
+        throw new BadRequestException('Select at least one served item to pay');
       }
-      if (Number(data.amount) < Number(order.totalAmount)) {
-        throw new BadRequestException('Amount received is less than the order total');
+      if (new Set(requestedIds).size !== requestedIds.length) {
+        throw new BadRequestException('Each item may only be selected once');
       }
-      const change = Number(data.amount) - Number(order.totalAmount);
+      const selectedItems = requestedIds.map((id) => order.items.find((item) => item.id === id));
+      if (selectedItems.some((item) => !item)) throw new BadRequestException('A selected item does not belong to this order');
+      if (selectedItems.some((item) => item!.status !== 'served')) throw new BadRequestException('Only served items can be paid');
+      if (requestedIds.some((id) => paidItemIds.has(id))) throw new BadRequestException('A selected item is already paid');
+
+      const allocations = this.itemAllocations(order, order.items);
+      const paymentTotal = Math.round(selectedItems.reduce((sum, item) => sum + (allocations.get(item!.id) || 0), 0) * 100) / 100;
+      if (Number(data.amount) < paymentTotal) {
+        throw new BadRequestException('Amount received is less than the selected total');
+      }
+      const change = Number(data.amount) - paymentTotal;
       const payment = manager.getRepository(Payment).create({
-        orderId: data.orderId, method: data.method, amount: data.amount,
+        orderId: data.orderId, method: data.method, amount: paymentTotal,
         changeGiven: change > 0 ? change : 0, cashierId: cashierUserId ?? data.cashierId,
         reference: data.reference,
       });
-      await manager.getRepository(Payment).save(payment);
-      await manager.getRepository(Order).update(data.orderId, { status: OrderStatus.PAID });
-      if (order.tableId) {
+      const savedPayment = await manager.getRepository(Payment).save(payment);
+      await manager.getRepository(PaymentItem).save(selectedItems.map((item) => manager.getRepository(PaymentItem).create({
+        paymentId: savedPayment.id,
+        orderItemId: item!.id,
+        amount: allocations.get(item!.id) || 0,
+      })));
+
+      const allPaid = paidItemIds.size + selectedItems.length === order.items.length;
+      const allServed = order.items.every((item) => item.status === 'served');
+      if (allPaid && allServed) await manager.getRepository(Order).update(data.orderId, { status: OrderStatus.PAID });
+      if (allPaid && allServed && order.tableId) {
         await manager.getRepository(RestaurantTable).update(order.tableId, { status: TableStatus.CLEANING });
       }
-      return payment;
+      return { payment: savedPayment, orderPaid: allPaid && allServed };
     });
     const full = await this.orderRepo.findOne({ where: { id: data.orderId }, relations: ['table', 'waiter'] });
-    if (full) await this.notifications.orderEvent(full, OrderStatus.PAID);
-    return result;
+    if (full && result.orderPaid) await this.notifications.orderEvent(full, OrderStatus.PAID);
+    return result.payment;
   }
 
   // Shifts
@@ -99,7 +160,14 @@ export class PaymentsService {
     return this.shiftRepo.save(shift);
   }
 
-  async getDailyReport(fromDate?: string, branchId?: number, toDate?: string, method?: string) {
+  async getDailyReport(fromDate?: string, branchId?: number, toDate?: string, method?: string, actorRole?: string, actorId?: number) {
+    if (actorRole && !['admin', 'owner'].includes(actorRole)) {
+      const actor = actorId ? await this.userRepo.findOne({ where: { id: actorId } }) : null;
+      branchId = actor?.branchId;
+    }
+    if (actorRole && !['admin', 'owner'].includes(actorRole) && !branchId) {
+      throw new ForbiddenException('Payment reports require a branch assignment');
+    }
     const startDate = fromDate ? new Date(`${fromDate}T00:00:00`) : new Date();
     startDate.setHours(0, 0, 0, 0);
     const endDate = toDate ? new Date(`${toDate}T23:59:59.999`) : new Date(startDate);

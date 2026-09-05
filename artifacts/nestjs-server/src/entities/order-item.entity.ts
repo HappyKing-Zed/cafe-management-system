@@ -1,8 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { Order } from './order.entity';
 import { MenuItem } from './menu-item.entity';
 import { User } from './user.entity';
 import { OrderItemStatus } from '../common/enums/order-item-status.enum';
+import { PaymentItem } from './payment-item.entity';
 
 @Entity('order_items')
 export class OrderItem {
@@ -43,4 +44,7 @@ export class OrderItem {
 
   @Column({ nullable: true })
   assignedKitchenWorkerId: number;
+
+  @OneToMany(() => PaymentItem, (paymentItem) => paymentItem.orderItem, { eager: true })
+  paymentItems: PaymentItem[];
 }

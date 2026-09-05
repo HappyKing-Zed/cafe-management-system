@@ -78,6 +78,7 @@ export interface OrderItem {
   status?: OrderItemStatus;
   assignedKitchenWorkerId?: number | null;
   assignedKitchenWorker?: User | null;
+  paymentItems?: PaymentItem[];
 }
 
 export interface Order {
@@ -85,6 +86,7 @@ export interface Order {
   orderNumber?: number;
   status: OrderStatus;
   totalAmount: number;
+  serviceChargePct?: number;
   notes?: string;
   customerName?: string;
   customerPhone?: string;
@@ -110,6 +112,14 @@ export interface Payment {
   createdAt: string;
   orderId: number;
   cashierId?: number;
+  paymentItems?: PaymentItem[];
+}
+
+export interface PaymentItem {
+  id: number;
+  amount: number;
+  paymentId: number;
+  orderItemId: number;
 }
 
 export interface InventoryItem {

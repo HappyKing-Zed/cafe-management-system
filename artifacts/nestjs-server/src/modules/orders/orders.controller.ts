@@ -19,9 +19,9 @@ export class OrdersController {
   findAll(@Req() req: any, @Query('status') status?: OrderStatus, @Query('tableId') tid?: number, @Query('branchId') branchId?: string) {
     // Waiters only ever see their own orders
     const waiterId = req.user?.role === Role.WAITER ? req.user.id : undefined;
-    // Cashiers have a deliberately narrow queue: only orders ready for payment.
-    const visibleStatus = req.user?.role === Role.CASHIER ? OrderStatus.SERVED : status;
-    return this.service.findAll(visibleStatus, tid ? +tid : undefined, waiterId, effectiveBranch(req.user, branchId), req.user);
+    // The service narrows the cashier queue to orders containing at least one
+    // served, unpaid item, even when another item is still in the kitchen.
+    return this.service.findAll(status, tid ? +tid : undefined, waiterId, effectiveBranch(req.user, branchId), req.user);
   }
 
   @Get('stats')
