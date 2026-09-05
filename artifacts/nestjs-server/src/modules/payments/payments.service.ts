@@ -127,7 +127,7 @@ export class PaymentsService {
       throw new BadRequestException(`Payment was not verified by ShegerPay${body?.status ? ` (${body.status})` : ''}`);
     }
     if (body?.mode === 'test') {
-      throw new BadRequestException('ShegerPay test mode only simulates verification and cannot confirm a genuine payment. Use a live API key for real verification');
+      throw new BadRequestException('ShegerPay test mode returned a simulation. Payment was not confirmed. Use a live key for genuine verification.');
     }
     return body;
   }
