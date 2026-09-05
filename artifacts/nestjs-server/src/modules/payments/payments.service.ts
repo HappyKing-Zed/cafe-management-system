@@ -6,9 +6,7 @@ import { PaymentItem } from '../../entities/payment-item.entity';
 import { Shift } from '../../entities/shift.entity';
 import { Order } from '../../entities/order.entity';
 import { OrderItem } from '../../entities/order-item.entity';
-import { RestaurantTable } from '../../entities/table.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
-import { TableStatus } from '../../common/enums/table-status.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../../entities/user.entity';
 
@@ -231,9 +229,6 @@ export class PaymentsService {
       const allPaid = paidItemIds.size + selectedItems.length === order.items.length;
       const allServed = order.items.every((item) => item.status === 'served');
       if (allPaid && allServed) await manager.getRepository(Order).update(data.orderId, { status: OrderStatus.PAID });
-      if (allPaid && allServed && order.tableId) {
-        await manager.getRepository(RestaurantTable).update(order.tableId, { status: TableStatus.CLEANING });
-      }
       return { payment: savedPayment, orderPaid: allPaid && allServed };
     });
     const full = await this.orderRepo.findOne({ where: { id: data.orderId }, relations: ['table', 'waiter'] });

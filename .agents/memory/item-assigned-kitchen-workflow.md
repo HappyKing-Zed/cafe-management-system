@@ -7,4 +7,4 @@ Assign and advance kitchen work at the order-item level, with each item owned by
 
 **Why:** One guest order may contain food, bar, juice, and coffee items that finish at different times. Guests may pay items already served without closing the shared order or waiting for every kitchen station.
 
-**How to apply:** Never create child orders. Only served, unpaid items are eligible; each item settles once. Allocate the parent total deterministically, stop item mutation after settlement starts, and mark the parent paid only when every item is served and settled.
+**How to apply:** Never create child orders. Only served, unpaid items are eligible; each item settles once. Allocate the parent total deterministically, stop item mutation after settlement starts, and mark the parent paid only when every item is served and settled. Release a dine-in table when every item is served; later settlement must not alter that table because it may already belong to a new order.

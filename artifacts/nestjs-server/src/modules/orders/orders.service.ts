@@ -341,7 +341,11 @@ export class OrdersService {
     const order = await this.findOne(id);
     if (before.status !== status) await this.notifications.orderEvent(order, status);
 
-    // Free table when order is paid/cancelled
+    // A fully served order releases the table immediately. Payment may happen
+    // later, after the table has already been assigned to another order.
+    if (status === OrderStatus.SERVED && order.tableId) {
+      await this.tableRepo.update(order.tableId, { status: TableStatus.AVAILABLE });
+    }
     if (status === OrderStatus.CANCELLED && order.tableId) {
       await this.tableRepo.update(order.tableId, { status: TableStatus.CLEANING });
     }
@@ -491,6 +495,9 @@ export class OrdersService {
 
     if (aggregate !== updated.status) {
       await this.orderRepo.update(orderId, { status: aggregate });
+      if (aggregate === OrderStatus.SERVED && updated.tableId) {
+        await this.tableRepo.update(updated.tableId, { status: TableStatus.AVAILABLE });
+      }
       const full = await this.findOne(orderId);
       await this.notifications.orderEvent(full, aggregate);
       return full;
