@@ -154,11 +154,11 @@ export class SeedService {
       {
         name: 'Selamawit Kebede',
         email: 'storekeeper@gmail.com',
-        role: Role.STOREKEEPER,
+        role: Role.MAIN_STORE_KEEPER,
         enforcePassword: true,
       },
-      { name: 'Awetu Branch Storekeeper', email: 'storekeeper_awetu_branch@gmail.com', role: Role.STOREKEEPER, branchId: awetu.id, enforcePassword: true },
-      { name: 'Agaro Branch Storekeeper', email: 'storekeeper_agaro_branch@gmail.com', role: Role.STOREKEEPER, branchId: agaro.id, enforcePassword: true },
+      { name: 'Awetu Branch Storekeeper', email: 'storekeeper_awetu_branch@gmail.com', role: Role.BRANCH_STORE_KEEPER, branchId: awetu.id, enforcePassword: true },
+      { name: 'Agaro Branch Storekeeper', email: 'storekeeper_agaro_branch@gmail.com', role: Role.BRANCH_STORE_KEEPER, branchId: agaro.id, enforcePassword: true },
       { name: 'Tadesse Wolde', email: 'owner@gmail.com', role: Role.OWNER },
     ];
 
@@ -171,7 +171,6 @@ export class SeedService {
           existing.role = account.role;
           existing.branchId = account.branchId ?? null;
           existing.restaurantId = restaurant!.id;
-          existing.isActive = true;
           return this.userRepo.save(existing);
         }
         return existing;
@@ -229,7 +228,7 @@ export class SeedService {
       this.userRepo.create({ name: 'Meron Tadesse', email: 'waiter2@gmail.com', password: await hash('waiter123'), role: Role.WAITER, restaurantId: restaurant.id, branchId: branch1.id }),
       this.userRepo.create({ name: 'Hiwot Lemma', email: 'chef@gmail.com', password: await hash('chef123'), role: Role.CHEF, restaurantId: restaurant.id, branchId: branch1.id }),
       this.userRepo.create({ name: 'Biruk Mengistu', email: 'cashier@gmail.com', password: await hash('cashier123'), role: Role.CASHIER, restaurantId: restaurant.id, branchId: branch1.id }),
-      this.userRepo.create({ name: 'Selamawit Kebede', email: 'storekeeper@gmail.com', password: await hash('store123'), role: Role.STOREKEEPER, restaurantId: restaurant.id, branchId: branch1.id }),
+      this.userRepo.create({ name: 'Selamawit Kebede', email: 'storekeeper@gmail.com', password: await hash('store123'), role: Role.MAIN_STORE_KEEPER, restaurantId: restaurant.id, branchId: null }),
     ]);
 
     // ─── Menu Categories ──────────────────────────────────────────

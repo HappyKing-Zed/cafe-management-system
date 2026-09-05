@@ -5,17 +5,44 @@ import { useAuthStore } from '@/store/auth';
 import { canAccessDashboardPath, dashboardHomeForRole } from '@/lib/dashboard-access';
 import Sidebar from '@/components/sidebar';
 import NotificationBell from '@/components/notification-bell';
+import { getMe } from '@/lib/api';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, user, loadFromStorage } = useAuthStore();
+  const { isAuthenticated, user, loadFromStorage, updateProfile, logout } = useAuthStore();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     loadFromStorage();
     setReady(true);
   }, [loadFromStorage]);
+
+  useEffect(() => {
+    if (!ready || !isAuthenticated) return;
+    let active = true;
+    const verifyAccess = async () => {
+      try {
+        const response = await getMe();
+        if (!active) return;
+        if (response.data?.isActive === false) throw new Error('Account is OFF');
+        updateProfile(response.data);
+      } catch {
+        if (!active) return;
+        logout();
+        router.replace('/login');
+      }
+    };
+    void verifyAccess();
+    const timer = window.setInterval(() => void verifyAccess(), 5000);
+    const onFocus = () => void verifyAccess();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [isAuthenticated, logout, ready, router, updateProfile]);
 
   useEffect(() => {
     if (!ready) return;

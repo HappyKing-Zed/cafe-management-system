@@ -10,7 +10,8 @@ import {
   getMainStoreTransfers,
   rejectMainStoreTransfer,
   getMainStoreRequestableItems,
-  createMainStoreTransfer
+  createMainStoreTransfer,
+  transferMainStoreTransfer,
 } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import clsx from 'clsx';
@@ -51,13 +52,15 @@ const TABS = ['Active Requests', 'History'];
 
 export default function MainStoreRequestsPage() {
   const { user } = useAuthStore();
-  const isStorekeeper = user?.role === 'storekeeper';
+  const isBranchStoreKeeper = user?.role === 'branch_store_keeper';
+  const isMainStoreKeeper = user?.role === 'main_store_keeper';
   const canApprove = user?.role === 'manager' || user?.role === 'owner';
 
   const [tab, setTab] = useState('Active Requests');
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [message, setMessage] = useState('');
 
   // Request Modal State
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -127,16 +130,34 @@ export default function MainStoreRequestsPage() {
 
   const decide = async (id: number, decision: 'approve' | 'reject') => {
     const prompt = decision === 'approve'
-      ? 'Approve this request? Approval does not change stock. Only the branchless Main Store Storekeeper can fulfill it.'
+      ? 'Approve this Main Store request? Approval does not change stock. The Main Store Keeper will be notified to prepare and transfer the approved items.'
       : 'Reject this request?';
     if (!window.confirm(prompt)) return;
     setBusyId(id);
     try {
       if (decision === 'approve') await approveMainStoreTransfer(id);
       else await rejectMainStoreTransfer(id);
+      setMessage(decision === 'approve'
+        ? 'Request approved. The Main Store Keeper has been notified to prepare and transfer the approved items.'
+        : 'Request rejected. The requesting branch has been notified.');
       await load();
     } catch (error: any) {
       window.alert(error?.response?.data?.message || `Could not ${decision} request`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const fulfill = async (id: number) => {
+    if (!window.confirm('Fulfill this approved request? Main Store and destination branch stock will update together.')) return;
+    setBusyId(id);
+    setMessage('');
+    try {
+      await transferMainStoreTransfer(id);
+      setMessage('Request fulfilled. Main Store and branch balances were updated and recorded in the audit history.');
+      await load();
+    } catch (error: any) {
+      window.alert(error?.response?.data?.message || 'Could not fulfill request');
     } finally {
       setBusyId(null);
     }
@@ -155,12 +176,12 @@ export default function MainStoreRequestsPage() {
           <div>
             <h1 className="text-2xl font-bold text-teal-950">Main Store Requests</h1>
             <p className="text-sm text-teal-800/70">
-              Branch requests and Manager/Owner decisions do not change stock. Only the branchless Main Store Storekeeper fulfills approved requests, updating Main Store and destination branch stock together and recording post-transfer balances in the audit history.
+              Branch Store Keepers request stock, Managers/Owners approve or reject it, and the Main Store Keeper fulfills approved requests. Stock changes only when fulfillment is completed.
             </p>
           </div>
         </div>
 
-        {isStorekeeper && (
+        {isBranchStoreKeeper && (
           <button
             onClick={handleOpenRequestModal}
             className="btn-primary flex items-center gap-2 whitespace-nowrap self-start sm:self-auto"
@@ -169,6 +190,12 @@ export default function MainStoreRequestsPage() {
           </button>
         )}
       </div>
+
+      {message && (
+        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+          {message}
+        </div>
+      )}
 
       <div className="flex gap-6 border-b border-cream-200 mb-6 overflow-x-auto custom-scrollbar">
         {TABS.map(t => (
@@ -273,9 +300,20 @@ export default function MainStoreRequestsPage() {
                       </div>
                     )}
 
-                    {!isPending && (
+                    {!isPending && isMainStoreKeeper && (
+                      <button
+                        type="button"
+                        className="btn-primary mt-4 flex w-full items-center justify-center gap-2"
+                        disabled={busyId === transfer.id}
+                        onClick={() => void fulfill(transfer.id)}
+                      >
+                        <ArrowRightLeft size={16} /> Fulfill Approved Request
+                      </button>
+                    )}
+
+                    {!isPending && !isMainStoreKeeper && (
                       <div className="text-xs text-coffee-400 text-center bg-cream-50 py-2 rounded-lg border border-cream-100">
-                        Approved; stock is unchanged. Waiting for the branchless Main Store Storekeeper to fulfill the request.
+                        Approved; stock is unchanged. Waiting for the Main Store Keeper to fulfill the request.
                       </div>
                     )}
                   </article>

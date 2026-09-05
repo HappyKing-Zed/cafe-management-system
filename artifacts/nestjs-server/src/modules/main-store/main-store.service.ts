@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Branch } from '../../entities/branch.entity';
 import { InventoryItem } from '../../entities/inventory-item.entity';
 import { MainStoreItem } from '../../entities/main-store-item.entity';
@@ -33,8 +33,8 @@ export class MainStoreService {
   }
 
   private assertMainStoreAccess(user: AuthUser) {
-    if (user.role === 'owner' || (user.role === 'storekeeper' && !user.branchId)) return;
-    throw new ForbiddenException('Main Store is restricted to the owner and Main Store storekeeper');
+    if (user.role === 'owner' || user.role === 'main_store_keeper') return;
+    throw new ForbiddenException('Main Store is restricted to the owner and Main Store Keeper');
   }
 
   private positive(value: unknown, label: string): number {
@@ -88,8 +88,7 @@ export class MainStoreService {
     return this.dataSource.getRepository(User).find({
       where: {
         restaurantId,
-        role: 'storekeeper' as any,
-        branchId: IsNull(),
+        role: 'main_store_keeper' as any,
         isActive: true,
       },
     });
@@ -141,7 +140,7 @@ export class MainStoreService {
 
   findTransfers(user: AuthUser) {
     const restaurantId = this.restaurantId(user), where: any = { restaurantId };
-    if (user.role === 'manager' || (user.role === 'storekeeper' && user.branchId)) {
+    if (user.role === 'manager' || user.role === 'branch_store_keeper') {
       if (!user.branchId) throw new ForbiddenException('Account is not assigned to a branch');
       where.destinationBranchId = user.branchId;
     } else this.assertMainStoreAccess(user);
@@ -150,7 +149,7 @@ export class MainStoreService {
 
   async createTransfer(data: any, user: AuthUser) {
     const restaurantId = this.restaurantId(user), destinationBranchId = Number(user.branchId);
-    if (user.role !== 'storekeeper' || !Number.isInteger(destinationBranchId) || destinationBranchId <= 0) throw new ForbiddenException('Only a branch storekeeper may request stock');
+    if (user.role !== 'branch_store_keeper' || !Number.isInteger(destinationBranchId) || destinationBranchId <= 0) throw new ForbiddenException('Only a Branch Store Keeper may request stock');
     if (!Array.isArray(data?.lines) || !data.lines.length) throw new BadRequestException('Transfer needs at least one line');
     const lines = data.lines.map((line: any, i: number) => ({ mainStoreItemId: Number(line?.mainStoreItemId), quantity: this.positive(line?.quantity, `Line ${i + 1} quantity`) }));
     if (lines.some((l: any) => !Number.isInteger(l.mainStoreItemId) || l.mainStoreItemId <= 0)) throw new BadRequestException('Transfer has an invalid main store item');
@@ -200,17 +199,25 @@ export class MainStoreService {
       return em.findOne(MainStoreTransfer, { where: { id }, relations: transferRelations });
     });
     const action = decision === MainStoreTransferStatus.APPROVED ? 'approved' : 'rejected';
-    await this.notifications.notify({ userId: decided!.requestedById, message: `Main store transfer #${id} was ${action}`, branchId: decided!.destinationBranchId });
+    const requesterMessage = decision === MainStoreTransferStatus.APPROVED
+      ? `Main Store request REQ-${String(id).padStart(4, '0')} was approved by ${user.name || 'the manager'} and is waiting for the Main Store Keeper to transfer it`
+      : `Main Store request REQ-${String(id).padStart(4, '0')} was rejected by ${user.name || 'the manager'}`;
+    await this.notifications.notify({ userId: decided!.requestedById, message: requesterMessage, branchId: decided!.destinationBranchId });
     const mainStorekeepers = await this.mainStorekeepers(restaurantId);
     for (const storekeeper of mainStorekeepers) {
-      await this.notifications.notify({ userId: storekeeper.id, message: `Main store transfer #${id} was ${action}` });
+      await this.notifications.notify({
+        userId: storekeeper.id,
+        message: decision === MainStoreTransferStatus.APPROVED
+          ? `Main Store request REQ-${String(id).padStart(4, '0')} was approved and is ready to fulfill`
+          : `Main Store request REQ-${String(id).padStart(4, '0')} was rejected`,
+      });
     }
     return decided;
   }
 
   async transfer(id: number, user: AuthUser) {
     this.assertMainStoreAccess(user);
-    if (user.role !== 'storekeeper' || user.branchId) throw new ForbiddenException('Only the Main Store storekeeper may fulfill transfers');
+    if (user.role !== 'main_store_keeper') throw new ForbiddenException('Only the Main Store Keeper may fulfill transfers');
     const restaurantId = this.restaurantId(user);
     const completed = await this.dataSource.transaction(async em => {
       const transfer = await em.getRepository(MainStoreTransfer).findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });

@@ -100,7 +100,7 @@ export default function NotificationBell() {
     let target: string | null = null;
     if (n.orderId) target = orderPage;
     else if (m.includes('main store transfer')) {
-      target = user.role === 'storekeeper' && !user.branchId
+      target = user.role === 'main_store_keeper'
         ? '/dashboard/main-store'
         : '/dashboard/inventory-transfers';
     }

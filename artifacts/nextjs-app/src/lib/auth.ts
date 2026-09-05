@@ -40,11 +40,9 @@ export const ROLE_LABELS: Record<string, string> = {
   juice_maker: 'Juice Maker',
   coffee_lady: 'Coffee Lady',
   cashier: 'Cashier',
-  storekeeper: 'Storekeeper',
+  branch_store_keeper: 'Branch Store Keeper',
+  main_store_keeper: 'Main Store Keeper',
 };
-
-export const storekeeperRoleLabel = (branchId?: number | null) =>
-  branchId ? 'Branch Storekeeper' : 'Main Store Storekeeper';
 
 export const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-red-100 text-red-800',
@@ -58,7 +56,8 @@ export const ROLE_COLORS: Record<string, string> = {
   juice_maker: 'bg-lime-100 text-lime-800',
   coffee_lady: 'bg-amber-100 text-amber-800',
   cashier: 'bg-gray-100 text-gray-800',
-  storekeeper: 'bg-amber-100 text-amber-800',
+  branch_store_keeper: 'bg-amber-100 text-amber-800',
+  main_store_keeper: 'bg-teal-100 text-teal-800',
 };
 
 export const canAccess = (userRole: string, allowedRoles: string[]): boolean => {

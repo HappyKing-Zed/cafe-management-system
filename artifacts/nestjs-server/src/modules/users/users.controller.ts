@@ -30,7 +30,7 @@ export class UsersController {
 
   // Lightweight list for the item-request form (name + role only) — available to all staff
   @Get('staff-list')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CHEF_MAIN_KITCHEN, Role.BAR_MAN, Role.JUICE_MAKER, Role.COFFEE_LADY, Role.CASHIER, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.WAITER, Role.CHEF, Role.CHEF_MAIN_KITCHEN, Role.BAR_MAN, Role.JUICE_MAKER, Role.COFFEE_LADY, Role.CASHIER, Role.BRANCH_STORE_KEEPER, Role.MAIN_STORE_KEEPER)
   staffList(@Req() req: any) {
     // Always constrain to the caller's restaurant (and branch when scoped)
     if (!req.user?.restaurantId) throw new ForbiddenException('Your account is not assigned to a restaurant');

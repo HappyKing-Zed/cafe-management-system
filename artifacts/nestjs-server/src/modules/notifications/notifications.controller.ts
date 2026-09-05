@@ -13,7 +13,7 @@ export class NotificationsController {
   @Get()
   async findMine(@Req() req: any) {
     // Managers/storekeepers get inventory alerts (low stock, expiry) generated on the fly
-    if (['storekeeper', 'manager', 'owner', 'admin'].includes(req.user?.role)) {
+    if (['branch_store_keeper', 'manager', 'owner', 'admin'].includes(req.user?.role)) {
       await this.service.scanInventoryAlerts(req.user?.branchId || undefined).catch((e) => console.error('inventory alert scan failed:', e?.message || e));
     }
     return this.service.findForUser(req.user);

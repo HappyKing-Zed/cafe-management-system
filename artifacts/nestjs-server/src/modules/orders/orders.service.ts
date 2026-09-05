@@ -285,7 +285,8 @@ export class OrdersService {
     coffee_lady: [],
     cashier: [],
     manager: [],
-    storekeeper: [],
+    branch_store_keeper: [],
+    main_store_keeper: [],
     admin: [],
     owner: [],
   };

@@ -14,37 +14,37 @@ export class MainStoreController {
   constructor(private readonly service: MainStoreService) {}
 
   @Get('items')
-  @Roles(Role.OWNER, Role.STOREKEEPER)
+  @Roles(Role.OWNER, Role.MAIN_STORE_KEEPER)
   findItems(@Req() req: any) {
     return this.service.findItems(req.user);
   }
 
   @Get('destinations')
-  @Roles(Role.OWNER, Role.STOREKEEPER)
+  @Roles(Role.OWNER, Role.MAIN_STORE_KEEPER)
   findDestinations(@Req() req: any) {
     return this.service.findDestinations(req.user);
   }
 
   @Post('receipts')
-  @Roles(Role.OWNER, Role.STOREKEEPER)
+  @Roles(Role.OWNER, Role.MAIN_STORE_KEEPER)
   createReceipt(@Req() req: any, @Body() body: any) {
     return this.service.createReceipt(body, req.user);
   }
 
   @Get('transfers')
-  @Roles(Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
+  @Roles(Role.OWNER, Role.MANAGER, Role.BRANCH_STORE_KEEPER, Role.MAIN_STORE_KEEPER)
   findTransfers(@Req() req: any) {
     return this.service.findTransfers(req.user);
   }
 
   @Get('requestable-items')
-  @Roles(Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
+  @Roles(Role.OWNER, Role.MANAGER, Role.BRANCH_STORE_KEEPER, Role.MAIN_STORE_KEEPER)
   findRequestableItems(@Req() req: any) {
     return this.service.findRequestableItems(req.user);
   }
 
   @Post('transfers')
-  @Roles(Role.STOREKEEPER)
+  @Roles(Role.BRANCH_STORE_KEEPER)
   createTransfer(@Req() req: any, @Body() body: any) {
     return this.service.createTransfer(body, req.user);
   }
@@ -62,7 +62,7 @@ export class MainStoreController {
   }
 
   @Patch('transfers/:id/transfer')
-  @Roles(Role.STOREKEEPER)
+  @Roles(Role.MAIN_STORE_KEEPER)
   transfer(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.service.transfer(id, req.user);
   }

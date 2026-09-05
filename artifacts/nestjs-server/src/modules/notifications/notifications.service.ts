@@ -72,7 +72,7 @@ export class NotificationsService {
 
     const rows: Array<Partial<Notification>> = [];
     for (const m of msgs) {
-      for (const role of ['storekeeper', 'manager']) {
+      for (const role of ['branch_store_keeper', 'manager']) {
         const exists = await this.repo.findOne({ where: { message: m.message, targetRole: role, isRead: false, branchId: (m.branchId ?? IsNull()) as any } });
         if (!exists) rows.push({ message: m.message, targetRole: role, branchId: m.branchId as any });
       }

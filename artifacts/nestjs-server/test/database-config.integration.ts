@@ -51,7 +51,7 @@ test('loads database options after a fixture .env file is initialized', async ()
       Array.isArray(options.migrations)
         ? options.migrations.map((migration: any) => migration.name)
         : [],
-      ['OrderLifecycle1710000000000', 'ItemKitchenAssignments1720000000000', 'ItemPayments1730000000000', 'ReconcileItemPayments1740000000000'],
+      ['OrderLifecycle1710000000000', 'ItemKitchenAssignments1720000000000', 'ItemPayments1730000000000', 'ReconcileItemPayments1740000000000', 'StoreKeeperRoles1750000000000'],
     );
     const persistentDevelopmentOptions = createDatabaseOptions(fixtureUrl, 'development', false);
     assert.equal(persistentDevelopmentOptions.synchronize, false);

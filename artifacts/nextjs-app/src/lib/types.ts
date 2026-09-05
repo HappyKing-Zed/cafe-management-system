@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'owner' | 'manager' | 'coordinator' | 'waiter' | 'chef' | 'chef_main_kitchen' | 'bar_man' | 'juice_maker' | 'coffee_lady' | 'cashier' | 'storekeeper';
+export type Role = 'admin' | 'owner' | 'manager' | 'coordinator' | 'waiter' | 'chef' | 'chef_main_kitchen' | 'bar_man' | 'juice_maker' | 'coffee_lady' | 'cashier' | 'branch_store_keeper' | 'main_store_keeper';
 
 export interface User {
   id: number;

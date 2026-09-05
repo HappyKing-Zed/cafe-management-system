@@ -10,7 +10,8 @@ export enum Role {
   JUICE_MAKER = 'juice_maker',
   COFFEE_LADY = 'coffee_lady',
   CASHIER = 'cashier',
-  STOREKEEPER = 'storekeeper',
+  BRANCH_STORE_KEEPER = 'branch_store_keeper',
+  MAIN_STORE_KEEPER = 'main_store_keeper',
 }
 
 export const KITCHEN_WORKER_ROLES: readonly Role[] = [

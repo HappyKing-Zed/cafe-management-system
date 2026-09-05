@@ -30,7 +30,7 @@ interface Staff { id: number; name: string; role: string; }
 const ROLE_DEPARTMENT: Record<string, string> = {
   admin: 'Management', owner: 'Management', manager: 'Management',
   coordinator: 'Coordination', waiter: 'Service', chef: 'Kitchen',
-  cashier: 'Finance', storekeeper: 'Store',
+  cashier: 'Finance', branch_store_keeper: 'Branch Store', main_store_keeper: 'Main Store',
 };
 const departmentForRole = (role?: string) => (role && ROLE_DEPARTMENT[role]) || '';
 
@@ -50,7 +50,7 @@ export default function ItemRequestsPage() {
   const { user } = useAuthStore();
   const allowed = !!user && ALLOWED_ROLES.includes(user.role);
   const canApprove = !!user && ['admin', 'owner', 'manager'].includes(user.role);
-  const canIssue = !!user && ['admin', 'owner', 'storekeeper'].includes(user.role);
+  const canIssue = !!user && ['admin', 'owner', 'branch_store_keeper'].includes(user.role);
   const [requests, setRequests] = useState<ItemRequest[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);

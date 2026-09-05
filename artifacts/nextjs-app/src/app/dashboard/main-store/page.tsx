@@ -52,7 +52,7 @@ const TABS = ['Central Stock', 'Transfer Requests'];
 export default function MainStorePage() {
   const { user } = useAuthStore();
   const isOwner = user?.role === 'owner';
-  const isStorekeeper = user?.role === 'storekeeper';
+  const isStorekeeper = user?.role === 'main_store_keeper';
 
   const [tab, setTab] = useState('Central Stock');
   const [items, setItems] = useState<MainStoreItem[]>([]);
@@ -155,7 +155,7 @@ export default function MainStorePage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-teal-950">Main Store</h1>
-            <p className="text-sm text-teal-800/70">Branch requests and Manager/Owner decisions do not change stock. Only the branchless Main Store Storekeeper fulfills approved requests, updating Main Store and destination branch stock together and recording post-transfer balances in the audit history.</p>
+            <p className="text-sm text-teal-800/70">Branch Store Keepers request stock, Managers/Owners approve or reject it, and the Main Store Keeper fulfills approved requests. Stock changes only when fulfillment is completed.</p>
           </div>
         </div>
 
@@ -342,7 +342,7 @@ export default function MainStorePage() {
                           )}
                           {isApproved && isOwner && (
                             <div className="text-xs text-coffee-400 text-center bg-cream-50 py-2 rounded-lg border border-cream-100">
-                              Approved; stock is unchanged. Waiting for the branchless Main Store Storekeeper to fulfill the request.
+                              Approved; stock is unchanged. Waiting for the Main Store Keeper to fulfill the request.
                             </div>
                           )}
                           {!isApproved && (

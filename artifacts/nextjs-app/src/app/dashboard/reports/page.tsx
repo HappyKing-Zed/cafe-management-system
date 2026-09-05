@@ -10,6 +10,40 @@ const EXPORT_TABS = ['Overview', 'Order Board', 'Menu', 'Inventory', 'Item Reque
 const CASHIER_TABS = ['Sales', 'Items Purchased'] as const;
 type Tab = typeof EXPORT_TABS[number] | typeof CASHIER_TABS[number];
 
+function flattenExportRecord(value: unknown, prefix = '', output: Record<string, string | number> = {}) {
+  if (value === null || value === undefined) {
+    if (prefix) output[prefix] = '—';
+    return output;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0 && prefix) output[prefix] = '—';
+    value.forEach((entry, index) => flattenExportRecord(entry, `${prefix}[${index + 1}]`, output));
+    return output;
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0 && prefix) output[prefix] = '—';
+    entries.forEach(([key, entry]) => flattenExportRecord(entry, prefix ? `${prefix}.${key}` : key, output));
+    return output;
+  }
+  output[prefix || 'value'] = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value as string | number;
+  return output;
+}
+
+function withCompleteDetails(data: { title: string; file: string; head: string[]; rows: any[][]; records?: unknown[] }) {
+  const flattened = (data.records || []).map(record => flattenExportRecord(record));
+  const detailFields = Array.from(new Set(flattened.flatMap(record => Object.keys(record))));
+  const rowCount = Math.max(data.rows.length, flattened.length);
+  return {
+    ...data,
+    head: [...data.head, ...detailFields.map(field => `Complete Detail — ${field}`)],
+    rows: Array.from({ length: rowCount }, (_, index) => [
+      ...(data.rows[index] || data.head.map(() => '')),
+      ...detailFields.map(field => flattened[index]?.[field] ?? '—'),
+    ]),
+  };
+}
+
 export default function ReportsPage() {
   const { user } = useAuthStore();
   const isCashier = user?.role === 'cashier';
@@ -110,6 +144,10 @@ export default function ReportsPage() {
           `#${p.id}`, `Order #${p.orderId}`, p.method === 'mobile' ? 'wallet' : p.method,
           Number(p.amount), Number(p.changeGiven || 0), new Date(p.createdAt).toLocaleString(),
         ]),
+        records: list.map((payment: any) => ({
+          payment,
+          order: orders.find((order: any) => order.id === payment.orderId) || payment.order || null,
+        })),
       };
     }
     if (t === 'Items Purchased') {
@@ -123,12 +161,15 @@ export default function ReportsPage() {
         qty: Number(i.quantity),
         unit: Number(i.unitPrice ?? i.menuItem?.price ?? 0),
         order: `#${o.id}`,
+        orderRecord: o,
+        itemRecord: i,
       })));
       if (fPur.category !== 'all') rows = rows.filter(r => r.category === fPur.category);
       return {
         title: 'Items Purchased Report', file: 'items_purchased',
         head: ['Date', 'Item', 'Type', 'Quantity', 'Unit Price (ETB)', 'Total (ETB)', 'Order'],
         rows: rows.map(r => [r.date, r.name, r.category, r.qty, r.unit, r.qty * r.unit, r.order]),
+        records: rows.map(r => ({ order: { ...r.orderRecord, items: undefined }, item: r.itemRecord, payments: r.orderRecord.payments || [] })),
       };
     }
     if (t === 'Order Board') {
@@ -148,6 +189,7 @@ export default function ReportsPage() {
           o.payments?.length ? (o.payments[o.payments.length - 1].method === 'mobile' ? 'wallet' : o.payments[o.payments.length - 1].method) : '—',
           Number(o.totalAmount),
         ]),
+        records: list,
       };
     }
     if (t === 'Menu') {
@@ -158,6 +200,7 @@ export default function ReportsPage() {
         title: 'Menu Report', file: 'menu',
         head: ['Item', 'Category', 'Price (ETB)', 'Available'],
         rows: list.map((i: any) => [i.name, i.categoryName || '—', Number(i.price), i.isAvailable === false ? 'No' : 'Yes']),
+        records: list,
       };
     }
     if (t === 'Inventory') {
@@ -172,6 +215,7 @@ export default function ReportsPage() {
           Number(i.unitCost || 0), Number(i.currentStock) * Number(i.unitCost || 0),
           i.expiryDate ? new Date(i.expiryDate).toLocaleDateString() : '—',
         ]),
+        records: list,
       };
     }
     if (t === 'Item Requested') {
@@ -192,6 +236,7 @@ export default function ReportsPage() {
             r.reason || '—', r.status, unit, unit * Number(r.quantity),
           ];
         }),
+        records: list,
       };
     }
     if (t === 'Staff') {
@@ -200,7 +245,8 @@ export default function ReportsPage() {
       return {
         title: 'Staff Report', file: 'staff',
         head: ['Name', 'Role', 'Email', 'Phone', 'Branch', 'Active'],
-        rows: list.map((s: any) => [s.name, s.role, s.email || '—', s.phone || '—', s.branch?.name || s.branchId || '—', s.isActive === false ? 'No' : 'Yes']),
+        rows: list.map((s: any) => [s.name, s.role, s.email || '—', s.phone || '—', s.branch?.name || s.branchId || '—', s.isActive === false ? 'OFF' : 'ON']),
+        records: list,
       };
     }
     // Branches
@@ -208,24 +254,57 @@ export default function ReportsPage() {
       title: 'Branches Report', file: 'branches',
       head: ['Branch', 'Address', 'Phone', 'Active'],
       rows: branches.map((b: any) => [b.name, b.address || b.location || '—', b.phone || '—', b.isActive === false ? 'No' : 'Yes']),
+      records: branches,
     };
   };
 
-  const overviewSalesData = () => ({
-    title: 'Sales Information Report',
-    file: 'sales_information',
-    head: ['Payment #', 'Order', 'Payment Type', 'Amount (ETB)', 'Change (ETB)', 'Date'],
-    rows: filteredSalesPayments.map((payment: any) => [
-      `#${payment.id}`,
-      `Order #${payment.orderId}`,
-      payment.method === 'mobile' ? 'wallet' : payment.method,
-      Number(payment.amount),
-      Number(payment.changeGiven || 0),
-      new Date(payment.createdAt).toLocaleString(),
-    ]),
-  });
+  const overviewSalesData = () => {
+    const reportSummary = {
+      filters: {
+        from: salesRange.from,
+        to: salesRange.to,
+        branchId: branchId ?? 'all',
+        paymentMethod: salesMethod,
+      },
+      totalRevenue,
+      totalOrders,
+      paidOrders,
+      averagePaidOrderValue: avgOrderValue,
+      pendingOrders: Number(statusBreakdown.pending || 0),
+      preparingOrders: Number(statusBreakdown.preparing || 0),
+      servedOrders: Number(statusBreakdown.served || 0),
+      outstandingBalance: rangeOrders
+        .filter((order: any) => order.status !== 'paid')
+        .reduce((sum: number, order: any) => sum + Number(order.totalAmount || order.total || 0), 0),
+      paymentMethodBreakdown: methodBreakdown,
+      orderStatusBreakdown: statusBreakdown,
+      backendDailyReport: report,
+    };
+    return {
+      title: 'Sales Information Report',
+      file: 'sales_information',
+      head: ['Payment #', 'Order', 'Payment Type', 'Amount (ETB)', 'Change (ETB)', 'Date'],
+      rows: filteredSalesPayments.length
+        ? filteredSalesPayments.map((payment: any) => [
+          `#${payment.id}`,
+          `Order #${payment.orderId}`,
+          payment.method === 'mobile' ? 'wallet' : payment.method,
+          Number(payment.amount),
+          Number(payment.changeGiven || 0),
+          new Date(payment.createdAt).toLocaleString(),
+        ])
+        : [['Summary', '—', salesMethod, totalRevenue, 0, `${salesRange.from} – ${salesRange.to}`]],
+      records: filteredSalesPayments.length
+        ? filteredSalesPayments.map((payment: any) => ({
+          reportSummary,
+          payment,
+          order: rangeOrders.find((order: any) => order.id === payment.orderId) || payment.order || null,
+        }))
+        : [{ reportSummary }],
+    };
+  };
 
-  const currentExportData = () => tab === 'Overview' ? overviewSalesData() : dataFor(tab);
+  const currentExportData = () => withCompleteDetails(tab === 'Overview' ? overviewSalesData() : dataFor(tab));
 
   const exportExcel = async () => {
     setExporting(true);
@@ -247,12 +326,23 @@ export default function ReportsPage() {
       const { title, file, head, rows } = currentExportData();
       const { default: jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
-      const doc = new jsPDF();
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
       doc.setFontSize(14);
       doc.text(`Jima · CARAVAN Lounge — ${title}`, 14, 16);
       doc.setFontSize(10);
       doc.text(`generated ${new Date().toLocaleString()}`, 14, 22);
-      autoTable(doc, { head: [head], body: rows.map(r => r.map(String)), startY: 27, styles: { fontSize: 8 } });
+      autoTable(doc, {
+        head: [head],
+        body: rows.map(r => r.map(String)),
+        startY: 27,
+        theme: 'grid',
+        styles: { fontSize: 5, cellPadding: 1.2, overflow: 'linebreak' },
+        headStyles: { fillColor: [15, 118, 110], textColor: 255 },
+        alternateRowStyles: { fillColor: [245, 250, 248] },
+        horizontalPageBreak: true,
+        horizontalPageBreakRepeat: 0,
+        margin: { left: 10, right: 10 },
+      });
       doc.save(`${file}_${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch (error: any) {
       console.error('PDF export failed', error);

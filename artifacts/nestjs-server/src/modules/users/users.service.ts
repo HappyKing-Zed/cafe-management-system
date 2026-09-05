@@ -88,6 +88,7 @@ export class UsersService {
     const target = { ...data } as Partial<User>;
     this.applyActorScope(actor, target);
     await this.validateAssignment(target.restaurantId, target.branchId);
+    this.validateStoreRoleAssignment(target.role, target.branchId);
     this.assertRoleAllowed(actor, target.role);
     const exists = await this.repo.findOne({ where: { email: data.email } });
     if (exists) throw new ConflictException('Email already in use');
@@ -111,6 +112,7 @@ export class UsersService {
     const restaurantId = target.restaurantId !== undefined ? target.restaurantId : user.restaurantId;
     const branchId = target.branchId !== undefined ? target.branchId : user.branchId;
     await this.validateAssignment(restaurantId, branchId);
+    this.validateStoreRoleAssignment(target.role ?? user.role, branchId);
     if (target.role !== undefined && target.role !== user.role) {
       this.assertRoleAllowed(actor, target.role);
     }
@@ -169,6 +171,15 @@ export class UsersService {
     if (!branch) throw new BadRequestException('Selected branch does not exist');
     if (branch.restaurantId !== restaurantId) {
       throw new BadRequestException('Selected branch does not belong to the selected restaurant');
+    }
+  }
+
+  private validateStoreRoleAssignment(role?: Role, branchId?: number | null) {
+    if (role === Role.BRANCH_STORE_KEEPER && !branchId) {
+      throw new BadRequestException('Branch Store Keeper must be assigned to a branch');
+    }
+    if (role === Role.MAIN_STORE_KEEPER && branchId) {
+      throw new BadRequestException('Main Store Keeper cannot be assigned to a branch');
     }
   }
 

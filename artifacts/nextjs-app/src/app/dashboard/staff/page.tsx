@@ -3,12 +3,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getUsers, createUser, updateUser, deleteUser, getRestaurants, getBranches } from '@/lib/api';
 import { User, Restaurant, Branch } from '@/lib/types';
-import { Users, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, Power } from 'lucide-react';
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth';
 import clsx from 'clsx';
 import { useAuthStore } from '@/store/auth';
 
-const ROLES = ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'chef_main_kitchen', 'bar_man', 'juice_maker', 'coffee_lady', 'cashier', 'storekeeper'];
+const ROLES = ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'chef_main_kitchen', 'bar_man', 'juice_maker', 'coffee_lady', 'cashier', 'branch_store_keeper', 'main_store_keeper'];
 
 export default function StaffPage() {
   const router = useRouter();
@@ -19,7 +19,7 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'waiter', phone: '', restaurantId: 1, branchId: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'waiter', phone: '', restaurantId: 1, branchId: '', isActive: true });
   const [submitting, setSubmitting] = useState(false);
   const [filterRole, setFilterRole] = useState('all');
   const [error, setError] = useState('');
@@ -41,14 +41,14 @@ export default function StaffPage() {
   const openCreate = () => {
     setEditUser(null);
     setError('');
-    setForm({ name: '', email: '', password: '', role: 'waiter', phone: '', restaurantId: currentUser?.restaurantId || restaurants[0]?.id || 1, branchId: '' });
+    setForm({ name: '', email: '', password: '', role: 'waiter', phone: '', restaurantId: currentUser?.restaurantId || restaurants[0]?.id || 1, branchId: currentUser?.branchId ? String(currentUser.branchId) : '', isActive: true });
     setShowModal(true);
   };
 
   const openEdit = (user: User) => {
     setEditUser(user);
     setError('');
-    setForm({ name: user.name, email: user.email, password: '', role: user.role, phone: user.phone || '', restaurantId: user.restaurantId || 1, branchId: user.branchId ? String(user.branchId) : '' });
+    setForm({ name: user.name, email: user.email, password: '', role: user.role, phone: user.phone || '', restaurantId: user.restaurantId || 1, branchId: user.branchId ? String(user.branchId) : '', isActive: user.isActive !== false });
     setShowModal(true);
   };
 
@@ -56,6 +56,10 @@ export default function StaffPage() {
     setError('');
     if (!form.name.trim() || !form.email.trim() || (!editUser && form.password.length < 6)) {
       setError('Name, a valid email, and a password of at least 6 characters are required.');
+      return;
+    }
+    if (form.role === 'branch_store_keeper' && !form.branchId) {
+      setError('Select a branch for the Branch Store Keeper.');
       return;
     }
     setSubmitting(true);
@@ -66,7 +70,7 @@ export default function StaffPage() {
         email: form.email.trim().toLowerCase(),
         phone: form.phone.trim() || null,
         restaurantId: +form.restaurantId,
-        branchId: form.branchId ? +form.branchId : null,
+        branchId: form.role === 'main_store_keeper' ? null : form.branchId ? +form.branchId : null,
       };
       if (!data.password) delete data.password;
       const response = editUser ? await updateUser(editUser.id, data) : await createUser(data);
@@ -103,6 +107,24 @@ export default function StaffPage() {
       await fetchData();
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Could not delete this staff member.');
+    }
+  };
+
+  const toggleAccess = async (staffMember: User) => {
+    const nextActive = !staffMember.isActive;
+    const action = nextActive ? 'turn ON' : 'turn OFF';
+    if (!window.confirm(`${action} system access for ${staffMember.name}? ${nextActive ? 'They will be able to sign in during their working hours.' : 'They will be signed out and cannot access the system.'}`)) return;
+    setError('');
+    setSubmitting(true);
+    try {
+      const response = await updateUser(staffMember.id, { isActive: nextActive });
+      const saved = response.data as User;
+      setUsers(previous => previous.map(member => member.id === saved.id ? saved : member));
+      await fetchData();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || `Could not ${action} this staff member.`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -171,9 +193,18 @@ export default function StaffPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className={clsx('status-badge', ROLE_COLORS[user.role])}>{ROLE_LABELS[user.role]}</span>
-                <span className={clsx('status-badge', user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')}>
-                  {user.isActive ? 'Active' : 'Inactive'}
-                </span>
+                <button
+                  type="button"
+                  disabled={submitting || user.id === currentUser?.id}
+                  onClick={() => void toggleAccess(user)}
+                  title={user.id === currentUser?.id ? 'You cannot switch off your own account' : `Turn ${user.isActive ? 'OFF' : 'ON'} system access`}
+                  className={clsx(
+                    'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                    user.isActive ? 'bg-green-100 text-green-800 hover:bg-red-100 hover:text-red-800' : 'bg-red-100 text-red-800 hover:bg-green-100 hover:text-green-800',
+                  )}
+                >
+                  <Power size={12} /> {user.isActive ? 'ON' : 'OFF'}
+                </button>
               </div>
               {(user.branch || user.phone) && (
                 <div className="mt-3 pt-3 border-t border-gray-50 text-xs text-gray-400 space-y-0.5">
@@ -201,7 +232,11 @@ export default function StaffPage() {
               <div><label className="block text-sm font-medium text-gray-700 mb-1">{editUser ? 'New Password (optional)' : 'Password'}</label>
                 <input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} className="input" /></div>
               <div><label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className="input">
+                <select value={form.role} onChange={e => setForm(p => ({
+                  ...p,
+                  role: e.target.value,
+                  branchId: e.target.value === 'main_store_keeper' ? '' : (e.target.value === 'branch_store_keeper' && currentUser?.branchId ? String(currentUser.branchId) : p.branchId),
+                }))} className="input">
                   {availableRoles.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
                 </select>
               </div>
@@ -219,11 +254,30 @@ export default function StaffPage() {
                     .map(restaurant => <option key={restaurant.id} value={restaurant.id}>{restaurant.name}</option>)}
                 </select>
               </div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                <select value={form.branchId} onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))} className="input">
-                  <option value="">No branch</option>
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Branch {form.role === 'branch_store_keeper' && <span className="text-red-500">*</span>}</label>
+                <select
+                  value={form.branchId}
+                  onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}
+                  className="input"
+                  disabled={form.role === 'main_store_keeper' || (currentUser?.role === 'manager' && !!currentUser.branchId)}
+                >
+                  <option value="">{form.role === 'branch_store_keeper' ? 'Select branch' : 'No branch'}</option>
                   {availableBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
+              </div>
+              <div className="col-span-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <label className="flex items-center justify-between gap-4">
+                  <span>
+                    <span className="block text-sm font-semibold text-gray-800">System access during working hours</span>
+                    <span className="block text-xs text-gray-500">OFF staff cannot sign in or continue using an existing session.</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={form.isActive}
+                    onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))}
+                    className="h-5 w-5 accent-green-600"
+                  />
+                </label>
               </div>
             </div>
             {error && (

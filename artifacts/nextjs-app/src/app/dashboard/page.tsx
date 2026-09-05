@@ -101,7 +101,7 @@ export default function DashboardPage() {
   const isKitchen = ['chef', 'coordinator'].includes(role);
   const isCashier = role === 'cashier';
   const isWaiter = role === 'waiter';
-  const isStore = role === 'storekeeper';
+  const isStore = role === 'branch_store_keeper' || role === 'main_store_keeper';
 
   // Waiters land on Orders / POS — the Dashboard page is not part of their menu
   const router = useRouter();

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
-import { ROLE_LABELS, storekeeperRoleLabel } from '@/lib/auth';
+import { ROLE_LABELS } from '@/lib/auth';
 import { DASHBOARD_ROUTE_ROLES } from '@/lib/dashboard-access';
 import clsx from 'clsx';
 import {
@@ -72,15 +72,6 @@ export default function Sidebar() {
     if (!user?.role || !item.roles.includes(user.role)) return false;
     if (item.href === '/dashboard/inventory' && user.role === 'cashier') {
       return false;
-    }
-    if (item.href === '/dashboard/main-store' && user.role === 'storekeeper') {
-      return !user.branchId;
-    }
-    if (item.href === '/dashboard/inventory-transfers' && user.role === 'storekeeper') {
-      return !!user.branchId;
-    }
-    if (item.href === '/dashboard/inventory' && user.role === 'storekeeper') {
-      return !!user.branchId;
     }
     return true;
   });
@@ -153,7 +144,7 @@ export default function Sidebar() {
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm text-cream-50 truncate">{user?.name}</p>
               <p className="text-xs text-gold-400/80 truncate">
-                {user?.role === 'storekeeper' ? storekeeperRoleLabel(user.branchId) : user?.role ? ROLE_LABELS[user.role] : ''}
+                {user?.role ? ROLE_LABELS[user.role] : ''}
               </p>
             </div>
           </div>

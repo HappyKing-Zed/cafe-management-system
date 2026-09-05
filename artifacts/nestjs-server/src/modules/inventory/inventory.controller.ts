@@ -10,7 +10,7 @@ import { InventoryService } from './inventory.service';
 @ApiTags('inventory')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
+@Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.BRANCH_STORE_KEEPER)
 @Controller('inventory')
 export class InventoryController {
   constructor(private service: InventoryService) {}
@@ -58,7 +58,7 @@ export class InventoryController {
 
   // Purchase Orders
   @Get('purchase-orders')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.BRANCH_STORE_KEEPER)
   findPOs(@Req() req: any, @Query('supplierId') sid?: number) {
     return this.service.findAllPOs(sid ? +sid : undefined, branchScope(req.user));
   }
@@ -76,7 +76,7 @@ export class InventoryController {
   }
 
   @Patch('purchase-orders/:id/status')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.BRANCH_STORE_KEEPER)
   updatePOStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Req() req: any) {
     return this.service.updatePOStatus(id, status, req.user, branchScope(req.user));
   }
@@ -84,7 +84,7 @@ export class InventoryController {
   // Item Requests — restricted to management/coordination roles (mirrors the page guard).
   // Storekeeper keeps access to list + status so they can perform the stock-out step.
   @Get('requests')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.BRANCH_STORE_KEEPER)
   findRequests(@Req() req: any) {
     return this.service.findAllRequests(req.user, branchScope(req.user));
   }
@@ -96,14 +96,14 @@ export class InventoryController {
   }
 
   @Patch('requests/:id/status')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.BRANCH_STORE_KEEPER)
   updateRequestStatus(@Param('id', ParseIntPipe) id: number, @Body('status') status: string, @Body('quantity') quantity: number, @Req() req: any) {
     return this.service.updateRequestStatus(id, status, req.user, branchScope(req.user), quantity);
   }
 
   // Items readable by roles that can open the request form
   @Get('requestable-items')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.COORDINATOR, Role.BRANCH_STORE_KEEPER)
   requestableItems(@Req() req: any) {
     return this.service.findAllItems(undefined, branchScope(req.user));
   }
@@ -121,7 +121,7 @@ export class InventoryController {
   }
 
   @Post('adjustments')
-  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.STOREKEEPER)
+  @Roles(Role.ADMIN, Role.OWNER, Role.MANAGER, Role.BRANCH_STORE_KEEPER)
   createAdjustment(@Req() req: any, @Body() body: any) {
     return this.service.createAdjustment(body, req.user, branchScope(req.user));
   }

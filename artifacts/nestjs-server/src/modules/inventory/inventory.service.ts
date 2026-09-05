@@ -29,7 +29,7 @@ const ROLE_DEPARTMENT: Record<string, string> = {
   coordinator: 'Coordination', waiter: 'Service', chef: 'Kitchen',
   chef_main_kitchen: 'Kitchen', bar_man: 'Kitchen',
   juice_maker: 'Kitchen', coffee_lady: 'Kitchen',
-  cashier: 'Finance', storekeeper: 'Store',
+  cashier: 'Finance', branch_store_keeper: 'Branch Store', main_store_keeper: 'Main Store',
 };
 
 @Injectable()
@@ -224,7 +224,7 @@ export class InventoryService {
     const approvedNames = updated.items.filter(i => targetIds.includes(i.id)).map(i => i.inventoryItem?.name).filter(Boolean).join(', ');
     const who = user.name || user.role;
     if (updated.status === POStatus.APPROVED) {
-      await this.notifications.notify({ roles: ['manager', 'owner', 'storekeeper'], userId: updated.requestedById || undefined, message: `Purchase order #${updated.id} fully approved by ${who} (ETB ${Number(updated.totalAmount).toLocaleString()}) — stock in when goods arrive`, branchId: updated.branchId });
+      await this.notifications.notify({ roles: ['manager', 'owner', 'branch_store_keeper'], userId: updated.requestedById || undefined, message: `Purchase order #${updated.id} fully approved by ${who} (ETB ${Number(updated.totalAmount).toLocaleString()}) — stock in when goods arrive`, branchId: updated.branchId });
     } else {
       await this.notifications.notify({ roles: ['manager', 'owner'], message: `${who} approved ${approvedNames} on purchase order #${updated.id} — some items still awaiting approval`, branchId: updated.branchId });
     }
@@ -243,7 +243,7 @@ export class InventoryService {
     if (status === POStatus.PAID && !['admin', 'owner', 'cashier'].includes(user.role as any)) {
       throw new ForbiddenException('Only the cashier can confirm payment of a purchase order');
     }
-    if (status === POStatus.RECEIVED && !['admin', 'owner', 'manager', 'storekeeper'].includes(user.role as any)) {
+    if (status === POStatus.RECEIVED && !['admin', 'owner', 'manager', 'branch_store_keeper'].includes(user.role as any)) {
       throw new ForbiddenException('Only the store keeper, manager or owner can receive goods into stock');
     }
 
@@ -303,11 +303,11 @@ export class InventoryService {
     }
 
     if (status === POStatus.APPROVED) {
-      await this.notifications.notify({ roles: ['manager', 'owner', 'storekeeper'], userId: po.requestedById || undefined, message: `Purchase order #${po.id} approved by ${user.name || user.role} (ETB ${Number(po.totalAmount).toLocaleString()}) — stock in when goods arrive`, branchId: po.branchId });
+      await this.notifications.notify({ roles: ['manager', 'owner', 'branch_store_keeper'], userId: po.requestedById || undefined, message: `Purchase order #${po.id} approved by ${user.name || user.role} (ETB ${Number(po.totalAmount).toLocaleString()}) — stock in when goods arrive`, branchId: po.branchId });
     } else if (status === POStatus.REJECTED) {
       await this.notifications.notify({ userId: po.requestedById || undefined, message: `Purchase order #${po.id} was rejected`, branchId: po.branchId });
     } else if (status === POStatus.PAID) {
-      await this.notifications.notify({ roles: ['storekeeper'], message: `Purchase order #${po.id} paid — fill the stock in when goods arrive`, branchId: po.branchId });
+      await this.notifications.notify({ roles: ['branch_store_keeper'], message: `Purchase order #${po.id} paid — fill the stock in when goods arrive`, branchId: po.branchId });
     }
     return saved;
   }
@@ -386,7 +386,7 @@ export class InventoryService {
     const where: any = {};
     if (branchId) where.branchId = branchId;
     // Regular staff only see their own requests; managers/storekeepers see all in their branch
-    if (!['admin', 'owner', 'manager', 'storekeeper'].includes(user.role as any)) {
+    if (!['admin', 'owner', 'manager', 'branch_store_keeper'].includes(user.role as any)) {
       where.requestedById = user.id;
     }
     return this.reqRepo.find({ where, order: { createdAt: 'DESC' } });
@@ -444,7 +444,7 @@ export class InventoryService {
     if ((status === ItemRequestStatus.APPROVED || status === ItemRequestStatus.REJECTED) && !['admin', 'owner', 'manager'].includes(user.role as any)) {
       throw new ForbiddenException('Only managers and above can approve or reject item requests');
     }
-    if (status === ItemRequestStatus.ISSUED && !['admin', 'owner', 'storekeeper'].includes(user.role as any)) {
+    if (status === ItemRequestStatus.ISSUED && !['admin', 'owner', 'branch_store_keeper'].includes(user.role as any)) {
       throw new ForbiddenException('Only the store keeper can issue the stock out');
     }
     if (status === ItemRequestStatus.RECEIVED && req.requestedById !== user.id && !['admin', 'owner'].includes(user.role as any)) {
@@ -507,11 +507,11 @@ export class InventoryService {
     const saved = req;
 
     if (status === ItemRequestStatus.APPROVED) {
-      await this.notifications.notify({ roles: ['storekeeper'], userId: req.requestedById, message: `Item request #${req.id} (${Number(req.quantity)} ${item.unit} of ${item.name}) approved — storekeeper to issue stock out`, branchId: req.branchId });
+      await this.notifications.notify({ roles: ['branch_store_keeper'], userId: req.requestedById, message: `Item request #${req.id} (${Number(req.quantity)} ${item.unit} of ${item.name}) approved — Branch Store Keeper to issue stock out`, branchId: req.branchId });
     } else if (status === ItemRequestStatus.REJECTED) {
-      await this.notifications.notify({ roles: ['storekeeper'], userId: req.requestedById, message: `Item request #${req.id} (${item.name}) was rejected by ${user.name || 'manager'}`, branchId: req.branchId });
+      await this.notifications.notify({ roles: ['branch_store_keeper'], userId: req.requestedById, message: `Item request #${req.id} (${item.name}) was rejected by ${user.name || 'manager'}`, branchId: req.branchId });
     } else if (status === ItemRequestStatus.RECEIVED) {
-      await this.notifications.notify({ roles: ['storekeeper', 'manager'], message: `Item request #${req.id} (${item.name}) confirmed received by ${user.name || 'requester'}`, branchId: req.branchId });
+      await this.notifications.notify({ roles: ['branch_store_keeper', 'manager'], message: `Item request #${req.id} (${item.name}) confirmed received by ${user.name || 'requester'}`, branchId: req.branchId });
     }
     return saved;
   }
