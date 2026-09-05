@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getTables, createTable, updateTable, deleteTable, updateTableStatus } from '@/lib/api';
-import { RestaurantTable } from '@/lib/types';
+import { getTables, createTable, updateTable, deleteTable, updateTableStatus, getApiErrorMessage } from '@/lib/api';
+import { RestaurantTable, TableStatus } from '@/lib/types';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '@/store/auth';
@@ -87,12 +87,12 @@ export default function TablesPage() {
       if (editing) {
         await updateTable(editing.id, payload);
       } else {
-        await createTable({ ...payload, branchId: (user as any)?.branchId || 1 });
+        await createTable({ ...payload, branchId: user?.branchId || 1 });
       }
       setShowModal(false);
       await fetchData();
-    } catch (e: any) {
-      setFormError(e?.response?.data?.message || 'Could not save table');
+    } catch (e: unknown) {
+      setFormError(getApiErrorMessage(e, 'Could not save table'));
     } finally {
       setSubmitting(false);
     }
@@ -111,8 +111,8 @@ export default function TablesPage() {
   };
 
   const cycleStatus = async (t: RestaurantTable) => {
-    const idx = STATUS_ORDER.indexOf(t.status as any);
-    const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+    const idx = STATUS_ORDER.indexOf(t.status);
+    const next: TableStatus = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
     // Optimistic update for snappy feel
     setTables(prev => prev.map(x => x.id === t.id ? { ...x, status: next } : x));
     try {

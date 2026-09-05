@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, approvePOItems, createStockAdjustment, getStockAdjustments, getItemRequests, updateItemRequestStatus } from '@/lib/api';
+import { getInventoryItems, createInventoryItem, updateInventoryItem, getSuppliers, createSupplier, getPurchaseOrders, createPurchaseOrder, updatePOStatus, approvePOItems, createStockAdjustment, getStockAdjustments, getItemRequests, updateItemRequestStatus, getApiErrorMessage } from '@/lib/api';
 import { InventoryItem, Supplier, PurchaseOrder } from '@/lib/types';
 import { downloadExcelFile } from '@/lib/excel-export';
 import { useAuthStore } from '@/store/auth';
@@ -123,8 +123,9 @@ export default function InventoryPage() {
       setEditItem(null);
       setManualStockItemId('');
       await fetchData();
-    } catch (e: any) {
-      alert(e?.response?.data?.message || e?.message || 'Could not save the inventory item');
+    } catch (e: unknown) {
+      const fallback = e instanceof Error ? e.message : 'Could not save the inventory item';
+      alert(getApiErrorMessage(e, fallback));
     } finally {
       setSubmitting(false);
     }
@@ -163,7 +164,7 @@ export default function InventoryPage() {
     if (!poDetail) return;
     setPOBusy(true);
     try { await approvePOItems(poDetail.id, all ? { all: true } : { itemIds: poSelected }); await refreshPODetail(); }
-    catch (e: any) { alert(e?.response?.data?.message || 'Approval failed'); }
+    catch (e: unknown) { alert(getApiErrorMessage(e, 'Approval failed')); }
     finally { setPOBusy(false); }
   };
   const doPOStatus = async (status: string) => {
@@ -173,7 +174,7 @@ export default function InventoryPage() {
       await updatePOStatus(poDetail.id, status);
       await fetchData(); // refreshes items, movements and POs so stock updates show immediately
       setPODetail(null);
-    } catch (e: any) { alert(e?.response?.data?.message || 'Action failed'); }
+    } catch (e: unknown) { alert(getApiErrorMessage(e, 'Action failed')); }
     finally { setPOBusy(false); }
   };
 
@@ -193,7 +194,7 @@ export default function InventoryPage() {
       return {
         title: report.type === 'low-stock' ? 'Low Stock Items Report' : 'Available Items Report',
         head: ['Item', 'Category', 'Unit', 'Current Stock', 'Min Stock', 'Unit Price (ETB)', 'Total Price (ETB)', 'Expiry Date'],
-        rows: list.map(i => [i.name, (i as any).category || '—', i.unit, Number(i.currentStock), Number(i.minStock), Number(i.unitCost), Number(i.currentStock) * Number(i.unitCost), (i as any).expiryDate ? new Date((i as any).expiryDate).toLocaleDateString() : '—']),
+        rows: list.map(i => [i.name, i.category || '—', i.unit, Number(i.currentStock), Number(i.minStock), Number(i.unitCost), Number(i.currentStock) * Number(i.unitCost), i.expiryDate ? new Date(i.expiryDate).toLocaleDateString() : '—']),
       };
     }
     const type = report.type === 'stock-in' ? 'addition' : 'deduction';
@@ -216,7 +217,7 @@ export default function InventoryPage() {
         `${title.replace(/ /g, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}.xlsx`,
         [{ name: title, rows: [[`${title} (${rangeLabel()})`], head, ...rows] }],
       );
-    } catch (e: any) { alert(`Export failed: ${e?.message || 'unknown error'}`); } finally { setExporting(false); }
+    } catch (e: unknown) { alert(`Export failed: ${e instanceof Error ? e.message : 'unknown error'}`); } finally { setExporting(false); }
   };
 
   const exportPDF = async () => {
@@ -235,7 +236,7 @@ export default function InventoryPage() {
       doc.text(`${rangeLabel()} · generated ${new Date().toLocaleString()}`, 14, 22);
       autoTable(doc, { head: [head], body: rows.map(r => r.map(String)), startY: 27, styles: { fontSize: 8 } });
       doc.save(`${title.replace(/ /g, '_').toLowerCase()}_${new Date().toISOString().slice(0, 10)}.pdf`);
-    } catch (e: any) { alert(`Export failed: ${e?.message || 'unknown error'}`); } finally { setExporting(false); }
+    } catch (e: unknown) { alert(`Export failed: ${e instanceof Error ? e.message : 'unknown error'}`); } finally { setExporting(false); }
   };
 
   const savePO = async () => {
@@ -253,8 +254,8 @@ export default function InventoryPage() {
       setShowPOModal(false);
       setPOForm({ supplierId: '', notes: '', lines: [{ category: '', inventoryItemId: '', quantity: '', unitPrice: '' }] });
       await fetchData();
-    } catch (e: any) {
-      setFormError(e?.response?.data?.message || 'Could not create purchase order');
+    } catch (e: unknown) {
+      setFormError(getApiErrorMessage(e, 'Could not create purchase order'));
     } finally {
       setSubmitting(false);
     }
@@ -282,7 +283,7 @@ export default function InventoryPage() {
       currentStock: '',
       minStock: item ? String(item.minStock ?? '') : '',
       unitCost: item ? String(item.unitCost ?? '') : '',
-      expiryDate: item ? String((item as any).expiryDate || '') : '',
+      expiryDate: item ? String(item.expiryDate || '') : '',
     }));
   };
 
@@ -383,13 +384,13 @@ export default function InventoryPage() {
   const doStockOut = async (id: number) => {
     setOpBusy(`req-${id}`);
     try { await updateItemRequestStatus(id, 'issued'); await fetchData(); }
-    catch (e: any) { alert(e?.response?.data?.message || 'Stock out failed'); }
+    catch (e: unknown) { alert(getApiErrorMessage(e, 'Stock out failed')); }
     finally { setOpBusy(null); }
   };
   const doStockIn = async (id: number) => {
     setOpBusy(`po-${id}`);
     try { await updatePOStatus(id, 'received'); await fetchData(); }
-    catch (e: any) { alert(e?.response?.data?.message || 'Stock in failed'); }
+    catch (e: unknown) { alert(getApiErrorMessage(e, 'Stock in failed')); }
     finally { setOpBusy(null); }
   };
 
@@ -575,7 +576,7 @@ export default function InventoryPage() {
                             <td className="table-cell text-gray-500">{Number(item.minStock)} {item.unit}</td>
                             <td className="table-cell">ETB {Number(item.unitCost).toLocaleString()}</td>
                             <td className="table-cell font-semibold">ETB {(Number(item.currentStock) * Number(item.unitCost)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                            <td className="table-cell text-xs text-gray-500">{(item as any).expiryDate ? new Date((item as any).expiryDate).toLocaleDateString() : '—'}</td>
+                            <td className="table-cell text-xs text-gray-500">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '—'}</td>
                             <td className="table-cell">
                               <span className={clsx('px-2 py-0.5 rounded-full text-xs font-medium', out ? 'bg-red-100 text-red-700' : low ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700')}>
                                 {out ? 'Out of stock' : low ? 'Low stock' : 'In stock'}
@@ -739,8 +740,8 @@ export default function InventoryPage() {
                       <td className="table-cell">{item.unitCost ? `ETB ${Number(item.unitCost).toLocaleString()}` : '—'}</td>
                       <td className="table-cell font-semibold">{item.unitCost ? `ETB ${(Number(item.currentStock) * Number(item.unitCost)).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}</td>
                       <td className="table-cell text-xs">
-                        {(item as any).expiryDate ? (() => {
-                          const exp = new Date((item as any).expiryDate); const today = new Date(); today.setHours(0,0,0,0);
+                        {item.expiryDate ? (() => {
+                          const exp = new Date(item.expiryDate); const today = new Date(); today.setHours(0,0,0,0);
                           const soon = new Date(today); soon.setDate(soon.getDate() + 7);
                           const expired = exp < today; const expSoon = !expired && exp <= soon;
                           return <span className={clsx('status-badge', expired ? 'bg-red-100 text-red-700' : expSoon ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600')}>
@@ -749,7 +750,7 @@ export default function InventoryPage() {
                         })() : <span className="text-gray-400">—</span>}
                       </td>
                       <td className="table-cell">
-                        <button onClick={() => { setEditItem(item); setCustomCat(false); setItemForm({ name: item.name, unit: item.unit, currentStock: String(item.currentStock), minStock: String(item.minStock), unitCost: String(item.unitCost || ''), category: item.category || '', expiryDate: (item as any).expiryDate ? String((item as any).expiryDate).slice(0, 10) : '', restaurantId: item.restaurantId }); setShowItemModal(true); }}
+                        <button onClick={() => { setEditItem(item); setCustomCat(false); setItemForm({ name: item.name, unit: item.unit, currentStock: String(item.currentStock), minStock: String(item.minStock), unitCost: String(item.unitCost || ''), category: item.category || '', expiryDate: item.expiryDate ? String(item.expiryDate).slice(0, 10) : '', restaurantId: item.restaurantId }); setShowItemModal(true); }}
                           className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded"><Pencil size={14} /></button>
                       </td>
                     </tr>
@@ -815,8 +816,8 @@ export default function InventoryPage() {
                       <td className="table-cell font-semibold">ETB {Number(po.totalAmount).toLocaleString()}</td>
                       <td className="table-cell"><span className={clsx('status-badge', PO_STATUS_COLORS[po.status] || 'bg-gray-100 text-gray-700')}>{po.status}</span></td>
                       <td className="table-cell text-gray-500 text-xs">
-                        {(po as any).requestedBy?.name || '—'}
-                        {(po as any).approvedBy?.name && <div className="text-green-600">approved by {(po as any).approvedBy.name}</div>}
+                        {po.requestedBy?.name || '—'}
+                        {po.approvedBy?.name && <div className="text-green-600">approved by {po.approvedBy.name}</div>}
                       </td>
                       <td className="table-cell text-gray-400 text-xs">{new Date(po.createdAt).toLocaleDateString()}</td>
                       <td className="table-cell">
@@ -978,8 +979,8 @@ export default function InventoryPage() {
               <span className={clsx('status-badge', PO_STATUS_COLORS[poDetail.status] || 'bg-gray-100 text-gray-700')}>{poDetail.status}</span>
             </div>
             <div className="text-sm text-gray-600 mb-4 space-y-1">
-              <p>Requested by: <span className="font-medium">{(poDetail as any).requestedBy?.name || '—'}</span></p>
-              {(poDetail as any).approvedBy?.name && <p className="text-green-700">Approved by: <span className="font-medium">{(poDetail as any).approvedBy.name}</span></p>}
+              <p>Requested by: <span className="font-medium">{poDetail.requestedBy?.name || '—'}</span></p>
+              {poDetail.approvedBy?.name && <p className="text-green-700">Approved by: <span className="font-medium">{poDetail.approvedBy.name}</span></p>}
               {poDetail.notes && <p>Notes: {poDetail.notes}</p>}
             </div>
             <div className="overflow-x-auto">

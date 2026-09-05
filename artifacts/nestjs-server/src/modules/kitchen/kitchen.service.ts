@@ -68,7 +68,6 @@ export class KitchenService {
     from: OrderItemStatus,
     status: OrderItemStatus,
     user: { id: number; role: string },
-    branchId?: number,
   ) {
     const order = await this.repo.findOne({ where: { id }, relations: ['items'] });
     if (!order) throw new NotFoundException('Order not found');
@@ -92,19 +91,19 @@ export class KitchenService {
     return updated;
   }
 
-  confirmOrder(id: number, user: { id: number; role: string }, branchId?: number) {
+  confirmOrder(_id: number, _user: { id: number; role: string }) {
     throw new BadRequestException('Use item assignments to confirm pending kitchen items');
   }
 
-  acceptOrder(id: number, user: { id: number; role: string }, branchId?: number) {
-    return this.setItemStatus(id, OrderItemStatus.CONFIRMED, OrderItemStatus.ACCEPTED, user, branchId);
+  acceptOrder(id: number, user: { id: number; role: string }) {
+    return this.setItemStatus(id, OrderItemStatus.CONFIRMED, OrderItemStatus.ACCEPTED, user);
   }
 
-  startPreparing(id: number, user: { id: number; role: string }, branchId?: number) {
-    return this.setItemStatus(id, OrderItemStatus.ACCEPTED, OrderItemStatus.PREPARING, user, branchId);
+  startPreparing(id: number, user: { id: number; role: string }) {
+    return this.setItemStatus(id, OrderItemStatus.ACCEPTED, OrderItemStatus.PREPARING, user);
   }
 
-  markReady(id: number, user: { id: number; role: string }, branchId?: number) {
-    return this.setItemStatus(id, OrderItemStatus.PREPARING, OrderItemStatus.READY, user, branchId);
+  markReady(id: number, user: { id: number; role: string }) {
+    return this.setItemStatus(id, OrderItemStatus.PREPARING, OrderItemStatus.READY, user);
   }
 }

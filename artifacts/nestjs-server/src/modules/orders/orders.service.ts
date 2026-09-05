@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, FindOptionsWhere, In, Repository } from 'typeorm';
 import { Order } from '../../entities/order.entity';
 import { OrderItem } from '../../entities/order-item.entity';
 import { MenuItem } from '../../entities/menu-item.entity';
@@ -12,8 +12,23 @@ import { OrderItemStatus } from '../../common/enums/order-item-status.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Branch } from '../../entities/branch.entity';
 import { isKitchenWorkerRole, KITCHEN_WORKER_ROLES, Role } from '../../common/enums/roles.enum';
-import { In } from 'typeorm';
 import { PaymentItem } from '../../entities/payment-item.entity';
+
+type OrderActor = {
+  id: number;
+  role: string;
+  branchId?: number;
+  restaurantId?: number;
+};
+
+type OrderAlert = {
+  orderId: number;
+  side: 'kitchen' | 'waiter';
+  severity: 'critical' | 'warning';
+  status: OrderStatus;
+  minutes: number;
+  message: string;
+};
 
 @Injectable()
 export class OrdersService {
@@ -27,15 +42,15 @@ export class OrdersService {
     private dataSource: DataSource,
   ) {}
 
-  async findAll(status?: OrderStatus, tableId?: number, waiterId?: number, branchId?: number, user?: { role: string; branchId?: number }) {
+  async findAll(status?: OrderStatus, tableId?: number, waiterId?: number, branchId?: number, user?: OrderActor) {
     if (user?.role === 'cashier') {
-      const actor = await this.userRepo.findOne({ where: { id: (user as any).id } });
+      const actor = await this.userRepo.findOne({ where: { id: user.id } });
       branchId = actor?.branchId;
     }
     if (user?.role === 'cashier' && !branchId) {
       throw new ForbiddenException('Cashier order access requires a branch assignment');
     }
-    const where: any = {};
+    const where: FindOptionsWhere<Order> = {};
     if (status) where.status = status;
     if (tableId) where.tableId = tableId;
     if (waiterId) where.waiterId = waiterId;
@@ -79,7 +94,7 @@ export class OrdersService {
   }
 
   /** Waiters may only access their own orders; branch staff only their branch's orders. */
-  private assertCanAccess(order: Order, user?: { id: number; role: string; branchId?: number }) {
+  private assertCanAccess(order: Order, user?: OrderActor) {
     if (user?.role === 'waiter' && order.waiterId !== user.id) {
       throw new ForbiddenException('You can only access your own orders');
     }
@@ -96,7 +111,7 @@ export class OrdersService {
    */
   private async assertKitchenScope(
     order: Order,
-    claimedActor: { id: number; role: string; branchId?: number; restaurantId?: number },
+    claimedActor: OrderActor,
     manager?: EntityManager,
   ): Promise<User> {
     const users = manager ? manager.getRepository(User) : this.userRepo;
@@ -116,13 +131,13 @@ export class OrdersService {
     return actor;
   }
 
-  async findOneAuthorized(id: number, user?: { id: number; role: string }) {
+  async findOneAuthorized(id: number, user?: OrderActor) {
     const order = await this.findOne(id);
     if (user?.role === 'cashier') {
       const actor = await this.userRepo.findOne({ where: { id: user.id } });
       if (!actor?.branchId) throw new ForbiddenException('Cashier order access requires a branch assignment');
       if (order.branchId !== actor.branchId) throw new ForbiddenException('This order belongs to another branch');
-      user = { ...user, branchId: actor.branchId } as any;
+      user = { ...user, branchId: actor.branchId };
     }
     this.assertCanAccess(order, user);
     if (user?.role === 'cashier' && !order.items.some((item) =>
@@ -143,7 +158,7 @@ export class OrdersService {
     }
     if (data.waiterId) {
       const waiter = await this.userRepo.findOne({ where: { id: data.waiterId } });
-      if (!waiter || waiter.role !== ('waiter' as any) || !waiter.isActive) {
+      if (!waiter || waiter.role !== Role.WAITER || !waiter.isActive) {
         throw new BadRequestException('waiterId must reference an active waiter');
       }
     }
@@ -519,7 +534,7 @@ export class OrdersService {
     });
 
     const now = Date.now();
-    const alerts: any[] = [];
+    const alerts: OrderAlert[] = [];
     for (const o of active) {
       const refTime = new Date(o.updatedAt || o.createdAt).getTime();
       const minutes = Math.floor((now - refTime) / 60000);

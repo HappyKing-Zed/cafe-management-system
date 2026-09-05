@@ -2,10 +2,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
-import { getOrderStats, getDailyReport, getOrders, getKitchenBoard, getInventoryItems, getLowStockItems, seedDatabase } from '@/lib/api';
+import { getOrderStats, getDailyReport, getOrders, getKitchenBoard, getInventoryItems, getLowStockItems, seedDatabase, getApiErrorMessage } from '@/lib/api';
 import { ShoppingCart, TrendingUp, Clock, CheckCircle, RefreshCw, ChefHat, Package, HandPlatter, Wallet, Send, ClipboardList, Table2, CreditCard } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import ManagerDashboard from '@/components/manager-dashboard';
+import type { InventoryItem, Order } from '@/lib/types';
+import type { ReactNode } from 'react';
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -27,7 +30,28 @@ const iconBg: Record<string, string> = {
   purple: 'bg-purple-100 text-purple-600',
 };
 
-function StatCards({ cards, loading }: { cards: Array<{ label: string; value: any; icon: any; color: string; sub: string }>; loading: boolean }) {
+interface StatCard {
+  label: string;
+  value: ReactNode;
+  icon: LucideIcon;
+  color: string;
+  sub: string;
+}
+
+interface OrderStats {
+  pendingOrders?: number;
+  preparingOrders?: number;
+  todayOrders?: number;
+  todayRevenue?: number;
+}
+
+interface DailyReport {
+  totalRevenue?: number;
+  transactionCount?: number;
+  byMethod?: Record<string, number>;
+}
+
+function StatCards({ cards, loading }: { cards: StatCard[]; loading: boolean }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
       {cards.map((s) => (
@@ -46,7 +70,7 @@ function StatCards({ cards, loading }: { cards: Array<{ label: string; value: an
   );
 }
 
-function OrderList({ title, orders, linkLabel, href }: { title: string; orders: any[]; linkLabel: string; href: string }) {
+function OrderList({ title, orders, linkLabel, href }: { title: string; orders: Order[]; linkLabel: string; href: string }) {
   return (
     <div className="card lg:col-span-2">
       <div className="flex items-center justify-between mb-4">
@@ -86,12 +110,12 @@ function OrderList({ title, orders, linkLabel, href }: { title: string; orders: 
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const role = user?.role || '';
-  const [stats, setStats] = useState<any>(null);
-  const [report, setReport] = useState<any>(null);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [board, setBoard] = useState<any[]>([]);
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [lowStock, setLowStock] = useState<any[]>([]);
+  const [stats, setStats] = useState<OrderStats | null>(null);
+  const [report, setReport] = useState<DailyReport | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [board, setBoard] = useState<Order[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [lowStock, setLowStock] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [seeding, setSeeding] = useState(false);
@@ -111,7 +135,7 @@ export default function DashboardPage() {
     if (!role) return;
     const failures: string[] = [];
     try {
-      const jobs: Promise<any>[] = [];
+      const jobs: Promise<unknown>[] = [];
       jobs.push((isManager || isKitchen || isCashier || isWaiter) ? getOrderStats().then(r => setStats(r.data)).catch(() => { failures.push('order totals'); }) : Promise.resolve());
       jobs.push((isManager || isCashier) ? getDailyReport().then(r => setReport(r.data)).catch(() => { failures.push('daily report'); }) : Promise.resolve());
       jobs.push((isManager || isCashier || isWaiter) ? getOrders().then(r => setOrders(Array.isArray(r.data) ? r.data : [])).catch(() => { failures.push('orders'); }) : Promise.resolve());
@@ -145,8 +169,8 @@ export default function DashboardPage() {
       const res = await seedDatabase();
       setSeedMsg(res.data.message);
       fetchData();
-    } catch (e: any) {
-      setSeedMsg(e.response?.data?.message || 'Seed failed');
+    } catch (e: unknown) {
+      setSeedMsg(getApiErrorMessage(e, 'Seed failed'));
     } finally {
       setSeeding(false);
     }
@@ -161,7 +185,7 @@ export default function DashboardPage() {
   const boardCooking = board.filter(o => ['confirmed', 'preparing'].includes(o.status));
   const boardDone = board.filter(o => ['ready', 'served'].includes(o.status));
 
-  let cards: Array<{ label: string; value: any; icon: any; color: string; sub: string }> = [];
+  let cards: StatCard[] = [];
   if (isManager) {
     cards = [
       { label: "Today's Orders", value: stats?.todayOrders ?? '—', icon: ShoppingCart, color: 'brand', sub: 'Total orders today' },
@@ -291,7 +315,7 @@ export default function DashboardPage() {
             <h2 className="font-semibold text-gray-900 mb-4">Today's Revenue by Method</h2>
             {report?.byMethod && Object.keys(report.byMethod).length > 0 ? (
               <div className="space-y-3">
-                {Object.entries(report.byMethod).map(([method, amount]: any) => (
+                {Object.entries(report.byMethod).map(([method, amount]) => (
                   <div key={method} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-lg"></span>

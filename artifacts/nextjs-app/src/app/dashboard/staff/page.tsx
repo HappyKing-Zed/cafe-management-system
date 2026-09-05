@@ -1,14 +1,14 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getUsers, createUser, updateUser, deleteUser, getRestaurants, getBranches } from '@/lib/api';
-import { User, Restaurant, Branch } from '@/lib/types';
+import { getUsers, createUser, updateUser, deleteUser, getRestaurants, getBranches, getApiErrorMessage } from '@/lib/api';
+import { User, Restaurant, Branch, Role } from '@/lib/types';
 import { Users, Plus, Pencil, Trash2, Power } from 'lucide-react';
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth';
 import clsx from 'clsx';
 import { useAuthStore } from '@/store/auth';
 
-const ROLES = ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'chef_main_kitchen', 'bar_man', 'juice_maker', 'coffee_lady', 'cashier', 'branch_store_keeper', 'main_store_keeper'];
+const ROLES: Role[] = ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'chef', 'chef_main_kitchen', 'bar_man', 'juice_maker', 'coffee_lady', 'cashier', 'branch_store_keeper', 'main_store_keeper'];
 
 export default function StaffPage() {
   const router = useRouter();
@@ -91,9 +91,8 @@ export default function StaffPage() {
       }
       setShowModal(false);
       await fetchData();
-    } catch (e: any) {
-      const message = e?.response?.data?.message;
-      setError(Array.isArray(message) ? message.join(', ') : message || 'Could not save this staff member. Please try again.');
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Could not save this staff member. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -106,8 +105,8 @@ export default function StaffPage() {
       await deleteUser(id);
       setUsers(previous => previous.filter(user => user.id !== id));
       await fetchData();
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not delete this staff member.');
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Could not delete this staff member.'));
     }
   };
 
@@ -121,8 +120,8 @@ export default function StaffPage() {
       const saved = response.data as User;
       setUsers(previous => previous.map(member => member.id === saved.id ? saved : member));
       await fetchData();
-    } catch (e: any) {
-      setError(e?.response?.data?.message || `Could not ${action} this staff member.`);
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, `Could not ${action} this staff member.`));
     } finally {
       setSubmitting(false);
       setAccessChangeUser(null);

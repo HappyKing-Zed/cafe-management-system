@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getOrders, getOrder, createOrder, addOrderItems, removeOrderItems, updateOrderStatus, updateOrderItemStatus, processPayment, getMenuCategories, getTables, getWaiters, getKitchenWorkers, assignOrderItems } from '@/lib/api';
-import { Order, OrderItem, OrderItemStatus, MenuItem, MenuCategory, RestaurantTable, User } from '@/lib/types';
+import { getOrders, getOrder, createOrder, addOrderItems, removeOrderItems, updateOrderStatus, updateOrderItemStatus, processPayment, getMenuCategories, getTables, getWaiters, getKitchenWorkers, assignOrderItems, getApiErrorMessage } from '@/lib/api';
+import { Order, OrderItem, OrderItemStatus, OrderStatus, MenuItem, MenuCategory, RestaurantTable, User } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
 import { ShoppingCart, Plus, X, CreditCard, CheckCircle } from 'lucide-react';
 import clsx from 'clsx';
@@ -162,10 +162,9 @@ export default function OrdersPage() {
         setKitchenWorkers(res.data || []);
         setKitchenWorkerError('');
       })
-      .catch((e: any) => {
+      .catch((e: unknown) => {
         setKitchenWorkers([]);
-        const message = e?.response?.data?.message;
-        setKitchenWorkerError(Array.isArray(message) ? message.join(', ') : message || 'Could not load eligible kitchen workers.');
+        setKitchenWorkerError(getApiErrorMessage(e, 'Could not load eligible kitchen workers.'));
       });
   }, [isCoordinator]);
 
@@ -246,7 +245,7 @@ export default function OrdersPage() {
     }
   };
 
-  const handleStatusChange = async (orderId: number, status: string) => {
+  const handleStatusChange = async (orderId: number, status: OrderStatus) => {
     await updateOrderStatus(orderId, status);
     await fetchData();
   };
@@ -258,8 +257,8 @@ export default function OrdersPage() {
       const refreshed = (await getOrder(orderId)).data;
       setDetailOrder(refreshed);
       await fetchData();
-    } catch (e: any) {
-      alert(e?.response?.data?.message || 'Could not update the item status');
+    } catch (e: unknown) {
+      alert(getApiErrorMessage(e, 'Could not update the item status'));
     } finally {
       setSubmitting(false);
     }
@@ -306,9 +305,8 @@ export default function OrdersPage() {
       setSenderAccount('');
       setExpectedSenderName('');
       await fetchData();
-    } catch (e: any) {
-      const message = e?.response?.data?.message;
-      setPaymentError(Array.isArray(message) ? message.join(', ') : message || 'Could not process this payment');
+    } catch (e: unknown) {
+      setPaymentError(getApiErrorMessage(e, 'Could not process this payment'));
     } finally {
       setSubmitting(false);
     }
@@ -712,8 +710,8 @@ export default function OrdersPage() {
                     await removeOrderItems(cancelOrder.id, cancelSel);
                     setCancelOrder(null);
                     await fetchData();
-                  } catch (e: any) {
-                    alert(e?.response?.data?.message || 'Could not remove the items');
+                  } catch (e: unknown) {
+                    alert(getApiErrorMessage(e, 'Could not remove the items'));
                   } finally { setSubmitting(false); }
                 }}
                 className="btn-secondary w-full disabled:opacity-50">
@@ -726,8 +724,8 @@ export default function OrdersPage() {
                     await updateOrderStatus(cancelOrder.id, 'cancelled');
                     setCancelOrder(null);
                     await fetchData();
-                  } catch (e: any) {
-                    alert(e?.response?.data?.message || 'Could not cancel the order');
+                  } catch (e: unknown) {
+                    alert(getApiErrorMessage(e, 'Could not cancel the order'));
                   } finally { setSubmitting(false); }
                 }}
                 className="w-full py-2.5 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 disabled:opacity-50">
@@ -786,9 +784,8 @@ export default function OrdersPage() {
                   })));
                   setConfirmOrder(null);
                   await fetchData();
-                } catch (e: any) {
-                  const message = e?.response?.data?.message;
-                  alert(Array.isArray(message) ? message.join(', ') : message || 'Could not assign the pending items');
+                } catch (e: unknown) {
+                  alert(getApiErrorMessage(e, 'Could not assign the pending items'));
                 } finally { setSubmitting(false); }
               }}
               className="btn-primary w-full disabled:opacity-50">

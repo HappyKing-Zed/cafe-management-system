@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
 import { RestaurantTable } from '../../entities/table.entity';
 import { TableStatus } from '../../common/enums/table-status.enum';
 import { assignDefined } from '../../common/utils/assign-defined';
@@ -12,7 +12,7 @@ export class TablesService {
   constructor(@InjectRepository(RestaurantTable) private repo: Repository<RestaurantTable>) {}
 
   findAll(branchId?: number) {
-    const where: any = {};
+    const where: FindOptionsWhere<RestaurantTable> = {};
     if (branchId) where.branchId = branchId;
     return this.repo.find({ where, relations: ['branch'], order: { number: 'ASC' } });
   }

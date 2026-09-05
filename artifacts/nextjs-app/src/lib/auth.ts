@@ -1,4 +1,4 @@
-import { User } from './types';
+import { Role, User } from './types';
 
 export const getStoredToken = (): string | null => {
   if (typeof window === 'undefined') return null;
@@ -28,7 +28,7 @@ export const clearAuth = () => {
   localStorage.removeItem('user');
 };
 
-export const ROLE_LABELS: Record<string, string> = {
+export const ROLE_LABELS: Record<Role, string> = {
   admin: 'System Administrator',
   owner: 'Restaurant Owner',
   manager: 'Manager',
@@ -44,7 +44,7 @@ export const ROLE_LABELS: Record<string, string> = {
   main_store_keeper: 'Main Store Keeper',
 };
 
-export const ROLE_COLORS: Record<string, string> = {
+export const ROLE_COLORS: Record<Role, string> = {
   admin: 'bg-red-100 text-red-800',
   owner: 'bg-orange-100 text-orange-800',
   manager: 'bg-yellow-100 text-yellow-800',
@@ -60,6 +60,6 @@ export const ROLE_COLORS: Record<string, string> = {
   main_store_keeper: 'bg-teal-100 text-teal-800',
 };
 
-export const canAccess = (userRole: string, allowedRoles: string[]): boolean => {
+export const canAccess = (userRole: Role, allowedRoles: readonly Role[]): boolean => {
   return allowedRoles.includes(userRole);
 };

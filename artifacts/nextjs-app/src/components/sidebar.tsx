@@ -11,8 +11,18 @@ import {
   Package, Users, BarChart3, Building2, LogOut, Columns3, Send, PackageOpen, Menu, X,
   ChevronsLeft, Wine, Warehouse, ArrowDownToLine
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { Role } from '@/lib/types';
 
-const navItems = [
+interface NavItem {
+  href: keyof typeof DASHBOARD_ROUTE_ROLES;
+  label: string;
+  managerLabel?: string;
+  icon: LucideIcon;
+  roles: readonly Role[];
+}
+
+const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: DASHBOARD_ROUTE_ROLES['/dashboard'] },
   { href: '/dashboard/orders', label: 'Orders / POS', icon: ShoppingCart, roles: DASHBOARD_ROUTE_ROLES['/dashboard/orders'] },
   { href: '/dashboard/order-board', label: 'Order Board', icon: Columns3, roles: DASHBOARD_ROUTE_ROLES['/dashboard/order-board'] },
@@ -93,7 +103,9 @@ export default function Sidebar() {
         </div>
         {visible.map((item) => {
           const isActive = item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href);
-          const label = (item as any).managerLabel && user?.role && ['admin', 'owner', 'manager'].includes(user.role) ? (item as any).managerLabel : item.label;
+          const label = item.managerLabel && user?.role && ['admin', 'owner', 'manager'].includes(user.role)
+            ? item.managerLabel
+            : item.label;
           return (
             <Link
               key={item.href}

@@ -12,6 +12,7 @@ import {
   getMainStoreRequestableItems,
   createMainStoreTransfer,
   transferMainStoreTransfer,
+  getApiErrorMessage,
 } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import clsx from 'clsx';
@@ -122,8 +123,8 @@ export default function MainStoreRequestsPage() {
       setRequestLines([{ mainStoreItemId: '', quantity: '' }]);
       setRequestNote('');
       await load();
-    } catch (e: any) {
-      alert(e?.response?.data?.message || 'Failed to submit request');
+    } catch (e: unknown) {
+      alert(getApiErrorMessage(e, 'Failed to submit request'));
     } finally {
       setSubmitting(false);
     }
@@ -138,8 +139,8 @@ export default function MainStoreRequestsPage() {
         ? 'Request approved. The Main Store Keeper has been notified to prepare and transfer the approved items.'
         : 'Request rejected. The requesting branch has been notified.');
       await load();
-    } catch (error: any) {
-      window.alert(error?.response?.data?.message || `Could not ${decision} request`);
+    } catch (error: unknown) {
+      window.alert(getApiErrorMessage(error, `Could not ${decision} request`));
     } finally {
       setBusyId(null);
     }
@@ -152,8 +153,8 @@ export default function MainStoreRequestsPage() {
       await transferMainStoreTransfer(id);
       setMessage('Request fulfilled. Main Store and branch balances were updated and recorded in the audit history.');
       await load();
-    } catch (error: any) {
-      window.alert(error?.response?.data?.message || 'Could not fulfill request');
+    } catch (error: unknown) {
+      window.alert(getApiErrorMessage(error, 'Could not fulfill request'));
     } finally {
       setBusyId(null);
     }

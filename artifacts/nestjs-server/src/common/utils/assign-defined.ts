@@ -6,7 +6,7 @@ export function assignDefined<T extends object>(
   for (const field of allowedFields) {
     const value = source[field];
     if (value !== undefined) {
-      (target as any)[field] = value;
+      target[field] = value as T[typeof field];
     }
   }
   return target;

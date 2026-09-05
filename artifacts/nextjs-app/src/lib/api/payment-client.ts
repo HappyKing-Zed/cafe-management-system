@@ -21,6 +21,6 @@ export const processPayment = (data: {
 }) =>
   api.post('/payments', data);
 export const getShifts = () => api.get('/payments/shifts');
-export const openShift = (data: any) => api.post('/payments/shifts', data);
+export const openShift = (data: { openingCash: number }) => api.post('/payments/shifts', data);
 export const closeShift = (id: number, closingCash: number) =>
   api.patch(`/payments/shifts/${id}/close`, { closingCash });

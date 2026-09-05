@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { login } from '@/lib/api';
+import { getApiErrorMessage, login } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Eye, EyeOff, Coffee, Utensils, GlassWater, Cake, ArrowRight } from 'lucide-react';
 
@@ -22,8 +22,8 @@ export default function LoginPage() {
       const res = await login(email, password);
       setAuth(res.data.access_token, res.data.user);
       router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Invalid credentials. Please try again.'));
     } finally {
       setLoading(false);
     }

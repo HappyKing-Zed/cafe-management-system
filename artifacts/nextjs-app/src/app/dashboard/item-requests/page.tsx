@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { getItemRequests, createItemRequest, updateItemRequestStatus, getRequestableItems, getStaffList, getLowStockItems } from '@/lib/api';
+import { getItemRequests, createItemRequest, updateItemRequestStatus, getRequestableItems, getStaffList, getLowStockItems, getApiErrorMessage } from '@/lib/api';
 import { downloadExcelFile } from '@/lib/excel-export';
 import { useAuthStore } from '@/store/auth';
 import { AlertTriangle, Check, ClipboardCheck, FilePlus2, FileText, PackageOpen, Pencil, Plus, RefreshCw, ShoppingCart, X } from 'lucide-react';
@@ -24,7 +24,16 @@ interface ItemRequest {
   issuedBy?: { name: string };
 }
 
-interface Item { id: number; name: string; unit: string; currentStock: number; unitCost?: number; category?: string; }
+interface Item {
+  id: number;
+  name: string;
+  unit: string;
+  currentStock: number;
+  minStock?: number;
+  unitCost?: number;
+  category?: string;
+  expiryDate?: string | null;
+}
 interface Staff { id: number; name: string; role: string; }
 
 const ROLE_DEPARTMENT: Record<string, string> = {
@@ -112,8 +121,8 @@ export default function ItemRequestsPage() {
       setForm({ requesterId: '', category: '', inventoryItemId: '', quantity: '', reason: '' });
       setSuccess('Request sent — the manager has been notified.');
       await fetchData();
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not create request');
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Could not create request'));
     } finally {
       setSubmitting(false);
     }
@@ -124,8 +133,8 @@ export default function ItemRequestsPage() {
       await updateItemRequestStatus(id, status, quantity);
       setAdjusting(null);
       await fetchData();
-    } catch (e: any) {
-      alert(e?.response?.data?.message || 'Action failed');
+    } catch (e: unknown) {
+      alert(getApiErrorMessage(e, 'Action failed'));
     }
   };
 
@@ -139,14 +148,14 @@ export default function ItemRequestsPage() {
   const reportData = () => {
     let list = requests;
     if (report.type !== 'all') list = list.filter(r => r.status === report.type);
-    if (report.from) list = list.filter(r => new Date((r as any).createdAt) >= new Date(report.from));
-    if (report.to) list = list.filter(r => new Date((r as any).createdAt) <= new Date(`${report.to}T23:59:59`));
+    if (report.from) list = list.filter(r => new Date(r.createdAt) >= new Date(report.from));
+    if (report.to) list = list.filter(r => new Date(r.createdAt) <= new Date(`${report.to}T23:59:59`));
     const title = report.type === 'all' ? 'Item Requests Report' : `Item Requests Report (${report.type})`;
     return {
       title,
       head: ['Date', 'Item', 'Quantity', 'Requester', 'Reason', 'Status', 'Unit Price (ETB)', 'Total (ETB)'],
       rows: list.map(r => [
-        (r as any).createdAt ? new Date((r as any).createdAt).toLocaleString() : '—',
+        r.createdAt ? new Date(r.createdAt).toLocaleString() : '—',
         r.inventoryItem?.name || '—',
         `${Number(r.quantity)} ${r.inventoryItem?.unit || ''}`.trim(),
         r.requesterName || r.requestedBy?.name || '—',
@@ -325,11 +334,11 @@ export default function ItemRequestsPage() {
                               <div>
                                 <span className="text-gray-500">{Number(stockItem.currentStock)} {stockItem.unit}</span>
                                 <div className="flex flex-wrap gap-1 mt-0.5">
-                                  {Number(stockItem.currentStock) <= Number((stockItem as any).minStock) && (
+                                  {Number(stockItem.currentStock) <= Number(stockItem.minStock) && (
                                     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">⚠ Low stock</span>
                                   )}
                                   {(() => {
-                                    const expRaw = (stockItem as any).expiryDate;
+                                    const expRaw = stockItem.expiryDate;
                                     if (!expRaw) return null;
                                     const exp = new Date(expRaw); const today = new Date(); today.setHours(0, 0, 0, 0);
                                     const soon = new Date(today); soon.setDate(soon.getDate() + 7);

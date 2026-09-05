@@ -4,7 +4,8 @@ import {
   getMainStoreItems,
   createMainStoreReceipt,
   getMainStoreTransfers,
-  transferMainStoreTransfer
+  transferMainStoreTransfer,
+  getApiErrorMessage,
 } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Warehouse, ArrowDownToLine, ArrowRightLeft, Plus, AlertCircle, Package, CheckCircle2, XCircle, Search, Clock, ArrowUpRight } from 'lucide-react';
@@ -119,8 +120,8 @@ export default function MainStorePage() {
       setReceiveLines([{ name: '', unit: '', category: '', quantity: '', unitCost: '', minStock: '' }]);
       setReceiveNote('');
       await fetchData();
-    } catch (e: any) {
-      alert(e?.response?.data?.message || 'Failed to receive stock');
+    } catch (e: unknown) {
+      alert(getApiErrorMessage(e, 'Failed to receive stock'));
     } finally {
       setSubmitting(false);
     }
@@ -131,8 +132,8 @@ export default function MainStorePage() {
     try {
       await transferMainStoreTransfer(id);
       await fetchData();
-    } catch (e: any) {
-      alert(e?.response?.data?.message || 'Failed to execute transfer');
+    } catch (e: unknown) {
+      alert(getApiErrorMessage(e, 'Failed to execute transfer'));
     } finally {
       setBusyId(null);
     }

@@ -1,6 +1,7 @@
 export * from './admin-client';
 export * from './auth-client';
 export * from './catalog-client';
+export * from './error';
 export * from './inventory-client';
 export * from './notification-client';
 export * from './order-client';

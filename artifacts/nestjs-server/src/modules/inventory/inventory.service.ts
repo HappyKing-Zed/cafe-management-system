@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, FindOptionsWhere, In } from 'typeorm';
 import { InventoryItem } from '../../entities/inventory-item.entity';
 import { Supplier } from '../../entities/supplier.entity';
 import { PurchaseOrderItem } from '../../entities/purchase-order-item.entity';
@@ -53,7 +53,7 @@ export class InventoryService {
 
   // Items
   findAllItems(restaurantId?: number, branchId?: number) {
-    const where: any = {};
+    const where: FindOptionsWhere<InventoryItem> = {};
     if (restaurantId) where.restaurantId = restaurantId;
     if (branchId) where.branchId = branchId;
     return this.itemRepo.find({ where, order: { name: 'ASC' } });

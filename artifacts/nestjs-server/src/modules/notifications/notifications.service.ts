@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, IsNull } from 'typeorm';
+import { FindOptionsWhere, Repository, In, IsNull } from 'typeorm';
 import { Notification } from '../../entities/notification.entity';
 import { Order } from '../../entities/order.entity';
 import { OrderStatus } from '../../common/enums/order-status.enum';
@@ -15,8 +15,10 @@ export class NotificationsService {
 
   /** Notifications relevant to the current user: targeted directly, or by role within their branch. */
   findForUser(user: { id: number; role: string; branchId?: number }) {
-    const branchMatch = user.branchId ? [{ branchId: user.branchId }, { branchId: IsNull() }] : [{}];
-    const where: any[] = [];
+    const branchMatch: FindOptionsWhere<Notification>[] = user.branchId
+      ? [{ branchId: user.branchId }, { branchId: IsNull() }]
+      : [{}];
+    const where: FindOptionsWhere<Notification>[] = [];
     for (const b of branchMatch) {
       where.push({ targetUserId: user.id, ...b });
       where.push({ targetRole: user.role, ...b });
@@ -37,7 +39,7 @@ export class NotificationsService {
 
   /** Notify one or more roles (and/or a specific user) about an inventory event. */
   async notify(opts: { roles?: string[]; userId?: number; message: string; branchId?: number | null }) {
-    const base = { branchId: opts.branchId ?? null } as any;
+    const base: Partial<Notification> = { branchId: opts.branchId ?? null };
     const rows: Array<Partial<Notification>> = [];
     for (const r of opts.roles || []) rows.push({ ...base, targetRole: r, message: opts.message });
     if (opts.userId) rows.push({ ...base, targetUserId: opts.userId, message: opts.message });
@@ -73,8 +75,15 @@ export class NotificationsService {
     const rows: Array<Partial<Notification>> = [];
     for (const m of msgs) {
       for (const role of ['branch_store_keeper', 'manager']) {
-        const exists = await this.repo.findOne({ where: { message: m.message, targetRole: role, isRead: false, branchId: (m.branchId ?? IsNull()) as any } });
-        if (!exists) rows.push({ message: m.message, targetRole: role, branchId: m.branchId as any });
+        const exists = await this.repo.findOne({
+          where: {
+            message: m.message,
+            targetRole: role,
+            isRead: false,
+            branchId: m.branchId ?? IsNull(),
+          },
+        });
+        if (!exists) rows.push({ message: m.message, targetRole: role, branchId: m.branchId });
       }
     }
     await this.push(rows);
@@ -84,7 +93,10 @@ export class NotificationsService {
   async orderEvent(order: Order, event: 'created' | OrderStatus) {
     const tableLabel = order.table?.number ? `Table ${order.table.number}` : order.customerName || 'Walk-in';
     const waiter = order.waiter?.name ? ` — waiter ${order.waiter.name}` : '';
-    const base = { orderId: order.id, branchId: order.branchId ?? null } as any;
+    const base: Partial<Notification> = {
+      orderId: order.id,
+      branchId: order.branchId ?? null,
+    };
     const orderLabel = order.orderNumber || order.id;
     const rows: Array<Partial<Notification>> = [];
     const toWaiter = (message: string) => {

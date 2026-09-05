@@ -3,215 +3,18 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuthStore } from '@/store/auth';
 import { getDailyReport, getOrders, getPayments, getMenuCategories, getInventoryItems, getItemRequests, getStaffList, getBranches, getSummary, getServiceSubmissions, submitDailyService, confirmServiceSubmission, getWaiters } from '@/lib/api';
-import { BarChart3, TrendingUp, RefreshCw, FileText, ArrowDownToLine, ClipboardList, ChevronDown, ChevronUp, Send, CheckCircle2, Clock, FileDown, FileSpreadsheet, Columns3, UtensilsCrossed, Package, PackageOpen, Users, Building2, ShoppingCart } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronUp, Send, CheckCircle2, Clock, FileDown, FileSpreadsheet } from 'lucide-react';
 import clsx from 'clsx';
-import { downloadExcelFile } from '@/lib/excel-export';
-import type { Role } from '@/lib/types';
-
-// --- Formatters & Date Utils ---
-const fmt = (n: number) => `${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB`;
-const pad = (n: number) => String(n).padStart(2, '0');
-const localDate = (d: Date = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const localDateTime = (d: Date, h = 0, m = 0) => `${localDate(d)}T${pad(h)}:${pad(m)}`;
-
-// --- Generic PDF/Excel Helpers ---
-async function exportPDF(title: string, file: string, head: string[], rows: any[][]) {
-  const { default: jsPDF } = await import('jspdf');
-  const autoTableModule: any = await import('jspdf-autotable');
-  const autoTable = autoTableModule.autoTable ?? autoTableModule.default;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
-  const columnsPerPage = 8;
-  const columnGroups = Array.from(
-    { length: Math.max(1, Math.ceil(head.length / columnsPerPage)) },
-    (_, index) => ({
-      start: index * columnsPerPage,
-      end: Math.min((index + 1) * columnsPerPage, head.length),
-    }),
-  );
-
-  columnGroups.forEach((group, index) => {
-    if (index > 0) doc.addPage();
-    doc.setFontSize(14);
-    doc.text(`Jima · CARAVAN Lounge — ${title}`, 14, 16);
-    doc.setFontSize(9);
-    doc.text(
-      `Generated ${new Date().toLocaleString()} · Columns ${group.start + 1}–${group.end} of ${head.length}`,
-      14,
-      22,
-    );
-    autoTable(doc, {
-      head: [head.slice(group.start, group.end)],
-      body: rows.map(row => row.slice(group.start, group.end).map(value => String(value ?? '—'))),
-      startY: 27,
-      theme: 'grid',
-      styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
-      headStyles: { fillColor: [15, 118, 110], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 250, 248] },
-      margin: { left: 10, right: 10 },
-    });
-  });
-  doc.save(`${file}_${new Date().toISOString().slice(0, 10)}.pdf`);
-}
-
-async function exportGenericExcel(title: string, file: string, head: string[], rows: any[][]) {
-  await downloadExcelFile(
-    `${file}_${new Date().toISOString().slice(0, 10)}.xlsx`,
-    [{ name: title, rows: [[title], head, ...rows] }],
-  );
-}
-
-const SENSITIVE_EXPORT_FIELD = /(^|[._])(password|passwordhash|passcode|pin|secret|token|accesstoken|refreshtoken|apikey|credential|session|salt|hash)([._]|$)/i;
-
-function flattenExportRecord(value: unknown, prefix = '', output: Record<string, string | number> = {}) {
-  if (value === null || value === undefined) {
-    if (prefix) output[prefix] = '—';
-    return output;
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0 && prefix) output[prefix] = '—';
-    value.forEach((entry, index) => flattenExportRecord(entry, `${prefix}[${index + 1}]`, output));
-    return output;
-  }
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0 && prefix) output[prefix] = '—';
-    entries.forEach(([key, entry]) => {
-      const field = prefix ? `${prefix}.${key}` : key;
-      if (!SENSITIVE_EXPORT_FIELD.test(field)) flattenExportRecord(entry, field, output);
-    });
-    return output;
-  }
-  output[prefix || 'value'] = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value as string | number;
-  return output;
-}
-
-function withCompleteDetails(data: { title: string; file: string; head: string[]; rows: any[][]; records?: unknown[] }) {
-  const flattened = (data.records || []).map(record => flattenExportRecord(record));
-  const detailFields = Array.from(new Set(flattened.flatMap(record => Object.keys(record))));
-  const rowCount = Math.max(data.rows.length, flattened.length);
-  return {
-    ...data,
-    head: [...data.head, ...detailFields.map(field => `Detail — ${field}`)],
-    rows: Array.from({ length: rowCount }, (_, index) => [
-      ...(data.rows[index] || data.head.map(() => '')),
-      ...detailFields.map(field => flattened[index]?.[field] ?? '—'),
-    ]),
-  };
-}
-
-function itemRows(detail: any[]) {
-  const rows: any[] = [];
-  let total = 0;
-  for (const d of detail || []) {
-    total += Number(d.amount) || 0;
-    const items = d.items || [];
-    items.forEach((i: any, idx: number) => {
-      rows.push({
-        Order: idx === 0 ? `#${d.orderId}` : '',
-        Table: idx === 0 ? d.table : '',
-        Item: i.name,
-        Qty: i.quantity,
-        'Unit Price (ETB)': Number(i.unitPrice),
-        'Amount (ETB)': Number(i.unitPrice) * i.quantity,
-      });
-    });
-    if (!items.length) rows.push({ Order: `#${d.orderId}`, Table: d.table, Item: '—', Qty: '', 'Unit Price (ETB)': '', 'Amount (ETB)': Number(d.amount) });
-  }
-  return { rows, total: Math.round(total * 100) / 100 };
-}
-
-async function exportSummaryPdf(summary: any, range: { start: string; end: string }, waiterName?: string) {
-  const data = buildSummaryExportData(summary, range, waiterName);
-  await exportPDF(data.title, data.file, data.head, data.rows);
-}
-
-async function exportSummaryExcel(summary: any, range: { start: string; end: string }, waiterName?: string) {
-  const data = buildSummaryExportData(summary, range, waiterName);
-  await exportGenericExcel(data.title, data.file, data.head, data.rows);
-}
-
-async function exportReportsPdf(subs: any[], range: { start: string; end: string }, waiterName?: string) {
-  const data = buildReportsExportData(subs, range, waiterName);
-  await exportPDF(data.title, data.file, data.head, data.rows);
-}
-
-async function exportReportsExcel(subs: any[], range: { start: string; end: string }, waiterName?: string) {
-  const data = buildReportsExportData(subs, range, waiterName);
-  await exportGenericExcel(data.title, data.file, data.head, data.rows);
-}
-
-function buildSummaryExportData(summary: any, range: { start: string; end: string }, waiterName?: string) {
-  const filters = { periodStart: range.start, periodEnd: range.end, waiter: waiterName || 'All waiters' };
-  const records: unknown[] = [
-    { section: 'Totals', filters, totals: summary?.totals || {} },
-    ...(summary?.byWaiter || []).map((waiter: any) => ({ section: 'Waiter', filters, waiter })),
-    ...(summary?.byTable || []).flatMap((table: any) => {
-      const items = table.itemDetail?.length ? table.itemDetail : [null];
-      return items.map((item: any) => ({ section: 'Table and item', filters, table: { ...table, itemDetail: undefined }, item }));
-    }),
-  ];
-  return withCompleteDetails({
-    title: 'Service Summary — Complete Details',
-    file: `service-summary-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}`,
-    head: ['Section'],
-    rows: records.map((record: any) => [record.section]),
-    records,
-  });
-}
-
-function buildReportsExportData(subs: any[], range: { start: string; end: string }, waiterName?: string) {
-  const filters = { periodStart: range.start, periodEnd: range.end, waiter: waiterName || 'All waiters' };
-  const records = subs.flatMap((submission: any) => {
-    const details = submission.detail?.length ? submission.detail : [null];
-    return details.flatMap((detail: any) => {
-      const items = detail?.items?.length ? detail.items : [null];
-      return items.map((item: any) => ({
-        filters,
-        submission: { ...submission, detail: undefined },
-        orderDetail: detail ? { ...detail, items: undefined } : null,
-        item,
-      }));
-    });
-  });
-  return withCompleteDetails({
-    title: 'Daily Service Reports — Complete Details',
-    file: `service-reports-${range.start.slice(0, 10)}-to-${range.end.slice(0, 10)}`,
-    head: ['Report', 'Service Date', 'Status'],
-    rows: records.map((record: any) => [
-      record.submission?.id ? `#${record.submission.id}` : '—',
-      record.submission?.serviceDate || '—',
-      record.submission?.status || '—',
-    ]),
-    records,
-  });
-}
-
-// --- Constants & Config ---
-const TABS: ReadonlyArray<{ id: string; label: string; icon: typeof BarChart3; roles: readonly Role[] }> = [
-  { id: 'service', label: 'Service & Submissions', icon: ClipboardList, roles: ['admin', 'owner', 'manager', 'coordinator', 'waiter', 'cashier'] },
-  { id: 'overview', label: 'Overview', icon: BarChart3, roles: ['admin', 'owner', 'manager'] },
-  { id: 'sales', label: 'Sales', icon: TrendingUp, roles: ['admin', 'owner', 'manager', 'cashier'] },
-  { id: 'purchased', label: 'Items Purchased', icon: ShoppingCart, roles: ['admin', 'owner', 'manager', 'cashier'] },
-  { id: 'orders', label: 'Order Board', icon: Columns3, roles: ['admin', 'owner', 'manager'] },
-  { id: 'menu', label: 'Menu', icon: UtensilsCrossed, roles: ['admin', 'owner', 'manager'] },
-  { id: 'inventory', label: 'Inventory', icon: Package, roles: ['admin', 'owner', 'manager'] },
-  { id: 'requests', label: 'Item Requests', icon: PackageOpen, roles: ['admin', 'owner', 'manager'] },
-  { id: 'staff', label: 'Staff', icon: Users, roles: ['admin', 'owner', 'manager'] },
-  { id: 'branches', label: 'Branches', icon: Building2, roles: ['admin', 'owner', 'manager'] },
-];
-
-const GENERIC_TABS = ['sales', 'purchased', 'orders', 'menu', 'inventory', 'requests', 'staff', 'branches'] as const;
+import { GENERIC_TABS, TABS } from './report-config';
+import {
+  exportReport,
+  exportServiceReports,
+  exportServiceSummary,
+  withCompleteDetails,
+} from './report-export';
+import { fmt, itemRows, localDate, localDateTime, StatCard } from './report-shared';
 
 // --- Sub-components ---
-function StatCard({ label, value, highlight = false }: { label: string, value: React.ReactNode, highlight?: boolean }) {
-  return (
-    <div className="bg-white border border-teal-900/10 rounded-2xl p-5 shadow-sm flex flex-col justify-center">
-      <p className="text-[10px] text-teal-800/60 uppercase tracking-widest font-semibold mb-1.5">{label}</p>
-      <p className={clsx("text-2xl font-display font-medium", highlight ? "text-gold-600" : "text-teal-950")}>{value}</p>
-    </div>
-  );
-}
-
 // ----------------------------------------------------------------------
 // 1. Service Reports Tab
 // ----------------------------------------------------------------------
@@ -381,10 +184,10 @@ function ServiceReportsTab({ user, branchId }: { user: any, branchId?: number })
           </div>
         </div>
         <div className="flex gap-2 ml-auto">
-          <button onClick={() => runExport(() => reportsOnly ? exportReportsPdf(visibleSubs, range, waiterName) : exportSummaryPdf(summary, range, waiterName))} disabled={reportsOnly ? visibleSubs.length === 0 : !summary} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 disabled:opacity-40 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors">
+          <button onClick={() => runExport(() => reportsOnly ? exportServiceReports('pdf', visibleSubs, range, waiterName) : exportServiceSummary('pdf', summary, range, waiterName))} disabled={reportsOnly ? visibleSubs.length === 0 : !summary} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 disabled:opacity-40 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors">
             <FileDown size={14} /> PDF
           </button>
-          <button onClick={() => runExport(() => reportsOnly ? exportReportsExcel(visibleSubs, range, waiterName) : exportSummaryExcel(summary, range, waiterName))} disabled={reportsOnly ? visibleSubs.length === 0 : !summary} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 disabled:opacity-40 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors">
+          <button onClick={() => runExport(() => reportsOnly ? exportServiceReports('excel', visibleSubs, range, waiterName) : exportServiceSummary('excel', summary, range, waiterName))} disabled={reportsOnly ? visibleSubs.length === 0 : !summary} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 disabled:opacity-40 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors">
             <FileSpreadsheet size={14} /> Excel
           </button>
         </div>
@@ -527,7 +330,7 @@ function ServiceReportsTab({ user, branchId }: { user: any, branchId?: number })
                                   <tr><th className="px-4 py-2.5 text-left font-medium">Order</th><th className="px-4 py-2.5 text-left font-medium">Table</th><th className="px-4 py-2.5 text-left font-medium">Item</th><th className="px-4 py-2.5 text-center font-medium">Qty</th><th className="px-4 py-2.5 text-right font-medium">Unit Price</th><th className="px-4 py-2.5 text-right font-medium">Amount</th></tr>
                                 </thead>
                                 <tbody className="divide-y divide-teal-900/5">
-                                  {itemRows(s.detail).rows.map((r: any, i: number) => (
+                                  {itemRows(s.detail).map((r: any, i: number) => (
                                     <tr key={i}>
                                       <td className="px-4 py-2.5 text-teal-800/80">{r.Order}</td>
                                       <td className="px-4 py-2.5 text-teal-800/80">{r.Table}</td>
@@ -619,8 +422,8 @@ function OverviewTab({ branchId, sharedData }: { branchId?: number, sharedData: 
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h2 className="text-xl font-bold text-teal-950">Operations Overview</h2>
         <div className="flex gap-2">
-          <button onClick={() => exportPDF(exportData.title, exportData.file, exportData.head, exportData.rows)} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors"><FileDown size={14} /> PDF</button>
-          <button onClick={() => exportGenericExcel(exportData.title, exportData.file, exportData.head, exportData.rows)} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors"><FileSpreadsheet size={14} /> Excel</button>
+          <button onClick={() => exportReport('pdf', exportData)} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors"><FileDown size={14} /> PDF</button>
+          <button onClick={() => exportReport('excel', exportData)} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors"><FileSpreadsheet size={14} /> Excel</button>
         </div>
       </div>
 
@@ -819,8 +622,8 @@ function GenericTab({ tabId, sharedData }: { tabId: string, sharedData: { loadin
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h2 className="text-xl font-bold text-teal-950">{info?.label} Report</h2>
         <div className="flex gap-2">
-          <button onClick={() => exportPDF(exportData.title, exportData.file, exportData.head, exportData.rows)} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors"><FileDown size={14} /> PDF</button>
-          <button onClick={() => exportGenericExcel(exportData.title, exportData.file, exportData.head, exportData.rows)} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors"><FileSpreadsheet size={14} /> Excel</button>
+          <button onClick={() => exportReport('pdf', exportData)} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors"><FileDown size={14} /> PDF</button>
+          <button onClick={() => exportReport('excel', exportData)} className="flex items-center gap-1.5 text-xs font-medium bg-white border border-teal-900/10 hover:bg-teal-50 text-teal-800 px-3 h-[38px] rounded-xl shadow-sm transition-colors"><FileSpreadsheet size={14} /> Excel</button>
         </div>
       </div>
 

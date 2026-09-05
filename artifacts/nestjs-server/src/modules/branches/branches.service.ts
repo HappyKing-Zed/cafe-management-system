@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
 import { Branch } from '../../entities/branch.entity';
 import { assignDefined } from '../../common/utils/assign-defined';
 
@@ -11,7 +11,7 @@ export class BranchesService {
   constructor(@InjectRepository(Branch) private repo: Repository<Branch>) {}
 
   findAll(restaurantId?: number) {
-    const where: any = {};
+    const where: FindOptionsWhere<Branch> = {};
     if (restaurantId) where.restaurantId = restaurantId;
     return this.repo.find({ where, relations: ['restaurant'] });
   }

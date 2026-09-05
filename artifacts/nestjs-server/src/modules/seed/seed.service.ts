@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -15,6 +15,8 @@ import { TableStatus } from '../../common/enums/table-status.enum';
 
 @Injectable()
 export class SeedService {
+  private readonly logger = new Logger(SeedService.name);
+
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Restaurant) private restaurantRepo: Repository<Restaurant>,
@@ -97,7 +99,7 @@ export class SeedService {
   async ensureRequiredAccounts() {
     const migrated = await this.migrateLegacyBranding();
     if (migrated.users || migrated.restaurants || migrated.suppliers) {
-      console.log(
+      this.logger.log(
         `✓ Updated legacy branding in ${migrated.users} users (${migrated.consolidatedUsers} consolidated, ${migrated.aliasedUsers} safely aliased), ${migrated.restaurants} restaurants, and ${migrated.suppliers} suppliers`,
       );
     }

@@ -135,7 +135,9 @@ export interface InventoryItem {
   currentStock: number;
   minStock: number;
   unitCost?: number;
+  costPerUnit?: number;
   category?: string;
+  expiryDate?: string | null;
   restaurantId: number;
 }
 
@@ -159,6 +161,8 @@ export interface PurchaseOrder {
   supplier?: Supplier;
   items: PurchaseOrderItem[];
   createdAt: string;
+  requestedBy?: Pick<User, 'name'>;
+  approvedBy?: Pick<User, 'name'>;
 }
 
 export interface PurchaseOrderItem {
@@ -167,4 +171,5 @@ export interface PurchaseOrderItem {
   unitPrice: number;
   inventoryItemId: number;
   inventoryItem?: InventoryItem;
+  approved?: boolean;
 }

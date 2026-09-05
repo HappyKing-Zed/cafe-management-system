@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { getKitchenBoard, getKitchenWorkers, assignOrderItems, updateOrderItemStatus } from '@/lib/api';
+import { getKitchenBoard, getKitchenWorkers, assignOrderItems, updateOrderItemStatus, getApiErrorMessage } from '@/lib/api';
 import { Order, OrderItem, OrderItemStatus, User } from '@/lib/types';
 import { Clock, ChefHat } from 'lucide-react';
 import { useAuthStore } from '@/store/auth';
@@ -59,9 +59,8 @@ export default function KitchenPage() {
     if (!isCoordinator) return;
     getKitchenWorkers()
       .then(res => setKitchenWorkers(res.data || []))
-      .catch((e: any) => {
-        const message = e?.response?.data?.message;
-        setError(Array.isArray(message) ? message.join(', ') : message || 'Could not load eligible kitchen workers.');
+      .catch((e: unknown) => {
+        setError(getApiErrorMessage(e, 'Could not load eligible kitchen workers.'));
       });
   }, [isCoordinator]);
 
@@ -70,9 +69,8 @@ export default function KitchenPage() {
       const res = await getKitchenBoard();
       setAllOrders(res.data || []);
       setError('');
-    } catch (e: any) {
-      const message = e?.response?.data?.message;
-      setError(Array.isArray(message) ? message.join(', ') : message || 'Could not refresh the kitchen board.');
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Could not refresh the kitchen board.'));
     } finally {
       setLoading(false);
     }
@@ -89,9 +87,8 @@ export default function KitchenPage() {
     try {
       await updateOrderItemStatus(orderId, itemId, status);
       await fetchBoard();
-    } catch (e: any) {
-      const message = e?.response?.data?.message;
-      setError(Array.isArray(message) ? message.join(', ') : message || 'Could not update this item.');
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Could not update this item.'));
     } finally {
       setActionLoading(null);
     }
@@ -105,9 +102,8 @@ export default function KitchenPage() {
       await assignOrderItems(orderId, [{ itemId, workerId }]);
       setAssignmentSelections(previous => ({ ...previous, [itemId]: '' }));
       await fetchBoard();
-    } catch (e: any) {
-      const message = e?.response?.data?.message;
-      setError(Array.isArray(message) ? message.join(', ') : message || 'Could not assign this item.');
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Could not assign this item.'));
     } finally {
       setActionLoading(null);
     }

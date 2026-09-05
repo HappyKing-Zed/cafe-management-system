@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
 import { MenuCategory } from '../../entities/menu-category.entity';
 import { MenuItem } from '../../entities/menu-item.entity';
 import { assignDefined } from '../../common/utils/assign-defined';
@@ -17,7 +17,7 @@ export class MenusService {
 
   // Categories
   findAllCategories(restaurantId?: number) {
-    const where: any = {};
+    const where: FindOptionsWhere<MenuCategory> = {};
     if (restaurantId) where.restaurantId = restaurantId;
     return this.catRepo.find({ where, relations: ['items'], order: { sortOrder: 'ASC' } });
   }
@@ -44,8 +44,8 @@ export class MenusService {
   }
 
   // Items
-  findAllItems(categoryId?: number, restaurantId?: number) {
-    const where: any = {};
+  findAllItems(categoryId?: number) {
+    const where: FindOptionsWhere<MenuItem> = {};
     if (categoryId) where.categoryId = categoryId;
     return this.itemRepo.find({ where, relations: ['category'], order: { name: 'ASC' } });
   }

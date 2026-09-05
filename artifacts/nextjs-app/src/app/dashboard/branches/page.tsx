@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { getRestaurants, createRestaurant, updateRestaurant, deleteRestaurant, getBranches, createBranch, updateBranch, deleteBranch } from '@/lib/api';
+import { getRestaurants, createRestaurant, updateRestaurant, deleteRestaurant, getBranches, createBranch, updateBranch, deleteBranch, getApiErrorMessage } from '@/lib/api';
 import { Restaurant, Branch } from '@/lib/types';
 import { Building2, Plus, MapPin, Phone, Pencil, Trash2 } from 'lucide-react';
 
@@ -32,7 +32,7 @@ export default function BranchesPage() {
   }, []);
 
   const openNewRest = () => { setEditingRest(null); setRestForm({ name: '', address: '', phone: '', email: '' }); setError(''); setShowRestModal(true); };
-  const openEditRest = (r: Restaurant) => { setEditingRest(r); setRestForm({ name: r.name || '', address: r.address || '', phone: r.phone || '', email: (r as any).email || '' }); setError(''); setShowRestModal(true); };
+  const openEditRest = (r: Restaurant) => { setEditingRest(r); setRestForm({ name: r.name || '', address: r.address || '', phone: r.phone || '', email: r.email || '' }); setError(''); setShowRestModal(true); };
   const openNewBranch = () => { setEditingBranch(null); setBranchForm({ name: '', address: '', phone: '', restaurantId: '' }); setError(''); setShowBranchModal(true); };
   const openEditBranch = (b: Branch) => { setEditingBranch(b); setBranchForm({ name: b.name || '', address: b.address || '', phone: b.phone || '', restaurantId: String(b.restaurantId) }); setError(''); setShowBranchModal(true); };
 
@@ -45,8 +45,8 @@ export default function BranchesPage() {
       setShowRestModal(false);
       setEditingRest(null);
       await fetchData();
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not save the restaurant. Please try again.');
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Could not save the restaurant. Please try again.'));
     }
     setSubmitting(false);
   };
@@ -61,8 +61,8 @@ export default function BranchesPage() {
       setShowBranchModal(false);
       setEditingBranch(null);
       await fetchData();
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Could not save the branch. Please try again.');
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Could not save the branch. Please try again.'));
     }
     setSubmitting(false);
   };
@@ -76,8 +76,8 @@ export default function BranchesPage() {
       else await deleteBranch(confirmDelete.id);
       setConfirmDelete(null);
       await fetchData();
-    } catch (e: any) {
-      setError(e?.response?.data?.message || `Could not delete this ${confirmDelete.type}. It may have staff, tables, or orders linked to it.`);
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, `Could not delete this ${confirmDelete.type}. It may have staff, tables, or orders linked to it.`));
     }
     setSubmitting(false);
   };
