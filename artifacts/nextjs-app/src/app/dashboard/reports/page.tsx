@@ -675,6 +675,7 @@ function OverviewTab({ branchId, sharedData }: { branchId?: number, sharedData: 
 function GenericTab({ tabId, sharedData }: { tabId: string, sharedData: { loading: boolean; data: any } }) {
   const [filters, setFilters] = useState({
     method: 'all', category: 'all', status: 'all', availability: 'all', role: 'all',
+    waiter: 'all', saleType: 'all',
     from: localDate(), to: localDate(), lowOnly: false
   });
 
@@ -687,20 +688,53 @@ function GenericTab({ tabId, sharedData }: { tabId: string, sharedData: { loadin
   const menuItems = menuCats.flatMap((c: any) => (c.items || []).map((i: any) => ({ ...i, categoryName: c.name })));
   const invCategories = Array.from(new Set(invItems.map((i: any) => i.category).filter(Boolean))).sort() as string[];
   const staffRoles = Array.from(new Set(staff.map((s: any) => s.role).filter(Boolean))).sort() as string[];
+  const salesWaiters = Array.from(
+    new Map(
+      orders
+        .filter((order: any) => order.waiter?.id || order.waiterId)
+        .map((order: any) => [
+          String(order.waiter?.id || order.waiterId),
+          order.waiter?.name || `Waiter #${order.waiterId}`,
+        ]),
+    ),
+  ).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
   const categoryByItemName: Record<string, string> = {};
   menuItems.forEach((i: any) => { categoryByItemName[i.name] = i.categoryName || '—'; });
+  const orderForPayment = (payment: any) => orders.find((order: any) => order.id === payment.orderId) || payment.order || null;
+  const saleTypeForOrder = (order: any) => order?.tableId || order?.table?.id || order?.table?.number ? 'Dine In' : 'Take Away';
 
   const getExportData = () => {
     const t = tabId;
     if (t === 'sales') {
       let list = payments;
       if (filters.method !== 'all') list = list.filter((p: any) => p.method === filters.method);
+      if (filters.waiter !== 'all') {
+        list = list.filter((payment: any) => {
+          const order = orderForPayment(payment);
+          return String(order?.waiter?.id || order?.waiterId || '') === filters.waiter;
+        });
+      }
+      if (filters.saleType !== 'all') {
+        list = list.filter((payment: any) => saleTypeForOrder(orderForPayment(payment)) === filters.saleType);
+      }
       if (filters.from) list = list.filter((p: any) => new Date(p.createdAt) >= new Date(filters.from));
       if (filters.to) list = list.filter((p: any) => new Date(p.createdAt) <= new Date(`${filters.to}T23:59:59`));
       return {
-        title: 'Sales Report', file: 'sales', head: ['Payment #', 'Order', 'Type', 'Amount (ETB)', 'Change (ETB)', 'Date'],
-        rows: list.map((p: any) => [`#${p.id}`, `Order #${p.orderId}`, p.method === 'mobile' ? 'wallet' : p.method, Number(p.amount), Number(p.changeGiven || 0), new Date(p.createdAt).toLocaleString()]),
-        records: list.map((p: any) => ({ payment: p, order: orders.find((o: any) => o.id === p.orderId) || p.order || null })),
+        title: 'Sales Report', file: 'sales', head: ['Payment #', 'Order', 'Waiter', 'Order Sold Type', 'Payment Type', 'Amount (ETB)', 'Change (ETB)', 'Date'],
+        rows: list.map((payment: any) => {
+          const order = orderForPayment(payment);
+          return [
+            `#${payment.id}`,
+            `Order #${payment.orderId}`,
+            order?.waiter?.name || (order?.waiterId ? `Waiter #${order.waiterId}` : '—'),
+            saleTypeForOrder(order),
+            payment.method === 'mobile' ? 'Wallet' : payment.method,
+            Number(payment.amount),
+            Number(payment.changeGiven || 0),
+            new Date(payment.createdAt).toLocaleString(),
+          ];
+        }),
+        records: list.map((payment: any) => ({ payment, order: orderForPayment(payment) })),
       };
     }
     if (t === 'purchased') {
@@ -792,15 +826,38 @@ function GenericTab({ tabId, sharedData }: { tabId: string, sharedData: { loadin
 
       <div className="flex flex-wrap items-end gap-3 mb-6 bg-cream-50/50 p-4 rounded-2xl border border-cream-200/50">
         {['sales'].includes(tabId) && (
-          <div className="min-w-[140px]">
-            <label className="block text-[10px] uppercase tracking-widest font-semibold text-teal-800/60 mb-1.5">Payment Type</label>
-            <div className="relative">
-              <select value={filters.method} onChange={e => setFilters({...filters, method: e.target.value})} className="w-full appearance-none bg-white border border-teal-900/10 rounded-xl pl-3 pr-8 py-2 text-sm text-teal-950 focus:outline-none focus:ring-2 focus:ring-gold-400 shadow-sm h-[38px]">
-                <option value="all">All types</option><option value="cash">Cash</option><option value="card">Card</option><option value="mobile">Wallet</option>
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-800/50 pointer-events-none" />
+          <>
+            <div className="min-w-[140px]">
+              <label className="block text-[10px] uppercase tracking-widest font-semibold text-teal-800/60 mb-1.5">Payment Type</label>
+              <div className="relative">
+                <select value={filters.method} onChange={e => setFilters({...filters, method: e.target.value})} className="w-full appearance-none bg-white border border-teal-900/10 rounded-xl pl-3 pr-8 py-2 text-sm text-teal-950 focus:outline-none focus:ring-2 focus:ring-gold-400 shadow-sm h-[38px]">
+                  <option value="all">All payment types</option><option value="cash">Cash</option><option value="card">Card</option><option value="mobile">Wallet</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-800/50 pointer-events-none" />
+              </div>
             </div>
-          </div>
+            <div className="min-w-[160px]">
+              <label className="block text-[10px] uppercase tracking-widest font-semibold text-teal-800/60 mb-1.5">Waiter</label>
+              <div className="relative">
+                <select value={filters.waiter} onChange={e => setFilters({...filters, waiter: e.target.value})} className="w-full appearance-none bg-white border border-teal-900/10 rounded-xl pl-3 pr-8 py-2 text-sm text-teal-950 focus:outline-none focus:ring-2 focus:ring-gold-400 shadow-sm h-[38px]">
+                  <option value="all">All waiters</option>
+                  {salesWaiters.map(([id, name]) => <option key={String(id)} value={String(id)}>{String(name)}</option>)}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-800/50 pointer-events-none" />
+              </div>
+            </div>
+            <div className="min-w-[160px]">
+              <label className="block text-[10px] uppercase tracking-widest font-semibold text-teal-800/60 mb-1.5">Order Sold Type</label>
+              <div className="relative">
+                <select value={filters.saleType} onChange={e => setFilters({...filters, saleType: e.target.value})} className="w-full appearance-none bg-white border border-teal-900/10 rounded-xl pl-3 pr-8 py-2 text-sm text-teal-950 focus:outline-none focus:ring-2 focus:ring-gold-400 shadow-sm h-[38px]">
+                  <option value="all">All order types</option>
+                  <option value="Dine In">Dine In</option>
+                  <option value="Take Away">Take Away</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-800/50 pointer-events-none" />
+              </div>
+            </div>
+          </>
         )}
         {['purchased', 'menu'].includes(tabId) && (
           <div className="min-w-[140px]">
