@@ -8,6 +8,7 @@ type = "text"
 title = "FRS — Functional Requirements"
 description = "What the system does: all features per role and subsystem, with business rules."
 logical_id = "1e10bcbc-1e12-4e81-ae6f-8a2bdd8ecdd4"
+content_type = "text/html"
 
 [[outputs]]
 id = "Y9XXYw2izeQ2qCx8OUdyp"
@@ -16,6 +17,7 @@ type = "text"
 title = "SRS — Software Requirements"
 description = "Complete requirements spec (IEEE 830 style): scope, environment, functional and non-functional requirements."
 logical_id = "2a5ec098-8577-4766-88ad-2a5921aa4d8d"
+content_type = "text/html"
 
 [[outputs]]
 id = "LfKJYej4g5KTWjxgX5oak"
@@ -24,6 +26,7 @@ type = "text"
 title = "SDD — Software Design"
 description = "Architecture, frontend/backend/database structure, ER and sequence diagrams, design decisions."
 logical_id = "8be9774d-88d4-4d75-98c0-beafed58aa5c"
+content_type = "text/html"
 
 [[outputs]]
 id = "tCL2PmjO1MFEGVHnsjnWt"
@@ -32,6 +35,7 @@ type = "text"
 title = "User Manual (with screenshots)"
 description = "Step-by-step guide for every role, illustrated with real screenshots of the app."
 logical_id = "ae3c57a3-6e2a-4645-89a4-44b3a4257162"
+content_type = "text/html"
 
 [[outputs]]
 id = "H1jM_szbKiAQmC8VC443p"
@@ -40,6 +44,7 @@ type = "text"
 title = "Handoff & Deployment Requirements"
 description = "Repository layout, how to run, environment variables, deployment requirements and production checklist."
 logical_id = "9fa97df1-b3b2-4e6a-9aa0-42b333e00d47"
+content_type = "text/html"
 
 [[outputs]]
 id = "g7ROfY2PvF-N2RrDW-aHg"
@@ -48,6 +53,7 @@ type = "text"
 title = "Deploy on Vercel — Guide"
 description = "Step-by-step: database, backend host, and Vercel frontend deployment with troubleshooting."
 logical_id = "f86971b6-1be7-4906-8a96-95ba15213c0a"
+content_type = "text/html"
 
 [[outputs]]
 id = "iMrV8FhtmRaqkeADck1PN"
@@ -132,3 +138,17 @@ mtime_ms = 1788155573005
 storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/d99e407e-104a-47f1-9a1d-b709a5d71302/f966a4c4-e328-4be4-aa09-a80a7b1b8d05"
 storage_version_token = "1788155590791873"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "xzx2u_Jgk64r4f10gS2qg"
+uri = "file://docs/JIMA_RENDER_DEPLOYMENT_GUIDE.md"
+type = "text"
+title = "Jima Render Deployment Guide"
+description = "Step-by-step deployment instructions for Render Postgres, the NestJS backend, the Next.js frontend, environment variables, verification, security, and rollback."
+logical_id = "11e64e43-d550-49a1-b769-323424f888cd"
+content_hash = "sha256:2d5bb2560dfaf4be4a60d8f9ac997e79d778f473e85b6902c6b5c409a239b2c5"
+size = 10693
+mtime_ms = 1788622774725
+storage_uri = "gcs://replit-rams-assets-riker/rams/assets/repl:51d7c1ee-f9fc-49a6-81d3-70129c7710b8/11e64e43-d550-49a1-b769-323424f888cd/713bd76e-0ccb-464a-9fe4-8f8663446d42"
+storage_version_token = "1788622789623982"
+content_type = "text/markdown"
